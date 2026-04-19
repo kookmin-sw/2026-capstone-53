@@ -1,0 +1,29 @@
+# 변경된 파일 경로에 따라 PR에 자동으로 라벨을 붙입니다.
+
+frontend:
+  - changed-files:
+      - any-glob-to-any-file: 'frontend/**'
+
+backend:
+  - changed-files:
+      - any-glob-to-any-file: 'backend/**'
+
+infra:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'infra/**'
+          - 'terraform/**'
+          - '.github/workflows/**'
+
+docs:
+  - changed-files:
+      - any-glob-to-any-file:
+          - '**/*.md'
+          - 'docs/**'
+
+api-spec:
+  - changed-files:
+      - any-glob-to-any-file:
+          - 'openapi/**'
+          - '**/openapi.yaml'
+          - '**/openapi.yml'
