@@ -11,8 +11,7 @@ updates:
       - "dependencies"
       - "frontend"
 
-  # 백엔드 의존성 (Java 예시 - Gradle)
-  # Node.js라면 npm, Python이라면 pip로 바꾸세요.
+  # 백엔드 의존성 (Spring Boot / Gradle)
   - package-ecosystem: "gradle"
     directory: "/backend"
     schedule:
