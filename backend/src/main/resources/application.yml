@@ -1,0 +1,27 @@
+spring:
+  application:
+    name: todayway-backend
+  threads:
+    virtual:
+      enabled: true   # Java 21 Virtual Threads
+  datasource:
+    url: jdbc:mysql://localhost:3306/${DB_NAME:routine_commute}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    username: ${DB_USER:root}
+    password: ${DB_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+
+server:
+  port: ${SERVER_PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
