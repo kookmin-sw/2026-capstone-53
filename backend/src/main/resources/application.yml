@@ -6,6 +6,8 @@ spring:
       enabled: true   # Java 21 Virtual Threads
   jackson:
     time-zone: Asia/Seoul
+    serialization:
+      write-dates-as-timestamps: false   # ISO 8601 문자열 직렬화
   lifecycle:
     timeout-per-shutdown-phase: 30s
   datasource:
@@ -20,6 +22,10 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
     open-in-view: false
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
 
 server:
   port: ${SERVER_PORT:8080}
@@ -30,3 +36,23 @@ management:
     web:
       exposure:
         include: health,info
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiration-minutes: 30
+  refresh-token-expiration-days: 14
+  issuer: todayway
+
+odsay:
+  api-key: ${ODSAY_API_KEY:}
+  base-url: https://api.odsay.com/v1/api
+  timeout-seconds: 5
+
+kakao-local:
+  api-key: ${KAKAO_LOCAL_API_KEY:}
+  base-url: https://dapi.kakao.com/v2/local
+
+vapid:
+  public-key: ${VAPID_PUBLIC_KEY:}
+  private-key: ${VAPID_PRIVATE_KEY:}
+  subject: mailto:contact@todayway.example
