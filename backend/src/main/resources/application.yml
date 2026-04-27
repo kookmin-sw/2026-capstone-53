@@ -6,6 +6,8 @@ spring:
       enabled: true   # Java 21 Virtual Threads
   jackson:
     time-zone: Asia/Seoul
+  lifecycle:
+    timeout-per-shutdown-phase: 30s
   datasource:
     url: jdbc:mysql://localhost:3306/${DB_NAME:routine_commute}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     username: ${DB_USER:root}
@@ -21,6 +23,7 @@ spring:
 
 server:
   port: ${SERVER_PORT:8080}
+  shutdown: graceful   # in-flight 요청 처리 후 종료
 
 management:
   endpoints:
