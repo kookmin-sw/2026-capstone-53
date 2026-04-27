@@ -42,20 +42,18 @@ export $(cat .env | xargs)
 
 → http://localhost:8080/actuator/health 로 헬스 체크
 
-## 도메인 분담 (개발 시 패키지 추가)
+## 도메인 패키지
 
-각 담당자는 본인 패키지 만들어서 작업합니다. 외부 API 키·도메인별 설정은 담당자가 직접 추가.
+본인 도메인 패키지를 직접 추가해서 작업합니다 (예: `com.todayway.backend.{도메인}`).
+외부 API 키, 도메인별 설정은 담당자가 `application.yml`에 직접 추가.
 
-| 도메인 | 담당 |
-|---|---|
-| `auth`, `member`, `schedule`, `push` | 황찬우 |
-| `map` | 이상진 |
+> 도메인 분담은 회의에서 결정. 본 README에는 별도로 적지 않음 (변경될 수 있음).
 
 ## 브랜치
 
 - `main` — 통합
-- `feat/backend` — 백엔드 통합 초기 세팅
-- 도메인 작업은 `feat/backend-{도메인}` 식으로 별도 브랜치 권장
+- `feat/backend` — 백엔드 공통 초기 세팅
+- 도메인 작업은 별도 브랜치 권장 (예: `feat/backend-auth`, `feat/backend-map`)
 
 ## 주의
 
