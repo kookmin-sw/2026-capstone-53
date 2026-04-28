@@ -2,8 +2,18 @@ package com.todayway.backend.external.kakao;
 
 import com.todayway.backend.external.ExternalApiException;
 import com.todayway.backend.external.kakao.dto.KakaoLocalSearchResponse;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
+import org.apache.hc.client5.http.io.HttpClientConnectionManager;
+import org.apache.hc.core5.util.Timeout;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.core.NestedExceptionUtils;
-import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.client.ClientHttpRequestFactory;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClient;
@@ -11,7 +21,6 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.net.SocketTimeoutException;
-import java.time.Duration;
 
 /**
  * 카카오 로컬 키워드 검색 API 클라이언트.
@@ -20,7 +29,8 @@ import java.time.Duration;
 @Component
 public class KakaoLocalClient {
 
-    private static final String SOURCE = "KAKAO_LOCAL";
+    private static final Logger log = LoggerFactory.getLogger(KakaoLocalClient.class);
+    private static final ExternalApiException.Source SOURCE = ExternalApiException.Source.KAKAO_LOCAL;
 
     private final RestClient restClient;
 
@@ -37,11 +47,20 @@ public class KakaoLocalClient {
         this.restClient = restClient;
     }
 
-    private static SimpleClientHttpRequestFactory createRequestFactory(int timeoutSeconds) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(timeoutSeconds));
-        factory.setReadTimeout(Duration.ofSeconds(timeoutSeconds));
-        return factory;
+    private static ClientHttpRequestFactory createRequestFactory(int timeoutSeconds) {
+        Timeout timeout = Timeout.ofSeconds(timeoutSeconds);
+        HttpClientConnectionManager connectionManager = PoolingHttpClientConnectionManagerBuilder.create()
+                .setMaxConnTotal(20)
+                .setMaxConnPerRoute(10)
+                .build();
+        CloseableHttpClient httpClient = HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .setDefaultRequestConfig(RequestConfig.custom()
+                        .setConnectTimeout(timeout)
+                        .setResponseTimeout(timeout)
+                        .build())
+                .build();
+        return new HttpComponentsClientHttpRequestFactory(httpClient);
     }
 
     /**
@@ -51,6 +70,7 @@ public class KakaoLocalClient {
      * @return 검색 결과 (matched 여부는 documents.isEmpty()로 판정)
      */
     public KakaoLocalSearchResponse searchKeyword(String query) {
+        log.debug("Kakao Local 호출: query={}", query);
         try {
             KakaoLocalSearchResponse res = restClient.get()
                     .uri(uri -> uri.path("/search/keyword.json")
@@ -61,14 +81,19 @@ public class KakaoLocalClient {
 
             // Kakao가 빈 응답을 줄 때 후속 호출자의 NPE 방지. (OdsayClient와 일관)
             if (res == null) {
-                throw new ExternalApiException(SOURCE, ExternalApiException.Type.API_FAILED,
+                throw new ExternalApiException(SOURCE, ExternalApiException.Type.SERVER_ERROR,
                         null, "Kakao Local 응답 본문이 비어있음", null);
             }
+            log.debug("Kakao Local 응답: {}건", res.documents() != null ? res.documents().size() : 0);
             return res;
         } catch (RestClientResponseException e) {
             // 보안: cause는 응답 본문 일부 포함 가능 → 보존 X.
-            throw new ExternalApiException(SOURCE, ExternalApiException.Type.API_FAILED,
-                    e.getStatusCode().value(), "Kakao Local 호출 실패: HTTP " + e.getStatusCode(), null);
+            HttpStatusCode status = e.getStatusCode();
+            ExternalApiException.Type type = status.is4xxClientError()
+                    ? ExternalApiException.Type.CLIENT_ERROR
+                    : ExternalApiException.Type.SERVER_ERROR;
+            throw new ExternalApiException(SOURCE, type, status.value(),
+                    "Kakao Local 호출 실패: HTTP " + status, null);
         } catch (ResourceAccessException e) {
             // cause chain 끝까지 가서 timeout 판정 (factory 교체 시 안전).
             Throwable rootCause = NestedExceptionUtils.getMostSpecificCause(e);

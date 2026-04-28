@@ -78,8 +78,8 @@ class KakaoLocalClientTest {
     }
 
     @Test
-    void 빈_응답이면_API_FAILED_던지고_cause는_null() {
-        // Kakao가 204 No Content 또는 빈 body 줄 때 NPE 방지
+    void 빈_응답이면_SERVER_ERROR_던지고_cause는_null() {
+        // 빈 응답은 외부 비정상 → SERVER_ERROR (NPE 방지)
         server.expect(requestTo(Matchers.any(String.class)))
                 .andRespond(withStatus(HttpStatus.NO_CONTENT));
 
@@ -88,13 +88,14 @@ class KakaoLocalClientTest {
                 () -> client.searchKeyword("test"));
 
         assertThat(ex).isNotNull();
-        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.API_FAILED);
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.SERVER_ERROR);
+        assertThat(ex.getSource()).isEqualTo(ExternalApiException.Source.KAKAO_LOCAL);
         assertThat(ex.getCause()).isNull();
     }
 
     @Test
-    void HTTP_401이면_API_FAILED와_httpStatus_보존_cause는_null() {
-        // Kakao 키 만료/미설정 시
+    void HTTP_401이면_CLIENT_ERROR와_httpStatus_보존_cause는_null() {
+        // Kakao 키 만료/미설정 → CLIENT_ERROR (재시도 무의미)
         server.expect(requestTo(Matchers.any(String.class)))
                 .andRespond(withStatus(HttpStatus.UNAUTHORIZED));
 
@@ -103,13 +104,14 @@ class KakaoLocalClientTest {
                 () -> client.searchKeyword("test"));
 
         assertThat(ex).isNotNull();
-        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.API_FAILED);
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.CLIENT_ERROR);
         assertThat(ex.getHttpStatus()).isEqualTo(401);
         assertThat(ex.getCause()).isNull();
     }
 
     @Test
-    void HTTP_500이면_API_FAILED_cause는_null() {
+    void HTTP_500이면_SERVER_ERROR_cause는_null() {
+        // 외부 일시 장애 → SERVER_ERROR (재시도 가치)
         server.expect(requestTo(Matchers.any(String.class)))
                 .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
 
@@ -117,7 +119,7 @@ class KakaoLocalClientTest {
                 ExternalApiException.class,
                 () -> client.searchKeyword("test"));
 
-        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.API_FAILED);
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.SERVER_ERROR);
         assertThat(ex.getHttpStatus()).isEqualTo(500);
         assertThat(ex.getCause()).isNull();
     }
