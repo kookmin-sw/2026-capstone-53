@@ -71,10 +71,13 @@ public class OdsayClient {
             ExternalApiException.Type type = rootCause instanceof SocketTimeoutException
                     ? ExternalApiException.Type.TIMEOUT
                     : ExternalApiException.Type.NETWORK;
-            throw new ExternalApiException(SOURCE, type, null, "ODsay 통신 실패: " + e.getMessage(), e);
+            // 보안: e.getMessage()에 URL+apiKey 통째로 박힘 ("I/O error on GET request for ...&apiKey=..."). cause 클래스명만 노출.
+            String causeName = rootCause != null ? rootCause.getClass().getSimpleName() : "ResourceAccessException";
+            throw new ExternalApiException(SOURCE, type, null, "ODsay 통신 실패 (" + causeName + ")", e);
         } catch (RestClientException e) {
+            // 보안: 동일 사유로 메시지에 URL 박힐 가능. 클래스명만.
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.NETWORK, null,
-                    "ODsay 호출 중 예외: " + e.getMessage(), e);
+                    "ODsay 호출 중 예외 (" + e.getClass().getSimpleName() + ")", e);
         }
     }
 }

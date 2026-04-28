@@ -59,10 +59,12 @@ public class KakaoLocalClient {
             ExternalApiException.Type type = rootCause instanceof SocketTimeoutException
                     ? ExternalApiException.Type.TIMEOUT
                     : ExternalApiException.Type.NETWORK;
-            throw new ExternalApiException(SOURCE, type, null, "Kakao Local 통신 실패: " + e.getMessage(), e);
+            // 일관성: e.getMessage()에 URL 박힘. ODsay와 동일 패턴으로 cause 클래스명만.
+            String causeName = rootCause != null ? rootCause.getClass().getSimpleName() : "ResourceAccessException";
+            throw new ExternalApiException(SOURCE, type, null, "Kakao Local 통신 실패 (" + causeName + ")", e);
         } catch (RestClientException e) {
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.NETWORK, null,
-                    "Kakao Local 호출 중 예외: " + e.getMessage(), e);
+                    "Kakao Local 호출 중 예외 (" + e.getClass().getSimpleName() + ")", e);
         }
     }
 }
