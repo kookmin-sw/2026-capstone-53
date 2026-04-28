@@ -44,27 +44,35 @@ public class KakaoLocalClient {
      */
     public KakaoLocalSearchResponse searchKeyword(String query) {
         try {
-            return restClient.get()
+            KakaoLocalSearchResponse res = restClient.get()
                     .uri(uri -> uri.path("/search/keyword.json")
                             .queryParam("query", query)
                             .build())
                     .retrieve()
                     .body(KakaoLocalSearchResponse.class);
+
+            // Kakao가 빈 응답을 줄 때 후속 호출자의 NPE 방지. (OdsayClient와 일관)
+            if (res == null) {
+                throw new ExternalApiException(SOURCE, ExternalApiException.Type.API_FAILED,
+                        null, "Kakao Local 응답 본문이 비어있음", null);
+            }
+            return res;
         } catch (RestClientResponseException e) {
+            // 보안: cause는 응답 본문 일부 포함 가능 → 보존 X.
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.API_FAILED,
-                    e.getStatusCode().value(), "Kakao Local 호출 실패: HTTP " + e.getStatusCode(), e);
+                    e.getStatusCode().value(), "Kakao Local 호출 실패: HTTP " + e.getStatusCode(), null);
         } catch (ResourceAccessException e) {
             // cause chain 끝까지 가서 timeout 판정 (factory 교체 시 안전).
             Throwable rootCause = NestedExceptionUtils.getMostSpecificCause(e);
             ExternalApiException.Type type = rootCause instanceof SocketTimeoutException
                     ? ExternalApiException.Type.TIMEOUT
                     : ExternalApiException.Type.NETWORK;
-            // 일관성: e.getMessage()에 URL 박힘. ODsay와 동일 패턴으로 cause 클래스명만.
+            // 보안: ODsay와 동일 패턴. cause는 URL을 메시지에 들고 있어 보존 시 stack trace 우회 누출 위험.
             String causeName = rootCause != null ? rootCause.getClass().getSimpleName() : "ResourceAccessException";
-            throw new ExternalApiException(SOURCE, type, null, "Kakao Local 통신 실패 (" + causeName + ")", e);
+            throw new ExternalApiException(SOURCE, type, null, "Kakao Local 통신 실패 (" + causeName + ")", null);
         } catch (RestClientException e) {
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.NETWORK, null,
-                    "Kakao Local 호출 중 예외 (" + e.getClass().getSimpleName() + ")", e);
+                    "Kakao Local 호출 중 예외 (" + e.getClass().getSimpleName() + ")", null);
         }
     }
 }

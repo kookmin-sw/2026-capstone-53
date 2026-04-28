@@ -62,8 +62,10 @@ public class OdsayClient {
             }
             return body;
         } catch (RestClientResponseException e) {
+            // 보안: cause로 보존하지 않음. e는 응답 본문 일부를 메시지에 담을 수 있어 우회 누출 통로.
+            // 진단에 필요한 정보(httpStatus, type, source)는 ExternalApiException 필드에 담음.
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.API_FAILED,
-                    e.getStatusCode().value(), "ODsay 호출 실패: HTTP " + e.getStatusCode(), e);
+                    e.getStatusCode().value(), "ODsay 호출 실패: HTTP " + e.getStatusCode(), null);
         } catch (ResourceAccessException e) {
             // cause chain 끝까지 가서 timeout 판정 (SimpleClientHttpRequestFactory는 SocketTimeoutException으로
             // connect/read timeout 모두 던지지만, 향후 factory 교체 시 안전하도록 root cause 검사).
@@ -71,13 +73,14 @@ public class OdsayClient {
             ExternalApiException.Type type = rootCause instanceof SocketTimeoutException
                     ? ExternalApiException.Type.TIMEOUT
                     : ExternalApiException.Type.NETWORK;
-            // 보안: e.getMessage()에 URL+apiKey 통째로 박힘 ("I/O error on GET request for ...&apiKey=..."). cause 클래스명만 노출.
+            // 보안: e.getMessage()는 URL+apiKey를 통째로 포함하고, cause로 보존하면 stack trace에서 우회 누출.
+            // 메시지엔 cause 클래스명만 + cause는 null로 끊음. 진단 정보는 type/source 필드로 충분.
             String causeName = rootCause != null ? rootCause.getClass().getSimpleName() : "ResourceAccessException";
-            throw new ExternalApiException(SOURCE, type, null, "ODsay 통신 실패 (" + causeName + ")", e);
+            throw new ExternalApiException(SOURCE, type, null, "ODsay 통신 실패 (" + causeName + ")", null);
         } catch (RestClientException e) {
-            // 보안: 동일 사유로 메시지에 URL 박힐 가능. 클래스명만.
+            // 보안: 동일 사유로 cause 보존 X.
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.NETWORK, null,
-                    "ODsay 호출 중 예외 (" + e.getClass().getSimpleName() + ")", e);
+                    "ODsay 호출 중 예외 (" + e.getClass().getSimpleName() + ")", null);
         }
     }
 }
