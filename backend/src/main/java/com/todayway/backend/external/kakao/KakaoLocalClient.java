@@ -10,6 +10,7 @@ import org.apache.hc.client5.http.io.HttpClientConnectionManager;
 import org.apache.hc.core5.util.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.NestedExceptionUtils;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpRequestFactory;
@@ -34,6 +35,7 @@ public class KakaoLocalClient {
 
     private final RestClient restClient;
 
+    @Autowired
     public KakaoLocalClient(KakaoLocalProperties properties) {
         this(RestClient.builder()
                 .baseUrl(properties.getBaseUrl())
@@ -42,7 +44,8 @@ public class KakaoLocalClient {
                 .build());
     }
 
-    /** 테스트용. MockRestServiceServer로 모킹된 RestClient 주입을 위해 패키지 접근 허용. */
+    /** 테스트용. MockRestServiceServer로 모킹된 RestClient 주입을 위해 패키지 접근 허용.
+     *  Spring 빈 생성자 후보에서 제외하기 위해 public 생성자에 @Autowired 명시함. */
     KakaoLocalClient(RestClient restClient) {
         this.restClient = restClient;
     }
