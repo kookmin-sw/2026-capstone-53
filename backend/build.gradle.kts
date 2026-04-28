@@ -42,6 +42,9 @@ dependencies {
 	implementation("nl.martijndwars:web-push:5.1.1")
 	implementation("org.bouncycastle:bcprov-jdk18on:1.78")
 
+	// ULID 생성기 (외부 노출 ID용 26자 Crockford Base32)
+	implementation("com.github.f4b6a3:ulid-creator:5.2.3")
+
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testCompileOnly("org.projectlombok:lombok")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
