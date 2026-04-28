@@ -7,6 +7,10 @@ plugins {
 group = "com.todayway"
 version = "0.0.1-SNAPSHOT"
 
+// Docker Engine 29.x ↔ docker-java SDK 호환을 위해 testcontainers 버전 핀
+// (Spring Boot BOM이 잡는 1.21.2가 Docker 29와 HTTP 400 빈응답 이슈 → 1.21.4로 업그레이드)
+extra["testcontainers.version"] = "1.21.4"
+
 java {
 	toolchain {
 		languageVersion = JavaLanguageVersion.of(21)
