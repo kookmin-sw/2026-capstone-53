@@ -1,9 +1,11 @@
 package com.todayway.backend.common.exception;
 
+import com.todayway.backend.auth.repository.MemberRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -16,12 +18,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-@WebMvcTest(excludeAutoConfiguration = SecurityAutoConfiguration.class)
+@WebMvcTest(
+        controllers = GlobalExceptionHandlerTest.DummyController.class,
+        excludeAutoConfiguration = SecurityAutoConfiguration.class
+)
 @Import({GlobalExceptionHandler.class, GlobalExceptionHandlerTest.DummyController.class})
 class GlobalExceptionHandlerTest {
 
     @Autowired
     MockMvc mockMvc;
+
+    // WebMvcConfig가 슬라이스에 등록되며 CurrentMemberArgumentResolver → MemberRepository 의존을 요구.
+    // 이 테스트는 web 계층만 검증하므로 mock으로 대체.
+    @MockBean
+    MemberRepository memberRepository;
 
     @Test
     void BusinessException은_ErrorCode의_status와_code_message로_변환된다() throws Exception {

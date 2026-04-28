@@ -9,6 +9,7 @@ import javax.crypto.SecretKey;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtProvider {
@@ -24,6 +25,7 @@ public class JwtProvider {
     public String issueAccessToken(String memberUid) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .issuer(props.issuer())
                 .subject(memberUid)
                 .issuedAt(Date.from(now))
@@ -35,6 +37,7 @@ public class JwtProvider {
     public String issueRefreshToken(String memberUid) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .issuer(props.issuer())
                 .subject(memberUid)
                 .issuedAt(Date.from(now))
