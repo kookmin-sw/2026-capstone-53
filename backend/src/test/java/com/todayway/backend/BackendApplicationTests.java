@@ -21,7 +21,7 @@ class BackendApplicationTests {
 		registry.add("spring.datasource.url", mysql::getJdbcUrl);
 		registry.add("spring.datasource.username", mysql::getUsername);
 		registry.add("spring.datasource.password", mysql::getPassword);
-		registry.add("jwt.secret", () -> "test-secret-base64-padded-32bytes-long==");
+		registry.add("jwt.secret", () -> "dGVzdC1zZWNyZXQtYmFzZTY0LXBhZGRlZC0zMmJ5dGVzLWxvbmc9PQ==");
 	}
 
 	@Test

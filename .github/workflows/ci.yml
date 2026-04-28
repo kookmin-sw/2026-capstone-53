@@ -28,4 +28,4 @@ jobs:
       - name: Build & test
         run: ./gradlew build
         env:
-          JWT_SECRET: ci-test-secret-base64-padded-32bytes-long==
+          JWT_SECRET: Y2ktdGVzdC1zZWNyZXQtYmFzZTY0LXBhZGRlZC0zMmJ5dGVzLWxvbmc9PQ==
