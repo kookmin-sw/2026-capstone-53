@@ -51,6 +51,7 @@ odsay:
 kakao-local:
   api-key: ${KAKAO_LOCAL_API_KEY:}
   base-url: https://dapi.kakao.com/v2/local
+  timeout-seconds: 5
 
 vapid:
   public-key: ${VAPID_PUBLIC_KEY:}
