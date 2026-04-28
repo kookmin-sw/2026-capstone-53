@@ -25,15 +25,23 @@ public class KakaoLocalClient {
     private final RestClient restClient;
 
     public KakaoLocalClient(KakaoLocalProperties properties) {
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()));
-        factory.setReadTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()));
-
-        this.restClient = RestClient.builder()
+        this(RestClient.builder()
                 .baseUrl(properties.getBaseUrl())
-                .requestFactory(factory)
+                .requestFactory(createRequestFactory(properties.getTimeoutSeconds()))
                 .defaultHeader("Authorization", "KakaoAK " + properties.getApiKey())
-                .build();
+                .build());
+    }
+
+    /** 테스트용. MockRestServiceServer로 모킹된 RestClient 주입을 위해 패키지 접근 허용. */
+    KakaoLocalClient(RestClient restClient) {
+        this.restClient = restClient;
+    }
+
+    private static SimpleClientHttpRequestFactory createRequestFactory(int timeoutSeconds) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(timeoutSeconds));
+        factory.setReadTimeout(Duration.ofSeconds(timeoutSeconds));
+        return factory;
     }
 
     /**

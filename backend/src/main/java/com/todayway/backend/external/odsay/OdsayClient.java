@@ -25,16 +25,23 @@ public class OdsayClient {
     private final RestClient restClient;
 
     public OdsayClient(OdsayProperties properties) {
-        this.properties = properties;
-
-        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()));
-        factory.setReadTimeout(Duration.ofSeconds(properties.getTimeoutSeconds()));
-
-        this.restClient = RestClient.builder()
+        this(properties, RestClient.builder()
                 .baseUrl(properties.getBaseUrl())
-                .requestFactory(factory)
-                .build();
+                .requestFactory(createRequestFactory(properties.getTimeoutSeconds()))
+                .build());
+    }
+
+    /** 테스트용. MockRestServiceServer로 모킹된 RestClient 주입을 위해 패키지 접근 허용. */
+    OdsayClient(OdsayProperties properties, RestClient restClient) {
+        this.properties = properties;
+        this.restClient = restClient;
+    }
+
+    private static SimpleClientHttpRequestFactory createRequestFactory(int timeoutSeconds) {
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(Duration.ofSeconds(timeoutSeconds));
+        factory.setReadTimeout(Duration.ofSeconds(timeoutSeconds));
+        return factory;
     }
 
     /**
