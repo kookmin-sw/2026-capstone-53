@@ -45,6 +45,9 @@ dependencies {
 	// ULID 생성기 (외부 노출 ID용 26자 Crockford Base32)
 	implementation("com.github.f4b6a3:ulid-creator:5.2.3")
 
+	// 외부 API 호출용 HttpClient (커넥션 풀 + 동시성 효율) — SimpleClientHttpRequestFactory 대체
+	implementation("org.apache.httpcomponents.client5:httpclient5")
+
 	testImplementation("org.springframework.boot:spring-boot-starter-test")
 	testCompileOnly("org.projectlombok:lombok")
 	testRuntimeOnly("org.junit.platform:junit-platform-launcher")
