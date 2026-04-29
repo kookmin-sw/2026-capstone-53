@@ -15,6 +15,7 @@ import lombok.NoArgsConstructor;
 import org.hibernate.annotations.SQLRestriction;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 @Getter
 @Entity
@@ -22,6 +23,8 @@ import java.time.OffsetDateTime;
 @SQLRestriction("deleted_at IS NULL")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Member extends BaseEntity {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");  // 명세 §1.4
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -57,6 +60,20 @@ public class Member extends BaseEntity {
     void prePersist() {
         if (memberUid == null) {
             memberUid = UlidGenerator.generate();
+        }
+    }
+
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void updatePasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
+    }
+
+    public void softDelete() {
+        if (deletedAt == null) {
+            deletedAt = OffsetDateTime.now(KST);
         }
     }
 }
