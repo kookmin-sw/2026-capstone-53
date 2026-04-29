@@ -15,6 +15,7 @@ import com.todayway.backend.common.jwt.JwtProvider;
 import com.todayway.backend.common.util.MemberIdFormatter;
 import com.todayway.backend.common.util.Sha256Hasher;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,10 +43,15 @@ public class AuthService {
             throw new BusinessException(ErrorCode.LOGIN_ID_DUPLICATED);
         }
 
-        Member member = memberRepository.save(
-                Member.create(req.loginId(),
-                              passwordEncoder.encode(req.password()),
-                              req.nickname()));
+        Member member;
+        try {
+            member = memberRepository.save(
+                    Member.create(req.loginId(),
+                                  passwordEncoder.encode(req.password()),
+                                  req.nickname()));
+        } catch (DataIntegrityViolationException e) {
+            throw new BusinessException(ErrorCode.LOGIN_ID_DUPLICATED);
+        }
 
         String accessToken = jwtProvider.issueAccessToken(member.getMemberUid());
         String refreshToken = jwtProvider.issueRefreshToken(member.getMemberUid());
