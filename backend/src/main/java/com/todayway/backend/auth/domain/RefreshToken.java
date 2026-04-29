@@ -14,6 +14,7 @@ import lombok.NoArgsConstructor;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 
+/** 발급/폐기만 발생하는 엔티티 — updatedAt 불필요로 BaseEntity 미상속. */
 @Getter
 @Entity
 @Table(name = "refresh_token")
