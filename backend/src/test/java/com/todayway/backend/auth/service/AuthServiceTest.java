@@ -1,8 +1,8 @@
 package com.todayway.backend.auth.service;
 
-import com.todayway.backend.auth.domain.Member;
 import com.todayway.backend.auth.dto.SignupRequest;
-import com.todayway.backend.auth.repository.MemberRepository;
+import com.todayway.backend.member.domain.Member;
+import com.todayway.backend.member.repository.MemberRepository;
 import com.todayway.backend.auth.repository.RefreshTokenRepository;
 import com.todayway.backend.common.exception.BusinessException;
 import com.todayway.backend.common.exception.ErrorCode;

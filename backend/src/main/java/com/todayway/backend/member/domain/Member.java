@@ -1,4 +1,4 @@
-package com.todayway.backend.auth.domain;
+package com.todayway.backend.member.domain;
 
 import com.todayway.backend.common.entity.BaseEntity;
 import com.todayway.backend.common.ulid.UlidGenerator;

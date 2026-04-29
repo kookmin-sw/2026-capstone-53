@@ -1,6 +1,6 @@
 package com.todayway.backend.common.exception;
 
-import com.todayway.backend.auth.repository.MemberRepository;
+import com.todayway.backend.member.repository.MemberRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
