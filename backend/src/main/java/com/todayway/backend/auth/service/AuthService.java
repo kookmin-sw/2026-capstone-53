@@ -20,12 +20,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class AuthService {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final MemberRepository memberRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -87,7 +90,7 @@ public class AuthService {
 
     private void saveRefreshToken(Long memberId, String rawToken) {
         String tokenHash = Sha256Hasher.hash(rawToken);
-        OffsetDateTime expiresAt = OffsetDateTime.now()
+        OffsetDateTime expiresAt = OffsetDateTime.now(KST)
                 .plus(jwtProperties.refreshTokenExpirationDays(), ChronoUnit.DAYS);
         refreshTokenRepository.save(RefreshToken.create(memberId, tokenHash, expiresAt));
     }

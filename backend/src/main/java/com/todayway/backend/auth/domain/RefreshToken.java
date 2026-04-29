@@ -12,12 +12,15 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 
 @Getter
 @Entity
 @Table(name = "refresh_token")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class RefreshToken {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -52,13 +55,13 @@ public class RefreshToken {
     @PrePersist
     void prePersist() {
         if (createdAt == null) {
-            createdAt = OffsetDateTime.now();
+            createdAt = OffsetDateTime.now(KST);
         }
     }
 
     public void revoke() {
         if (revokedAt == null) {
-            revokedAt = OffsetDateTime.now();
+            revokedAt = OffsetDateTime.now(KST);
         }
     }
 }
