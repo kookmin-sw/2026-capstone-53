@@ -2,6 +2,7 @@ package com.todayway.backend.auth.controller;
 
 import com.todayway.backend.auth.dto.LoginRequest;
 import com.todayway.backend.auth.dto.LoginResponse;
+import com.todayway.backend.auth.dto.LogoutRequest;
 import com.todayway.backend.auth.dto.SignupRequest;
 import com.todayway.backend.auth.dto.SignupResponse;
 import com.todayway.backend.auth.service.AuthService;
@@ -10,7 +11,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -36,8 +36,8 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(@AuthenticationPrincipal String memberUid) {
-        authService.logout(memberUid);
+    public ResponseEntity<Void> logout(@RequestBody @Valid LogoutRequest req) {
+        authService.logout(req.refreshToken());
         return ResponseEntity.noContent().build();
     }
 }

@@ -88,10 +88,11 @@ public class AuthService {
     }
 
     @Transactional
-    public void logout(String memberUid) {
-        Member member = memberRepository.findByMemberUid(memberUid)
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-        refreshTokenRepository.revokeAllActiveByMemberId(member.getId(), OffsetDateTime.now());
+    public void logout(String refreshToken) {
+        // 명세 §2.3 — 전달된 refresh 토큰 1개만 폐기. 미존재/이미 폐기는 silent noop (멱등, RFC 7009 정신).
+        String tokenHash = Sha256Hasher.hash(refreshToken);
+        refreshTokenRepository.findByTokenHash(tokenHash)
+                .ifPresent(RefreshToken::revoke);
     }
 
     private void saveRefreshToken(Long memberId, String rawToken) {

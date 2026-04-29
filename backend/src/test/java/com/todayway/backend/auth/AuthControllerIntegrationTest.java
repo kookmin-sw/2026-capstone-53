@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todayway.backend.auth.domain.RefreshToken;
 import com.todayway.backend.auth.dto.LoginRequest;
+import com.todayway.backend.auth.dto.LogoutRequest;
 import com.todayway.backend.auth.dto.SignupRequest;
 import com.todayway.backend.auth.repository.RefreshTokenRepository;
 import com.todayway.backend.common.util.Sha256Hasher;
@@ -78,7 +79,6 @@ class AuthControllerIntegrationTest {
                 .andReturn().getResponse().getContentAsString();
 
         JsonNode loginNode = objectMapper.readTree(loginResp).path("data");
-        String accessToken = loginNode.path("accessToken").asText();
         String refreshToken = loginNode.path("refreshToken").asText();
 
         // (4) login 잘못된 비밀번호 → 401 INVALID_CREDENTIALS
@@ -97,9 +97,11 @@ class AuthControllerIntegrationTest {
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.error.code").value("INVALID_CREDENTIALS"));
 
-        // (6) logout → 204 (바디 없음, accessToken으로 인증)
+        // (6) logout → 204, body의 refreshToken 1개만 폐기 (명세 §2.3, 의사결정 4·5)
+        LogoutRequest logoutReq = new LogoutRequest(refreshToken);
         mockMvc.perform(post("/api/v1/auth/logout")
-                        .header("Authorization", "Bearer " + accessToken))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(logoutReq)))
                 .andExpect(status().isNoContent());
 
         // (7) DB 검증: logout 후 해당 refresh_token.revoked_at NOT NULL
