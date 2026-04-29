@@ -50,7 +50,7 @@ class AuthControllerIntegrationTest {
     void signup_login_logout_full_flow() throws Exception {
         // (1) signup → 201, 응답에 memberId/loginId/nickname/accessToken/refreshToken
         SignupRequest signupReq = new SignupRequest("chanwoo90", "P@ssw0rd!", "찬우");
-        mockMvc.perform(post("/api/v1/auth/signup")
+        String signupResp = mockMvc.perform(post("/api/v1/auth/signup")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(signupReq)))
                 .andExpect(status().isCreated())
@@ -58,7 +58,9 @@ class AuthControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.loginId").value("chanwoo90"))
                 .andExpect(jsonPath("$.data.nickname").value("찬우"))
                 .andExpect(jsonPath("$.data.accessToken").exists())
-                .andExpect(jsonPath("$.data.refreshToken").exists());
+                .andExpect(jsonPath("$.data.refreshToken").exists())
+                .andReturn().getResponse().getContentAsString();
+        String signupRefreshToken = objectMapper.readTree(signupResp).path("data").path("refreshToken").asText();
 
         // (2) signup 중복 → 409 LOGIN_ID_DUPLICATED
         mockMvc.perform(post("/api/v1/auth/signup")
@@ -104,10 +106,15 @@ class AuthControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(logoutReq)))
                 .andExpect(status().isNoContent());
 
-        // (7) DB 검증: logout 후 해당 refresh_token.revoked_at NOT NULL
+        // (7) DB 검증: logout 후 해당 refresh_token.revoked_at NOT NULL + signup 토큰 비폐기
         //     (refresh 엔드포인트는 v1.2 예정 — API로 차단 검증 불가, DB 직접 검증)
         String tokenHash = Sha256Hasher.hash(refreshToken);
         RefreshToken saved = refreshTokenRepository.findByTokenHash(tokenHash).orElseThrow();
         assertThat(saved.getRevokedAt()).isNotNull();
+
+        // signup 시 받은 refreshToken은 logout 대상 아님 → revokedAt null 유지 (의사결정 5번 회귀 가드)
+        String signupTokenHash = Sha256Hasher.hash(signupRefreshToken);
+        RefreshToken signupSaved = refreshTokenRepository.findByTokenHash(signupTokenHash).orElseThrow();
+        assertThat(signupSaved.getRevokedAt()).isNull();
     }
 }
