@@ -23,4 +23,9 @@ public record MemberUpdateRequest(
     public boolean isAtLeastOneFieldPresent() {
         return nickname != null || password != null;
     }
+
+    @Override
+    public String toString() {
+        return "MemberUpdateRequest{nickname=%s, password=***}".formatted(nickname);
+    }
 }
