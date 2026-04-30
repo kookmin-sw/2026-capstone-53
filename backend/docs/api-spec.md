@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.7-MVP
-> **최종 수정**: 2026-04-30 (황찬우 — β PR Resolver 마이그레이션: §1.7 Resolver 동작 단순화 명시 + §3.3 탈퇴 회원 응답 404 → 401)
+> **버전**: v1.1.8-MVP
+> **최종 수정**: 2026-04-30 (황찬우 — Step 5 외부 리뷰 흡수: §5.4 PATCH 시 NOW() 검사를 arrivalTime 포함 시에만 적용)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -24,6 +24,7 @@
 | **v1.1.5** | **2026-04-29** | **§2.3 logout 인터페이스 RFC 7009 정합 — Authorization 헤더 인증 → body의 refreshToken (소유 증명), 멤버 모든 활성 토큰 폐기 → 전달된 1개만 폐기 (단일 디바이스). logout-all은 P1 별도 엔드포인트로 분리. §1.8 logout 인증 ✓ → ✗** |
 | **v1.1.6** | **2026-04-30** | **§1.6 `INTERNAL_SERVER_ERROR` 행 추가(fallback 명시), §1.7 JWT sub claim raw ULID 명시, §3.2 password 정규식 §2.1 정합 + 둘 다 null/생략 → 400 + password 변경 시 token 폐기 비고, §3.3 DELETE 멱등성 비고. (Step 4 PR #5 이상진 리뷰 보강 5건 + Q1-B/Q8-1 흡수)** |
 | **v1.1.7** | **2026-04-30** | **§1.7 Resolver 동작 정정 — `Authentication.getName()`으로 raw `member_uid` 반환만(DB 호출 X), Service가 `findByMemberUid` 1회 조회. §3.3 탈퇴 회원 응답: 404 `MEMBER_NOT_FOUND` → **401 `UNAUTHORIZED`** (Service 부재 시 응답). β PR Resolver 마이그레이션 (이상진 PR #5 I-1 + claude.ai P1).** |
+| **v1.1.8** | **2026-04-30** | **§5.4 PATCH 검증 정정 — `arrivalTime`의 NOW() 검사는 `arrivalTime`이 요청에 포함된 경우에만 적용. 지난 일정의 `title` 등 메모 편집 허용. (Step 5 PR #10 claude.ai 리뷰 P1 흡수)** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -692,6 +693,7 @@ LIMIT ?
 - 출/도착지 또는 `arrivalTime`이 변경되면 ODsay를 **재호출**하여 경로 관련 필드를 재계산한다 (5.1과 동일 graceful degradation 적용).
 - `userDepartureTime`만 변경된 경우는 ODsay 재호출 **불필요**. 동일 출/도착·동일 도착시각이면 경로/소요시간이 같으므로 `departureAdvice`만 재계산하면 된다.
 - 변경 사항이 시간/경로 관련이 아닌 경우 (예: `title`, `reminderOffsetMinutes`만 변경) ODsay 재호출 불필요. 단, `reminderOffsetMinutes` 변경 시 `reminder_at`은 재계산.
+- **`arrivalTime` 검증 (v1.1.8)**: `arrivalTime <= NOW()` 검사는 요청에 `arrivalTime`이 포함된 경우에만 적용된다. 지난 일정의 `title` 등 메모 편집은 허용. 사용자가 명시적으로 `arrivalTime`을 NOW() 이전으로 변경하는 시도는 거절.
 
 #### Response — `200 OK`
 

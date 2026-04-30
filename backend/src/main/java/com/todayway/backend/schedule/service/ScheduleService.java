@@ -94,10 +94,16 @@ public class ScheduleService {
         Long memberId = resolveMemberId(memberUid);
         Schedule s = findOwned(memberId, scheduleUid);
 
-        validateTimes(
-                req.userDepartureTime() != null ? req.userDepartureTime() : s.getUserDepartureTime(),
-                req.arrivalTime() != null ? req.arrivalTime() : s.getArrivalTime()
-        );
+        // 명세 §5.4 v1.1.8 — arrivalTime이 PATCH에 포함된 경우만 NOW() 검사 (claude.ai PR #10 P1).
+        // 지난 일정에 title 등 메모 편집 시 NOW() 검사로 fail 방지.
+        if (req.arrivalTime() != null) {
+            OffsetDateTime newDepart = req.userDepartureTime() != null
+                    ? req.userDepartureTime() : s.getUserDepartureTime();
+            validateTimes(newDepart, req.arrivalTime());
+        } else if (req.userDepartureTime() != null) {
+            // userDepartureTime만 변경 — 순서 검증만 (NOW() skip)
+            validateOrderOnly(req.userDepartureTime(), s.getArrivalTime());
+        }
 
         Schedule.PlaceUpdate originUpdate = req.origin() != null
                 ? new Schedule.PlaceUpdate(
@@ -165,6 +171,17 @@ public class ScheduleService {
         }
         if (!arrival.isAfter(OffsetDateTime.now(KST))) {
             // 명세 §5.1 에러: arrivalTime <= NOW()
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+    }
+
+    /**
+     * userDepartureTime만 변경된 PATCH 시 호출 — 순서만 검증 (NOW() skip).
+     * 명세 §5.4 v1.1.8 — 지난 일정 메모 편집 허용 (claude.ai PR #10 P1).
+     */
+    private void validateOrderOnly(OffsetDateTime userDepart, OffsetDateTime arrival) {
+        if (userDepart == null || arrival == null) return;
+        if (!userDepart.isBefore(arrival)) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
     }
