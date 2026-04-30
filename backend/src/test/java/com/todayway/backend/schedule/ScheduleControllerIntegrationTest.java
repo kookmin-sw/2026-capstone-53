@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todayway.backend.auth.dto.SignupRequest;
 import com.todayway.backend.route.RouteService;
-import com.todayway.backend.schedule.domain.DepartureAdvice;
 import com.todayway.backend.schedule.domain.Schedule;
 import com.todayway.backend.schedule.repository.ScheduleRepository;
 import org.junit.jupiter.api.Test;
@@ -63,13 +62,13 @@ class ScheduleControllerIntegrationTest {
 
     @Test
     void create_happyPath_whenRouteCalculated_returnsCalculated() throws Exception {
-        // ODsay 호출 성공 시뮬레이션 — refreshRouteSync에서 schedule 필드 갱신 + true 반환
+        // ODsay 호출 성공 시뮬레이션 — refreshRouteSync에서 schedule 필드 갱신 + true 반환.
+        // departureAdvice는 Schedule.updateRouteInfo가 내부에서 자동 계산 (claude.ai PR #10 P2 후).
         when(routeService.refreshRouteSync(any(Schedule.class))).thenAnswer(inv -> {
             Schedule s = inv.getArgument(0);
             s.updateRouteInfo(
                     35,
                     s.getArrivalTime().minusMinutes(35),
-                    DepartureAdvice.LATER,
                     "{\"path\":[]}",
                     OffsetDateTime.now(KST)
             );

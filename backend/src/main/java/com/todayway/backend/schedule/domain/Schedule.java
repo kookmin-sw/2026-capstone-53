@@ -278,11 +278,12 @@ public class Schedule extends BaseEntity {
     }
 
     /**
-     * RouteService가 ODsay 호출 후 결과 반영. reminderAt 자동 재계산.
+     * RouteService가 ODsay 호출 후 결과 반영. departureAdvice / reminderAt 자동 재계산.
+     * Step 6 OdsayRouteService와의 ON_TIME_WINDOW_MINUTES silent drift 차단
+     * (claude.ai PR #10 P2 — invariant 통합으로 컴파일 강제 일관성).
      */
     public void updateRouteInfo(Integer estimatedDurationMinutes,
                                 OffsetDateTime recommendedDepartureTime,
-                                DepartureAdvice departureAdvice,
                                 String routeSummaryJson,
                                 OffsetDateTime routeCalculatedAt) {
         if (deletedAt != null) {
@@ -290,9 +291,9 @@ public class Schedule extends BaseEntity {
         }
         this.estimatedDurationMinutes = estimatedDurationMinutes;
         this.recommendedDepartureTime = recommendedDepartureTime;
-        this.departureAdvice = departureAdvice;
         this.routeSummaryJson = routeSummaryJson;
         this.routeCalculatedAt = routeCalculatedAt;
+        recalculateDepartureAdvice();
         recalculateReminderAt();
     }
 
