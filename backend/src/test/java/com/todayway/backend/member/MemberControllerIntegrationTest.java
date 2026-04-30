@@ -119,12 +119,13 @@ class MemberControllerIntegrationTest {
                         .header("Authorization", authHeader))
                 .andExpect(status().isNoContent());
 
-        // (A+ 2) 탈퇴 후 동일 access token 사용 시 → 404 MEMBER_NOT_FOUND
-        //   JWT 자체는 유효하지만 Member.deleted_at IS NULL 필터로 Resolver가 못 찾음
+        // (A+ 2) 탈퇴 후 동일 access token 사용 시 → 401 UNAUTHORIZED (β PR 후 명세 §3.3 v1.1.7)
+        //   JWT 자체는 유효하지만 Service의 findByMemberUid가 @SQLRestriction("deleted_at IS NULL")로
+        //   None 반환 → throw BusinessException(UNAUTHORIZED). Resolver는 raw memberUid 반환만, DB 호출 X.
         mockMvc.perform(get("/api/v1/members/me")
                         .header("Authorization", authHeader))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.error.code").value("MEMBER_NOT_FOUND"));
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.error.code").value("UNAUTHORIZED"));
     }
 
     // ──────────── happy path + validation 5 케이스 (이상진 B-6/B-7 + Q1-B 정책 검증) ────────────
