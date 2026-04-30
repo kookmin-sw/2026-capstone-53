@@ -28,41 +28,40 @@ public class MemberService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public MemberResponse getMe(Member member) {
-        // getMe는 단순 응답 — detached 객체의 getter만 호출하므로 재조회 불필요
-        return MemberResponse.from(member);
+    public MemberResponse getMe(String memberUid) {
+        Member m = memberRepository.findByMemberUid(memberUid)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        return MemberResponse.from(m);
     }
 
     @Transactional
-    public MemberResponse update(Member member, MemberUpdateRequest req) {
-        // CurrentMemberArgumentResolver가 반환한 Member는 트랜잭션 외부에서 조회된 detached entity.
-        // 변경을 dirty marking으로 반영시키려면 트랜잭션 내에서 재조회해 managed 상태로 attach.
-        Member managed = memberRepository.findById(member.getId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
+    public MemberResponse update(String memberUid, MemberUpdateRequest req) {
+        Member m = memberRepository.findByMemberUid(memberUid)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
 
         if (req.nickname() != null) {
-            managed.updateNickname(req.nickname());
+            m.updateNickname(req.nickname());
         }
         if (req.password() != null) {
-            managed.updatePasswordHash(passwordEncoder.encode(req.password()));
+            m.updatePasswordHash(passwordEncoder.encode(req.password()));
             // 의사결정 3 — password 변경 시 모든 활성 refresh token 폐기 (보안 ↑, 다른 디바이스 강제 로그아웃)
-            int revoked = refreshTokenRepository.revokeAllActiveByMemberId(managed.getId(), OffsetDateTime.now(KST));
-            log.info("revoked {} active refresh tokens for memberId={} (password change)", revoked, managed.getId());
+            int revoked = refreshTokenRepository.revokeAllActiveByMemberId(m.getId(), OffsetDateTime.now(KST));
+            log.info("revoked {} active refresh tokens for memberId={} (password change)", revoked, m.getId());
         }
-        return MemberResponse.from(managed);
+        return MemberResponse.from(m);
     }
 
     @Transactional
-    public void softDelete(Member member) {
+    public void softDelete(String memberUid) {
         // 의사결정 4 (가-1) — Step 4 시점 가능한 cascade 2개:
         //   ✅ Member.deleted_at (자체)
         //   ✅ refresh_token.revoked_at 일괄
         //   ⏳ schedule.deleted_at — Step 5 진입 시 ScheduleRepository 주입 + cascade 추가
         //   ⏳ push_subscription.revoked_at — 이상진 Step 7 진입 시 추가
-        Member managed = memberRepository.findById(member.getId())
-                .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
-        managed.softDelete();
-        int revoked = refreshTokenRepository.revokeAllActiveByMemberId(managed.getId(), OffsetDateTime.now(KST));
-        log.info("revoked {} active refresh tokens for memberId={} (soft delete)", revoked, managed.getId());
+        Member m = memberRepository.findByMemberUid(memberUid)
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
+        m.softDelete();
+        int revoked = refreshTokenRepository.revokeAllActiveByMemberId(m.getId(), OffsetDateTime.now(KST));
+        log.info("revoked {} active refresh tokens for memberId={} (soft delete)", revoked, m.getId());
     }
 }
