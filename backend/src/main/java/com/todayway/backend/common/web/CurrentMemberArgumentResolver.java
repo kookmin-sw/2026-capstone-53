@@ -31,7 +31,7 @@ public class CurrentMemberArgumentResolver implements HandlerMethodArgumentResol
                                   NativeWebRequest webRequest,
                                   WebDataBinderFactory binderFactory) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !(auth.getPrincipal() instanceof String memberUid)) {
+        if (auth == null || !(auth.getPrincipal() instanceof String memberUid) || memberUid.isBlank()) {
             throw new BusinessException(ErrorCode.UNAUTHORIZED);
         }
         return memberUid;
