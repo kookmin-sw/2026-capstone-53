@@ -8,6 +8,7 @@ import com.todayway.backend.member.dto.MemberResponse;
 import com.todayway.backend.member.dto.MemberUpdateRequest;
 import com.todayway.backend.member.repository.MemberRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ import java.time.ZoneId;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class MemberService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -44,7 +46,8 @@ public class MemberService {
         if (req.password() != null) {
             managed.updatePasswordHash(passwordEncoder.encode(req.password()));
             // 의사결정 3 — password 변경 시 모든 활성 refresh token 폐기 (보안 ↑, 다른 디바이스 강제 로그아웃)
-            refreshTokenRepository.revokeAllActiveByMemberId(managed.getId(), OffsetDateTime.now(KST));
+            int revoked = refreshTokenRepository.revokeAllActiveByMemberId(managed.getId(), OffsetDateTime.now(KST));
+            log.info("revoked {} active refresh tokens for memberId={} (password change)", revoked, managed.getId());
         }
         return MemberResponse.from(managed);
     }
@@ -59,6 +62,7 @@ public class MemberService {
         Member managed = memberRepository.findById(member.getId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.MEMBER_NOT_FOUND));
         managed.softDelete();
-        refreshTokenRepository.revokeAllActiveByMemberId(managed.getId(), OffsetDateTime.now(KST));
+        int revoked = refreshTokenRepository.revokeAllActiveByMemberId(managed.getId(), OffsetDateTime.now(KST));
+        log.info("revoked {} active refresh tokens for memberId={} (soft delete)", revoked, managed.getId());
     }
 }

@@ -18,4 +18,9 @@ public record SignupRequest(
         @NotBlank
         @Size(min = 2, max = 20, message = "nickname은 2~20자")
         String nickname
-) {}
+) {
+    @Override
+    public String toString() {
+        return "SignupRequest{loginId=%s, password=***, nickname=%s}".formatted(loginId, nickname);
+    }
+}

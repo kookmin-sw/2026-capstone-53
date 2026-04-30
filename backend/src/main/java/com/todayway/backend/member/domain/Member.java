@@ -1,6 +1,8 @@
 package com.todayway.backend.member.domain;
 
 import com.todayway.backend.common.entity.BaseEntity;
+import com.todayway.backend.common.exception.BusinessException;
+import com.todayway.backend.common.exception.ErrorCode;
 import com.todayway.backend.common.ulid.UlidGenerator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -64,10 +66,16 @@ public class Member extends BaseEntity {
     }
 
     public void updateNickname(String nickname) {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND);
+        }
         this.nickname = nickname;
     }
 
     public void updatePasswordHash(String passwordHash) {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND);
+        }
         this.passwordHash = passwordHash;
     }
 
