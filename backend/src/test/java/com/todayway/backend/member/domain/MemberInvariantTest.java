@@ -8,11 +8,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Member 비즈니스 메서드 invariant 가드 단위 테스트.
+ * Member 도메인 invariant 가드 단위 테스트.
  * α-c2 (PR #6) deleted 가드 회귀 보호선 — 정상 흐름에서 도달 불가능한 코드라
- * 통합 테스트로는 검증 불가 (claude.ai PR #6 리뷰 P1 흡수, β PR에서 추가).
+ * 통합 테스트로는 검증 불가 (claude.ai PR #6 리뷰 P1, claude.ai PR #7 리뷰 P3 클래스 명명 정정).
  */
-class MemberTest {
+class MemberInvariantTest {
 
     @Test
     void updateNickname_whenActive_updates() {
