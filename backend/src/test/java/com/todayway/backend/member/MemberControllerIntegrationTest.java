@@ -20,6 +20,8 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -123,5 +125,94 @@ class MemberControllerIntegrationTest {
                         .header("Authorization", authHeader))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("MEMBER_NOT_FOUND"));
+    }
+
+    // ──────────── happy path + validation 5 케이스 (이상진 B-6/B-7 + Q1-B 정책 검증) ────────────
+
+    @Test
+    void getMe_happyPath_returns200WithMemberFields() throws Exception {
+        SignupResult signup = signupNew("happypath01", "행복");
+        mockMvc.perform(get("/api/v1/members/me")
+                        .header("Authorization", "Bearer " + signup.accessToken()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.memberId").value(signup.memberId()))
+                .andExpect(jsonPath("$.data.memberId", startsWith("mem_")))
+                .andExpect(jsonPath("$.data.loginId").value("happypath01"))
+                .andExpect(jsonPath("$.data.nickname").value("행복"))
+                .andExpect(jsonPath("$.data.createdAt", containsString("+09:00")));
+    }
+
+    @Test
+    void update_nicknameOnly_returns200AndUpdated() throws Exception {
+        SignupResult signup = signupNew("nickonly01", "초기");
+        mockMvc.perform(patch("/api/v1/members/me")
+                        .header("Authorization", "Bearer " + signup.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nickname\":\"변경후\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nickname").value("변경후"))
+                .andExpect(jsonPath("$.data.loginId").value("nickonly01"));
+    }
+
+    @Test
+    void update_passwordOnly_canLoginWithNewPassword() throws Exception {
+        SignupResult signup = signupNew("pwonly01", "비번변경");
+
+        mockMvc.perform(patch("/api/v1/members/me")
+                        .header("Authorization", "Bearer " + signup.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"NewP@ss123!\"}"))
+                .andExpect(status().isOk());
+
+        // 새 비번으로 login → 200 (이상진 B-7 실효 검증)
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginId\":\"pwonly01\",\"password\":\"NewP@ss123!\"}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.accessToken").exists());
+
+        // 옛 비번으로 login → 401 (회귀 가드)
+        mockMvc.perform(post("/api/v1/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"loginId\":\"pwonly01\",\"password\":\"P@ssw0rd!\"}"))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void update_emptyBody_returns400ValidationError() throws Exception {
+        SignupResult signup = signupNew("empty01", "빈바디");
+        mockMvc.perform(patch("/api/v1/members/me")
+                        .header("Authorization", "Bearer " + signup.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void update_weakPassword_returns400ValidationError() throws Exception {
+        SignupResult signup = signupNew("weak01", "약한");
+        mockMvc.perform(patch("/api/v1/members/me")
+                        .header("Authorization", "Bearer " + signup.accessToken())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"password\":\"weak\"}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    private record SignupResult(String accessToken, String refreshToken, String memberId) {}
+
+    private SignupResult signupNew(String loginId, String nickname) throws Exception {
+        SignupRequest signupReq = new SignupRequest(loginId, "P@ssw0rd!", nickname);
+        String resp = mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(signupReq)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        JsonNode node = objectMapper.readTree(resp).path("data");
+        return new SignupResult(
+                node.path("accessToken").asText(),
+                node.path("refreshToken").asText(),
+                node.path("memberId").asText());
     }
 }
