@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.8-MVP
-> **최종 수정**: 2026-04-30 (황찬우 — Step 5 외부 리뷰 흡수: §5.4 PATCH 시 NOW() 검사를 arrivalTime 포함 시에만 적용)
+> **버전**: v1.1.9-MVP
+> **최종 수정**: 2026-04-30 (이상진 — Step 6 OdsayRouteService 구현: §6.1 WALK 좌표 보충 알고리즘 명시)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -25,6 +25,7 @@
 | **v1.1.6** | **2026-04-30** | **§1.6 `INTERNAL_SERVER_ERROR` 행 추가(fallback 명시), §1.7 JWT sub claim raw ULID 명시, §3.2 password 정규식 §2.1 정합 + 둘 다 null/생략 → 400 + password 변경 시 token 폐기 비고, §3.3 DELETE 멱등성 비고. (Step 4 PR #5 이상진 리뷰 보강 5건 + Q1-B/Q8-1 흡수)** |
 | **v1.1.7** | **2026-04-30** | **§1.7 Resolver 동작 정정 — `Authentication.getName()`으로 raw `member_uid` 반환만(DB 호출 X), Service가 `findByMemberUid` 1회 조회. §3.3 탈퇴 회원 응답: 404 `MEMBER_NOT_FOUND` → **401 `UNAUTHORIZED`** (Service 부재 시 응답). β PR Resolver 마이그레이션 (이상진 PR #5 I-1 + claude.ai P1).** |
 | **v1.1.8** | **2026-04-30** | **§5.4 PATCH 검증 정정 — `arrivalTime`의 NOW() 검사는 `arrivalTime`이 요청에 포함된 경우에만 적용. 지난 일정의 `title` 등 메모 편집 허용. (Step 5 PR #10 claude.ai 리뷰 P1 흡수)** |
+| **v1.1.9** | **2026-04-30** | **§6.1 WALK 구간 path 보충 알고리즘 명시 (Step 6 이상진) — ODsay WALK subPath에 좌표 키가 없어 `origin`/`destination`/이전 transit 끝점으로 합성. 매핑표의 `path` 행에 WALK 분기 추가.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -841,7 +842,15 @@ LIMIT ?
 | `stationStart` | `subPath.startName` (SUBWAY 한정) | BUS는 from과 중복이라 null |
 | `stationEnd` | `subPath.endName` (SUBWAY 한정) | |
 | `stationCount` | `subPath.stationCount` | |
-| `path` | `loadLane` API 응답의 `lane[].section[].graphPos[]`<br>(생략 시 `passStopList.stations[]`의 x/y 직선) | `[lng, lat]` 배열 |
+| `path` | (transit) `[startX, startY]` + `passStopList.stations[].x/y` + `[endX, endY]` 직선<br>(WALK) 좌표 키 없음 → 합성 (아래 알고리즘) | `[lng, lat]` 배열. transit 정확 곡선은 `loadLane` 추가 호출 (선택) |
+
+🆕 **v1.1.9 — WALK 구간 path 보충 알고리즘** (ODsay WALK subPath는 `startX/Y`/`endX/Y` 키가 없음):
+
+- **첫 WALK** (subPath[0]이 WALK일 때): `origin` → 다음 transit subPath의 `startX/Y`
+- **중간 WALK**: 이전 transit subPath의 `endX/Y` → 다음 transit subPath의 `startX/Y`
+- **마지막 WALK** (subPath 마지막이 WALK일 때): 이전 transit subPath의 `endX/Y` → `destination`
+
+여기서 `origin/destination`은 `schedule.origin_lng/lat`, `schedule.destination_lng/lat`. 매핑은 lookahead 1패스로 transit 시작점들을 미리 수집한 뒤 결정적으로 적용 (자의적 보간 금지).
 
 **정확한 `path` 좌표가 필요하면 — ODsay `loadLane` API**:
 

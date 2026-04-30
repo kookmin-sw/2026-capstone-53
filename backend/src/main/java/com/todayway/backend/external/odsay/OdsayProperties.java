@@ -11,4 +11,6 @@ public class OdsayProperties {
     private String apiKey;
     private String baseUrl;
     private int timeoutSeconds = 5;
+    /** 명세 §6.1 — schedule.route_summary_json 캐시 TTL (분). 권장 10분. */
+    private int cacheTtlMinutes = 10;
 }

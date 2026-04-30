@@ -47,6 +47,7 @@ odsay:
   api-key: ${ODSAY_API_KEY:}
   base-url: https://api.odsay.com/v1/api
   timeout-seconds: 5
+  cache-ttl-minutes: 10   # 명세 §6.1 — schedule.route_summary_json 캐시 TTL
 
 kakao-local:
   api-key: ${KAKAO_LOCAL_API_KEY:}
