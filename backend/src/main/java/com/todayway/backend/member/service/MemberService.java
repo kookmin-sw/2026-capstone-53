@@ -7,6 +7,7 @@ import com.todayway.backend.member.domain.Member;
 import com.todayway.backend.member.dto.MemberResponse;
 import com.todayway.backend.member.dto.MemberUpdateRequest;
 import com.todayway.backend.member.repository.MemberRepository;
+import com.todayway.backend.schedule.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,6 +27,7 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final ScheduleRepository scheduleRepository;
     private final PasswordEncoder passwordEncoder;
 
     public MemberResponse getMe(String memberUid) {
@@ -53,15 +55,18 @@ public class MemberService {
 
     @Transactional
     public void softDelete(String memberUid) {
-        // 의사결정 4 (가-1) — Step 4 시점 가능한 cascade 2개:
+        // 의사결정 4 (가-1) cascade — Step 5 진입으로 schedule 추가 (Issue #8):
         //   ✅ Member.deleted_at (자체)
         //   ✅ refresh_token.revoked_at 일괄
-        //   ⏳ schedule.deleted_at — Step 5 진입 시 ScheduleRepository 주입 + cascade 추가
-        //   ⏳ push_subscription.revoked_at — 이상진 Step 7 진입 시 추가
+        //   ✅ schedule.deleted_at 일괄 (β PR + Step 5 — closes #8)
+        //   ⏳ push_subscription.revoked_at — 이상진 Step 7 진입 시 추가 (#9)
         Member m = memberRepository.findByMemberUid(memberUid)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
         m.softDelete();
-        int revoked = refreshTokenRepository.revokeAllActiveByMemberId(m.getId(), OffsetDateTime.now(KST));
-        log.info("revoked {} active refresh tokens for memberId={} (soft delete)", revoked, m.getId());
+        OffsetDateTime now = OffsetDateTime.now(KST);
+        int revoked = refreshTokenRepository.revokeAllActiveByMemberId(m.getId(), now);
+        int deletedSchedules = scheduleRepository.softDeleteByMemberId(m.getId(), now);
+        log.info("revoked {} active refresh tokens, soft-deleted {} schedules for memberId={} (member soft delete)",
+                revoked, deletedSchedules, m.getId());
     }
 }

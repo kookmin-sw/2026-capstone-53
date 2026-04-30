@@ -201,6 +201,45 @@ class MemberControllerIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
+    @Test
+    void softDelete_cascadesScheduleDeletion() throws Exception {
+        // 회원가입 + 일정 1건 등록 (NoOpRouteService default → routeStatus PENDING_RETRY OK)
+        SignupResult signup = signupNew("cascade01", "캐스케이드");
+        String authHeader = "Bearer " + signup.accessToken();
+
+        java.time.OffsetDateTime arrival = java.time.OffsetDateTime.now(java.time.ZoneOffset.ofHours(9)).plusMinutes(60);
+        java.time.OffsetDateTime depart = arrival.minusMinutes(30);
+        String createBody = """
+                {
+                  "title": "탈퇴테스트",
+                  "origin": {"name":"우이동","lat":37.6612,"lng":127.0124},
+                  "destination": {"name":"국민대","lat":37.6103,"lng":126.9969},
+                  "userDepartureTime": "%s",
+                  "arrivalTime": "%s",
+                  "reminderOffsetMinutes": 5
+                }
+                """.formatted(depart, arrival);
+
+        mockMvc.perform(post("/api/v1/schedules")
+                        .header("Authorization", authHeader)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createBody))
+                .andExpect(status().isCreated());
+
+        // 등록 직후 active schedule 1건 확인 (@SQLRestriction 자동 deleted_at IS NULL 필터)
+        assertThat(scheduleRepository.count()).isEqualTo(1L);
+
+        // 회원 탈퇴 → cascade로 schedule도 soft-delete
+        mockMvc.perform(delete("/api/v1/members/me")
+                        .header("Authorization", authHeader))
+                .andExpect(status().isNoContent());
+
+        // active schedule 0건 — Issue #8 회귀 가드
+        assertThat(scheduleRepository.count()).isEqualTo(0L);
+    }
+
+    @Autowired com.todayway.backend.schedule.repository.ScheduleRepository scheduleRepository;
+
     private record SignupResult(String accessToken, String refreshToken, String memberId) {}
 
     private SignupResult signupNew(String loginId, String nickname) throws Exception {
