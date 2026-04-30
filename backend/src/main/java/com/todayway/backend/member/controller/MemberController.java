@@ -2,7 +2,6 @@ package com.todayway.backend.member.controller;
 
 import com.todayway.backend.common.response.ApiResponse;
 import com.todayway.backend.common.web.CurrentMember;
-import com.todayway.backend.member.domain.Member;
 import com.todayway.backend.member.dto.MemberResponse;
 import com.todayway.backend.member.dto.MemberUpdateRequest;
 import com.todayway.backend.member.service.MemberService;
@@ -24,20 +23,20 @@ public class MemberController {
     private final MemberService memberService;
 
     @GetMapping("/me")
-    public ResponseEntity<ApiResponse<MemberResponse>> getMe(@CurrentMember Member member) {
-        return ResponseEntity.ok(ApiResponse.of(memberService.getMe(member)));
+    public ResponseEntity<ApiResponse<MemberResponse>> getMe(@CurrentMember String memberUid) {
+        return ResponseEntity.ok(ApiResponse.of(memberService.getMe(memberUid)));
     }
 
     @PatchMapping("/me")
     public ResponseEntity<ApiResponse<MemberResponse>> update(
-            @CurrentMember Member member,
+            @CurrentMember String memberUid,
             @RequestBody @Valid MemberUpdateRequest req) {
-        return ResponseEntity.ok(ApiResponse.of(memberService.update(member, req)));
+        return ResponseEntity.ok(ApiResponse.of(memberService.update(memberUid, req)));
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<Void> delete(@CurrentMember Member member) {
-        memberService.softDelete(member);
+    public ResponseEntity<Void> delete(@CurrentMember String memberUid) {
+        memberService.softDelete(memberUid);
         return ResponseEntity.noContent().build();
     }
 }

@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.6-MVP
-> **최종 수정**: 2026-04-30 (황찬우 — Step 4 외부 리뷰 흡수: ErrorCode fallback 명시 / JWT sub claim 명시 / password 정책 정합 / PATCH 둘 다 null → 400 / token 폐기 비고 / DELETE 멱등성 비고)
+> **버전**: v1.1.7-MVP
+> **최종 수정**: 2026-04-30 (황찬우 — β PR Resolver 마이그레이션: §1.7 Resolver 동작 단순화 명시 + §3.3 탈퇴 회원 응답 404 → 401)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -23,6 +23,7 @@
 | v1.1.4 | 2026-04-28 | 외부 API 매핑 보강 (이상진): ODsay→Route 매핑표 (§6.1), Kakao 응답 변환·provider 변환·query_hash 정규화 (§8.1), `EXTERNAL_AUTH_MISCONFIGURED` ErrorCode 추가 (§1.6) |
 | **v1.1.5** | **2026-04-29** | **§2.3 logout 인터페이스 RFC 7009 정합 — Authorization 헤더 인증 → body의 refreshToken (소유 증명), 멤버 모든 활성 토큰 폐기 → 전달된 1개만 폐기 (단일 디바이스). logout-all은 P1 별도 엔드포인트로 분리. §1.8 logout 인증 ✓ → ✗** |
 | **v1.1.6** | **2026-04-30** | **§1.6 `INTERNAL_SERVER_ERROR` 행 추가(fallback 명시), §1.7 JWT sub claim raw ULID 명시, §3.2 password 정규식 §2.1 정합 + 둘 다 null/생략 → 400 + password 변경 시 token 폐기 비고, §3.3 DELETE 멱등성 비고. (Step 4 PR #5 이상진 리뷰 보강 5건 + Q1-B/Q8-1 흡수)** |
+| **v1.1.7** | **2026-04-30** | **§1.7 Resolver 동작 정정 — `Authentication.getName()`으로 raw `member_uid` 반환만(DB 호출 X), Service가 `findByMemberUid` 1회 조회. §3.3 탈퇴 회원 응답: 404 `MEMBER_NOT_FOUND` → **401 `UNAUTHORIZED`** (Service 부재 시 응답). β PR Resolver 마이그레이션 (이상진 PR #5 I-1 + claude.ai P1).** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -143,9 +144,9 @@ Authorization: Bearer {accessToken}
 | `sch_` | 일정 | `schedule.schedule_uid` |
 | `sub_` | 푸시 구독 | `push_subscription.subscription_uid` |
 
-#### 비고 — JWT sub claim (v1.1.6 추가)
+#### 비고 — JWT sub claim (v1.1.6 / v1.1.7 정정)
 
-JWT의 `sub` claim에는 `member.member_uid` 값(prefix 없는 raw ULID 26자, Crockford Base32)이 박힌다. 외부 응답 ID `mem_<uid>`의 `mem_` prefix는 응답 직렬화 단계에서 부착되며, JWT subject 자체에는 포함되지 않는다. 서버 측 `CurrentMemberArgumentResolver`는 `Authentication.getName()`으로 raw `member_uid`를 직접 받아 `findByMemberUid`로 조회한다.
+JWT의 `sub` claim에는 `member.member_uid` 값(prefix 없는 raw ULID 26자, Crockford Base32)이 박힌다. 외부 응답 ID `mem_<uid>`의 `mem_` prefix는 응답 직렬화 단계에서 부착되며, JWT subject 자체에는 포함되지 않는다. 서버 측 `CurrentMemberArgumentResolver`는 `Authentication.getName()`으로 raw `member_uid`를 반환만 한다 (DB 호출 X). Service가 진입 시 `findByMemberUid`로 1회 조회 — 부재 시 401 `UNAUTHORIZED`.
 
 ### 1.8 엔드포인트 한눈에 보기
 
@@ -360,9 +361,9 @@ JWT의 `sub` claim에는 `member.member_uid` 값(prefix 없는 raw ULID 26자, C
 - 소프트 삭제: `member.deleted_at = NOW()`
 - 관련 `schedule`, `push_subscription`은 FK ON DELETE CASCADE이지만 소프트 삭제 시점엔 별도 로직으로 deleted_at/revoked_at 갱신
 
-#### 비고 — 멱등성 (v1.1.6 추가)
+#### 비고 — 멱등성 (v1.1.6 / v1.1.7 정정)
 
-본 API는 인증 토큰의 회원이 이미 탈퇴 처리된 경우(`deleted_at IS NOT NULL`) `CurrentMemberArgumentResolver`에서 회원 조회 실패 → **404 `MEMBER_NOT_FOUND`** 응답. RFC 9110의 일반 DELETE 멱등성과 달리, 본 API는 인증 정책 우선 설계의 결과로 두 번째 DELETE 요청은 404로 응답된다.
+본 API는 인증 토큰의 회원이 이미 탈퇴 처리된 경우(`deleted_at IS NOT NULL`) Service의 `findByMemberUid`에서 회원 조회 실패 → **401 `UNAUTHORIZED`** 응답. RFC 9110의 일반 DELETE 멱등성과 달리, 본 API는 인증 정책 우선 설계의 결과로 두 번째 DELETE 요청은 401로 응답된다 (JWT는 유효하지만 가리키는 회원이 무효).
 
 ---
 
