@@ -1,6 +1,6 @@
-package com.todayway.backend.auth.repository;
+package com.todayway.backend.member.repository;
 
-import com.todayway.backend.auth.domain.Member;
+import com.todayway.backend.member.domain.Member;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;

@@ -1,7 +1,7 @@
 package com.todayway.backend.common.web;
 
-import com.todayway.backend.auth.domain.Member;
-import com.todayway.backend.auth.repository.MemberRepository;
+import com.todayway.backend.member.domain.Member;
+import com.todayway.backend.member.repository.MemberRepository;
 import com.todayway.backend.common.exception.BusinessException;
 import com.todayway.backend.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;

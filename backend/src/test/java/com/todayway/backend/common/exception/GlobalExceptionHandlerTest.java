@@ -1,11 +1,11 @@
 package com.todayway.backend.common.exception;
 
-import com.todayway.backend.auth.repository.MemberRepository;
+import com.todayway.backend.member.repository.MemberRepository;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.security.access.AccessDeniedException;
@@ -30,7 +30,7 @@ class GlobalExceptionHandlerTest {
 
     // WebMvcConfig가 슬라이스에 등록되며 CurrentMemberArgumentResolver → MemberRepository 의존을 요구.
     // 이 테스트는 web 계층만 검증하므로 mock으로 대체.
-    @MockBean
+    @MockitoBean
     MemberRepository memberRepository;
 
     @Test
