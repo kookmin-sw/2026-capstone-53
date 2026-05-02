@@ -1,0 +1,25 @@
+# Gradle 빌드 산출물 — 컨테이너 안에서 재빌드
+build/
+.gradle/
+out/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# 시크릿 (실수로 이미지에 박히는 사고 방지)
+.env
+.env.*
+!.env.example
+
+# 로컬 OS
+.DS_Store
+Thumbs.db
+
+# 외부 JAR / 로그 / 임시 파일
+*.jar
+*.log
+*.tmp
+
+# Dockerfile 자체는 build context에 필요하므로 제외 X

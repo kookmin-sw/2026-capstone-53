@@ -11,7 +11,7 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s
   datasource:
-    url: jdbc:mysql://localhost:3306/${DB_NAME:routine_commute}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    url: jdbc:mysql://${DB_HOST:localhost}:${DB_PORT:3306}/${DB_NAME:routine_commute}?serverTimezone=Asia/Seoul&characterEncoding=UTF-8&sslMode=${DB_SSL_MODE:PREFERRED}
     username: ${DB_USER:root}
     password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver

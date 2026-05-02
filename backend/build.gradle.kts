@@ -64,6 +64,11 @@ dependencies {
 	testImplementation("org.springframework.security:spring-security-test")
 }
 
+// 운영 이미지 빌드 시 plain JAR 불필요 — bootJar만 산출 (Dockerfile wildcard 충돌 방지)
+tasks.named<Jar>("jar") {
+	enabled = false
+}
+
 tasks.withType<Test> {
 	useJUnitPlatform()
 }
