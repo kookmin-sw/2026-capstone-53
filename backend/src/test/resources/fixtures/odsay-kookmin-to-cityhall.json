@@ -1,0 +1,277 @@
+{
+  "result": {
+    "searchType": 0,
+    "outTrafficCheck": 0,
+    "busCount": 6,
+    "subwayCount": 3,
+    "subwayBusCount": 10,
+    "pointDistance": 5216,
+    "startRadius": 700,
+    "endRadius": 700,
+    "path": [
+      {
+        "pathType": 2,
+        "info": {
+          "trafficDistance": 8385.0,
+          "totalWalk": 319,
+          "totalTime": 34,
+          "payment": 1500,
+          "busTransitCount": 1,
+          "subwayTransitCount": 0,
+          "mapObj": "908:1:1:16",
+          "firstStartStation": "국민대학교앞",
+          "lastEndStation": "시청앞.덕수궁",
+          "totalStationCount": 15,
+          "busStationCount": 15,
+          "subwayStationCount": 0,
+          "totalDistance": 8704.0,
+          "totalWalkTime": -1,
+          "checkIntervalTime": 100,
+          "checkIntervalTimeOverYn": "N",
+          "totalIntervalTime": 6
+        },
+        "subPath": [
+          {
+            "trafficType": 3,
+            "distance": 199,
+            "sectionTime": 3
+          },
+          {
+            "trafficType": 2,
+            "distance": 8385,
+            "sectionTime": 29,
+            "stationCount": 15,
+            "lane": [
+              {
+                "busNo": "1711",
+                "type": 12,
+                "busID": 908,
+                "busLocalBlID": "100100185",
+                "busCityCode": 1000,
+                "busProviderCode": 4
+              }
+            ],
+            "intervalTime": 6,
+            "startName": "국민대학교앞",
+            "startX": 126.994769,
+            "startY": 37.61072,
+            "endName": "시청앞.덕수궁",
+            "endX": 126.976851,
+            "endY": 37.565929,
+            "startID": 105095,
+            "startStationCityCode": 1000,
+            "startStationProviderCode": 4,
+            "startLocalStationID": "107000020",
+            "startArsID": "08110",
+            "endID": 86066,
+            "endStationCityCode": 1000,
+            "endStationProviderCode": 4,
+            "endLocalStationID": "101000290",
+            "endArsID": "02286",
+            "passStopList": {
+              "stations": [
+                {
+                  "index": 0,
+                  "stationID": 105095,
+                  "stationName": "국민대학교앞",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "107000020",
+                  "arsID": "08110",
+                  "x": "126.994769",
+                  "y": "37.61072",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 1,
+                  "stationID": 104748,
+                  "stationName": "롯데아파트",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000064",
+                  "arsID": "01159",
+                  "x": "126.976492",
+                  "y": "37.610464",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 2,
+                  "stationID": 104672,
+                  "stationName": "일성아파트",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000063",
+                  "arsID": "01158",
+                  "x": "126.972923",
+                  "y": "37.608874",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 3,
+                  "stationID": 104585,
+                  "stationName": "평창동주민센터",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000062",
+                  "arsID": "01157",
+                  "x": "126.969511",
+                  "y": "37.606619",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 4,
+                  "stationID": 104495,
+                  "stationName": "평창파출소",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000061",
+                  "arsID": "01156",
+                  "x": "126.966119",
+                  "y": "37.605391",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 5,
+                  "stationID": 104419,
+                  "stationName": "갑을씨티텔앞",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000060",
+                  "arsID": "01155",
+                  "x": "126.963494",
+                  "y": "37.604395",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 6,
+                  "stationID": 104354,
+                  "stationName": "세검정초등학교",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000038",
+                  "arsID": "01133",
+                  "x": "126.961121",
+                  "y": "37.602347",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 7,
+                  "stationID": 193385,
+                  "stationName": "상명대입구.석파랑",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000189",
+                  "arsID": "01287",
+                  "x": "126.9581",
+                  "y": "37.599743",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 8,
+                  "stationID": 104371,
+                  "stationName": "하림각",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000041",
+                  "arsID": "01136",
+                  "x": "126.961814",
+                  "y": "37.598163",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 9,
+                  "stationID": 104438,
+                  "stationName": "자하문터널입구.석파정",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000042",
+                  "arsID": "01137",
+                  "x": "126.963627",
+                  "y": "37.595629",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 10,
+                  "stationID": 104581,
+                  "stationName": "경기상고",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000006",
+                  "arsID": "01101",
+                  "x": "126.969309",
+                  "y": "37.587569",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 11,
+                  "stationID": 104600,
+                  "stationName": "신교동",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000007",
+                  "arsID": "01102",
+                  "x": "126.97015",
+                  "y": "37.583234",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 12,
+                  "stationID": 104624,
+                  "stationName": "통인시장종로구보건소",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000015",
+                  "arsID": "01110",
+                  "x": "126.971074",
+                  "y": "37.58025",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 13,
+                  "stationID": 104657,
+                  "stationName": "경복궁역2번출구",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000020",
+                  "arsID": "01115",
+                  "x": "126.972172",
+                  "y": "37.577016",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 14,
+                  "stationID": 104759,
+                  "stationName": "세종문화회관",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "100000031",
+                  "arsID": "01126",
+                  "x": "126.977086",
+                  "y": "37.573644",
+                  "isNonStop": "N"
+                },
+                {
+                  "index": 15,
+                  "stationID": 86066,
+                  "stationName": "시청앞.덕수궁",
+                  "stationCityCode": 1000,
+                  "stationProviderCode": 4,
+                  "localStationID": "101000290",
+                  "arsID": "02286",
+                  "x": "126.976851",
+                  "y": "37.565929",
+                  "isNonStop": "N"
+                }
+              ]
+            }
+          },
+          {
+            "trafficType": 3,
+            "distance": 120,
+            "sectionTime": 2
+          }
+        ]
+      }
+    ]
+  }
+}
