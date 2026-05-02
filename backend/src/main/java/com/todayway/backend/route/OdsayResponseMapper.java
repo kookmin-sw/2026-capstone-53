@@ -21,6 +21,9 @@ import java.util.List;
  *   <li>첫 WALK: {@code origin} → 다음 transit {@code startX/startY}</li>
  *   <li>중간 WALK: 이전 transit {@code endX/endY} → 다음 transit {@code startX/startY}</li>
  *   <li>마지막 WALK: 이전 transit {@code endX/endY} → {@code destination}</li>
+ *   <li>all-WALK (transit 0개): 단일 WALK가 {@code origin} → {@code destination} 직선
+ *       (ODsay 700m 이내 응답은 코드 -98로 path 없이 떨어지지만, 그 이상에서 도보만 반환되는
+ *        case도 스펙상 가능 — 같은 보충 로직으로 자연스럽게 처리)</li>
  * </ul>
  *
  * <h3>transit 구간 path</h3>
@@ -84,21 +87,19 @@ public class OdsayResponseMapper {
             int distance = sp.path("distance").asInt();
 
             if (mode == SegmentMode.WALK) {
-                segments.add(buildWalkSegment(
-                        sectionTime, distance, lastPoint,
-                        transitIdx < transitStarts.size()
-                                ? transitStarts.get(transitIdx)
-                                : new double[]{destLng, destLat}));
-                lastPoint = transitIdx < transitStarts.size()
+                // 다음 transit 시작점이 있으면 그쪽으로, 없으면 destination으로 (마지막 WALK 또는 all-WALK 경로)
+                double[] nextPoint = transitIdx < transitStarts.size()
                         ? transitStarts.get(transitIdx)
                         : new double[]{destLng, destLat};
+                segments.add(buildWalkSegment(sectionTime, distance, lastPoint, nextPoint));
+                lastPoint = nextPoint;
             } else {
                 RouteSegment seg = buildTransitSegment(mode, sectionTime, distance, sp);
                 segments.add(seg);
                 // lastPoint 갱신: transit 끝점 — 다음 WALK가 이걸 시작점으로 사용
                 lastPoint = new double[]{
-                        sp.path("endX").asDouble(),
-                        sp.path("endY").asDouble()
+                        requireCoord(sp, "endX"),
+                        requireCoord(sp, "endY")
                 };
                 transitIdx++;
             }
@@ -123,10 +124,12 @@ public class OdsayResponseMapper {
         List<double[]> starts = new ArrayList<>();
         for (JsonNode sp : subPathArr) {
             int trafficType = sp.path("trafficType").asInt();
-            if (trafficType != 3) {  // WALK 아님 = transit
+            // unknown trafficType은 여기서 IllegalArgumentException — 메인 루프 가기 전에 빠르게 실패
+            SegmentMode mode = SegmentMode.fromOdsayTrafficType(trafficType);
+            if (mode != SegmentMode.WALK) {
                 starts.add(new double[]{
-                        sp.path("startX").asDouble(),
-                        sp.path("startY").asDouble()
+                        requireCoord(sp, "startX"),
+                        requireCoord(sp, "startY")
                 });
             }
         }
@@ -173,14 +176,14 @@ public class OdsayResponseMapper {
 
         // path: startX/Y + passStopList.stations[].x/y + endX/Y 직선
         List<double[]> path = new ArrayList<>();
-        path.add(new double[]{sp.path("startX").asDouble(), sp.path("startY").asDouble()});
+        path.add(new double[]{requireCoord(sp, "startX"), requireCoord(sp, "startY")});
         for (JsonNode st : sp.path("passStopList").path("stations")) {
             path.add(new double[]{
                     parseCoord(st.path("x")),
                     parseCoord(st.path("y"))
             });
         }
-        path.add(new double[]{sp.path("endX").asDouble(), sp.path("endY").asDouble()});
+        path.add(new double[]{requireCoord(sp, "endX"), requireCoord(sp, "endY")});
 
         return new RouteSegment(
                 mode, sectionTime, distance,
@@ -210,15 +213,31 @@ public class OdsayResponseMapper {
 
     /**
      * {@code passStopList.stations[].x/y}는 ODsay 응답상 string ("126.994769")으로 옴.
-     * 안전 차원에서 number도 처리. 파싱 실패 시 {@link IllegalStateException}.
+     * 안전 차원에서 number도 처리. missing/null/파싱 실패 모두 {@link IllegalStateException} —
+     * silent {@code 0.0} 반환은 좌표 (0,0)이 path에 섞여 polyline이 대서양으로 점프하는 시각적 버그.
      */
     private static double parseCoord(JsonNode node) {
-        if (node.isMissingNode() || node.isNull()) return 0.0;
+        if (node.isMissingNode() || node.isNull()) {
+            throw new IllegalStateException("ODsay 좌표 누락 (missing/null)");
+        }
         if (node.isNumber()) return node.asDouble();
         try {
             return Double.parseDouble(node.asText());
         } catch (NumberFormatException e) {
             throw new IllegalStateException("ODsay 좌표 파싱 실패: " + node.asText(), e);
         }
+    }
+
+    /**
+     * transit subPath의 필수 좌표 키({@code startX/startY/endX/endY}) 추출. 누락 시 {@link IllegalStateException}.
+     * <p>{@code JsonNode.asDouble()}은 missing 노드에 대해 default {@code 0.0}을 반환하는데, (0,0) 좌표가
+     * path에 섞이면 silent corruption이라 명시 검증.
+     */
+    private static double requireCoord(JsonNode parent, String key) {
+        JsonNode node = parent.path(key);
+        if (node.isMissingNode() || node.isNull()) {
+            throw new IllegalStateException("ODsay transit 좌표 누락: " + key);
+        }
+        return node.asDouble();
     }
 }

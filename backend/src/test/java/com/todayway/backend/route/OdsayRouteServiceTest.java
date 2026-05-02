@@ -126,6 +126,21 @@ class OdsayRouteServiceTest {
     }
 
     @Test
+    void getRoute_cache_정확히_TTL_경계_10분이면_expired_처리() {
+        // isCacheValid가 < 사용 — 정확히 10분 시점은 expired. < ↔ <= 변경 시 회귀 가드.
+        Schedule s = newScheduleWithCache(FIXED_NOW.minusMinutes(10));
+        when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn("{\"fresh\":true}");
+        when(mapper.toRoute(anyString(), anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(fakeRoute(34));
+
+        service.getRoute(s, false);
+
+        verify(odsayClient, times(1))
+                .searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+    }
+
+    @Test
     void getRoute_cache_expired_TTL_초과시_ODsay_재호출() {
         Schedule s = newScheduleWithCache(FIXED_NOW.minusMinutes(15));  // TTL=10, 15분 전 → expired
         when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))

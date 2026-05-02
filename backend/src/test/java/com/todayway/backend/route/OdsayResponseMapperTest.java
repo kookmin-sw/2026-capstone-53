@@ -81,7 +81,100 @@ class OdsayResponseMapperTest {
         assertThat(seg2.path()).hasSize(2);
         // 첫 점: 이전 transit (BUS) endX/Y — 시청앞.덕수궁 정류장 좌표
         // 끝 점: destination
+        assertThat(seg2.path().get(0)).containsExactly(126.976851, 37.565929);
         assertThat(seg2.path().get(1)).containsExactly(DEST_LNG, DEST_LAT);
+    }
+
+    @Test
+    void all_WALK_응답_단일_WALK가_origin_destination_직선() {
+        // ODsay 도보만 가능한 case (700m 이상이지만 대중교통 비효율 등) — transit 0개.
+        // §6.1 비고 — origin → destination 직선으로 자연스럽게 처리.
+        String raw = """
+                {
+                  "result": {
+                    "path": [{
+                      "info": {
+                        "totalTime": 12, "totalDistance": 800, "totalWalk": 800,
+                        "subwayTransitCount": 0, "busTransitCount": 0, "payment": 0
+                      },
+                      "subPath": [
+                        {"trafficType": 3, "sectionTime": 12, "distance": 800}
+                      ]
+                    }]
+                  }
+                }
+                """;
+
+        Route route = mapper.toRoute(raw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        assertThat(route.transferCount()).isZero();
+        assertThat(route.payment()).isZero();
+        assertThat(route.segments()).hasSize(1);
+        RouteSegment seg = route.segments().get(0);
+        assertThat(seg.mode()).isEqualTo(SegmentMode.WALK);
+        assertThat(seg.path()).hasSize(2);
+        assertThat(seg.path().get(0)).containsExactly(ORIGIN_LNG, ORIGIN_LAT);
+        assertThat(seg.path().get(1)).containsExactly(DEST_LNG, DEST_LAT);
+    }
+
+    @Test
+    void passStopList_좌표_누락이면_IllegalStateException_silent_0_0_corruption_방지() {
+        // BUS subPath의 passStopList.stations[]에서 x/y 누락 시 silent 0.0 반환 X → throw.
+        // 좌표 (0,0)이 path에 섞이면 polyline이 대서양으로 점프하는 시각적 버그라 명시 검증.
+        String raw = """
+                {
+                  "result": {
+                    "path": [{
+                      "info": {
+                        "totalTime": 10, "totalDistance": 1000, "totalWalk": 0,
+                        "subwayTransitCount": 0, "busTransitCount": 1, "payment": 1500
+                      },
+                      "subPath": [{
+                        "trafficType": 2,
+                        "sectionTime": 10, "distance": 1000,
+                        "startName": "A", "endName": "B", "stationCount": 1,
+                        "startX": 127.0, "startY": 37.6,
+                        "endX": 127.1, "endY": 37.5,
+                        "lane": [{"busNo": "100", "busID": 1}],
+                        "passStopList": {"stations": [{"x": null, "y": "37.55"}]}
+                      }]
+                    }]
+                  }
+                }
+                """;
+
+        assertThatThrownBy(() -> mapper.toRoute(raw, 0, 0, 0, 0))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("좌표");
+    }
+
+    @Test
+    void transit_subPath_startX_누락이면_IllegalStateException() {
+        // transit 분기의 startX/Y/endX/Y 필수 — JsonNode.asDouble() default 0.0 함정 방지.
+        String raw = """
+                {
+                  "result": {
+                    "path": [{
+                      "info": {
+                        "totalTime": 10, "totalDistance": 1000, "totalWalk": 0,
+                        "subwayTransitCount": 0, "busTransitCount": 1, "payment": 1500
+                      },
+                      "subPath": [{
+                        "trafficType": 2,
+                        "sectionTime": 10, "distance": 1000,
+                        "startName": "A", "endName": "B", "stationCount": 0,
+                        "startY": 37.6, "endX": 127.1, "endY": 37.5,
+                        "lane": [{"busNo": "100", "busID": 1}],
+                        "passStopList": {"stations": []}
+                      }]
+                    }]
+                  }
+                }
+                """;
+
+        assertThatThrownBy(() -> mapper.toRoute(raw, 0, 0, 0, 0))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("startX");
     }
 
     @Test
