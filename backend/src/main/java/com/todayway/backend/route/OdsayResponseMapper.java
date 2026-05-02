@@ -60,6 +60,11 @@ public class OdsayResponseMapper {
             throw new IllegalStateException("ODsay 응답에 result.path[0]이 없음");
         }
         JsonNode info = path0.path("info");
+        if (info.isMissingNode() || !info.isObject()) {
+            // info 부재 시 .asInt() default 0이 silent corruption — Route(0,0,0,0,0,_)이라
+            // recommendedDeparture = arrivalTime - 0 = arrivalTime → departureAdvice 오판.
+            throw new IllegalStateException("ODsay 응답에 result.path[0].info 객체가 없음");
+        }
 
         // ── §6.1 매핑표 — Route 필드 ──
         int totalDurationMinutes = info.path("totalTime").asInt();

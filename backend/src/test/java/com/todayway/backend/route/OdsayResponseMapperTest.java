@@ -294,6 +294,25 @@ class OdsayResponseMapperTest {
     }
 
     @Test
+    void info_객체_누락이면_IllegalStateException_silent_0_corruption_방지() {
+        // path[0]은 있지만 info 객체가 빠진 비정상 응답 — .asInt() default 0이 Route(0,0,...) 만들어
+        // recommendedDeparture = arrivalTime - 0 으로 오판 발생 가능. 명시 throw.
+        String raw = """
+                {
+                  "result": {
+                    "path": [{
+                      "subPath": [{"trafficType": 3, "sectionTime": 5, "distance": 100}]
+                    }]
+                  }
+                }
+                """;
+
+        assertThatThrownBy(() -> mapper.toRoute(raw, 0, 0, 0, 0))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("info");
+    }
+
+    @Test
     void unknown_trafficType이면_IllegalArgumentException() {
         // ODsay가 명세 외 trafficType (예: 4=택시)을 추가했을 때 silent fallback 안 함.
         // OdsayRouteService에서 명시적 catch → graceful degradation.
