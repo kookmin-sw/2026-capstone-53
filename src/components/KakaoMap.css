@@ -1,0 +1,198 @@
+.kakao-map-wrapper {
+  position: relative;
+  width: 100%;
+  height: 420px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #F9FAFB;
+}
+
+@media (max-width: 960px) {
+  .kakao-map-wrapper {
+    height: 280px;
+  }
+}
+
+@media (max-width: 640px) {
+  .kakao-map-wrapper {
+    height: 220px;
+  }
+}
+
+.kakao-map {
+  width: 100%;
+  height: 100%;
+}
+
+/* 로딩 오버레이 */
+.kakao-map-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: rgba(249, 250, 251, 0.85);
+  z-index: 10;
+  font-size: 12px;
+  color: #6B7280;
+  font-weight: 500;
+}
+
+.kakao-map-loading__spinner {
+  width: 28px;
+  height: 28px;
+  border: 3px solid #E5E7EB;
+  border-top-color: #3B82F6;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* SDK 로드 실패 시 플레이스홀더 — 지도 div 위에 절대 위치로 오버레이 */
+.kakao-map-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #F3F4F6;
+  z-index: 10;
+}
+
+.kakao-map-placeholder__inner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 16px;
+  position: relative;
+}
+
+.kakao-map-placeholder__icon {
+  margin-bottom: 6px;
+}
+
+.kakao-map-placeholder__text {
+  font-size: 13px;
+  font-weight: 600;
+  color: #6B7280;
+  margin: 0 0 2px;
+}
+
+.kakao-map-placeholder__sub {
+  font-size: 11px;
+  color: #9CA3AF;
+  margin: 0 0 8px;
+}
+
+/* 목업 지도 영역 */
+.kakao-map-mock {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, #e8f0e8 0%, #dde8dd 40%, #d4e3d4 100%);
+  z-index: 0;
+}
+
+.kakao-map-mock::before {
+  content: '';
+  position: absolute;
+  top: 45%;
+  left: 20%;
+  width: 65%;
+  height: 3px;
+  background: rgba(200, 210, 200, 0.6);
+  border-radius: 2px;
+}
+
+.kakao-map-mock::after {
+  content: '';
+  position: absolute;
+  top: 30%;
+  left: 40%;
+  width: 3px;
+  height: 50%;
+  background: rgba(200, 210, 200, 0.6);
+  border-radius: 2px;
+}
+
+.kakao-map-mock__marker {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  z-index: 2;
+}
+
+.kakao-map-mock__bubble {
+  background: white;
+  border: 2px solid;
+  border-radius: 8px;
+  padding: 4px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #1F2937;
+  white-space: nowrap;
+  line-height: 1.5;
+}
+
+.kakao-map-mock__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid white;
+  margin-top: 2px;
+}
+
+/* 내 위치 */
+.kakao-map-mock__myloc {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 3;
+}
+
+.kakao-map-mock__myloc-ring {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: white;
+}
+
+.kakao-map-mock__myloc-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #3B82F6;
+  z-index: 1;
+}
+
+/* 500m 반경 */
+.kakao-map-mock__radius {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 140px;
+  height: 140px;
+  border-radius: 50%;
+  border: 2px dashed rgba(59, 130, 246, 0.5);
+  background: rgba(59, 130, 246, 0.04);
+  z-index: 1;
+}

@@ -1,0 +1,627 @@
+/* ================================================================
+   HomeV5 — 풀맵 스타일 (Outfit + Noto Sans KR)
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500;600&display=swap');
+
+/* ── 루트: 화면 전체 ─────────────────────────────────────────── */
+
+.hv5 {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+/* ── 지도 (전체 배경) ────────────────────────────────────────── */
+
+.hv5-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(180deg, #dce4ee 0%, #c8d6e0 100%);
+}
+
+.hv5-map-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(220, 228, 238, 0.7);
+  font-size: 13px;
+  color: #666;
+  pointer-events: none;
+}
+
+.hv5-map-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2.5px solid rgba(59,130,246,0.2);
+  border-top-color: #3B82F6;
+  border-radius: 50%;
+  animation: hv5-spin 0.8s linear infinite;
+}
+
+@keyframes hv5-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── 상단 바 ─────────────────────────────────────────────────── */
+
+.hv5-topbar {
+  position: fixed;
+  top: 12px;
+  left: 16px;
+  right: 16px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 16px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  z-index: 100;
+  animation: hv5-slide-down 0.4s ease both;
+}
+
+.hv5-topbar__left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+}
+
+.hv5-topbar__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.hv5-topbar__online {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3B82F6;
+  flex-shrink: 0;
+}
+
+.hv5-topbar__center {
+  flex: 1;
+  text-align: center;
+}
+
+.hv5-topbar__date {
+  font-size: 12px;
+  color: #888;
+}
+
+.hv5-topbar__right {
+  flex: 1;
+  text-align: right;
+}
+
+.hv5-topbar__temp {
+  font-family: 'Outfit', sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  color: #888;
+}
+
+/* ── 좌측 사이드 버튼 ────────────────────────────────────────── */
+
+.hv5-side {
+  position: fixed;
+  top: 50%;
+  left: 16px;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  z-index: 100;
+  animation: hv5-fade-in 0.6s ease both;
+}
+
+.hv5-side__btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.hv5-side__btn:hover  { opacity: 0.85; }
+.hv5-side__btn:active { transform: scale(0.95); }
+
+/* ── 하단 패널 ───────────────────────────────────────────────── */
+
+.hv5-panel {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 20px 20px 0 0;
+  z-index: 100;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: hv5-slide-up 0.5s ease both;
+}
+
+.hv5-panel__body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  scrollbar-width: none;
+}
+
+.hv5-panel__body::-webkit-scrollbar { display: none; }
+
+/* 핸들 */
+.hv5-panel__handle-area {
+  display: flex;
+  justify-content: center;
+  padding: 12px 0 8px;
+  cursor: grab;
+  flex-shrink: 0;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.hv5-panel__handle-area:active { cursor: grabbing; }
+
+.hv5-panel__handle {
+  width: 36px;
+  height: 4px;
+  background: #ddd;
+  border-radius: 2px;
+}
+
+/* 일정 요약 */
+.hv5-panel__summary {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0 24px;
+}
+
+.hv5-panel__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.hv5-panel__route {
+  font-size: 12px;
+  color: #888;
+  margin-top: 2px;
+}
+
+.hv5-panel__arrival-time {
+  font-family: 'Outfit', sans-serif;
+  font-size: 24px;
+  font-weight: 600;
+  color: #3B82F6;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* 구간 칩 */
+.hv5-chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 24px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.hv5-chips::-webkit-scrollbar { display: none; }
+
+.hv5-chip {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  background: #f0f4ff;
+  border-radius: 20px;
+  padding: 4px 10px;
+  flex-shrink: 0;
+}
+
+.hv5-chip__label {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #3B82F6;
+  white-space: nowrap;
+}
+
+.hv5-chips__arrow {
+  font-size: 10px;
+  color: #ccc;
+  flex-shrink: 0;
+}
+
+/* ── 일정 탭 ─────────────────────────────────────────────────── */
+
+.hv5-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 0 24px;
+  margin-bottom: 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex-shrink: 0;
+}
+
+.hv5-tabs::-webkit-scrollbar { display: none; }
+
+.hv5-tab {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid #e0e0e0;
+  background: transparent;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 12px;
+  font-weight: 400;
+  color: #888;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  white-space: nowrap;
+}
+
+.hv5-tab--active {
+  background: #3B82F6;
+  border-color: #3B82F6;
+  color: white;
+  font-weight: 600;
+}
+
+/* 콘텐츠 fade 전환 */
+.hv5-panel__body--fade {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* 자세히 보기 힌트 */
+.hv5-panel__hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 10px 24px 4px;
+  cursor: pointer;
+}
+
+.hv5-panel__hint-arrow,
+.hv5-panel__hint-text {
+  font-size: 10px;
+  color: #ccc;
+}
+
+/* 구분선 */
+.hv5-divider {
+  height: 0.5px;
+  background: #eee;
+  margin: 16px 24px 0;
+}
+
+/* 출발 안내 블록 */
+.hv5-depart-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f0f4ff;
+  border-radius: 14px;
+  padding: 18px;
+  margin: 14px 24px 0;
+}
+
+.hv5-depart-block__left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hv5-depart-block__label {
+  font-size: 10px;
+  color: #888;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.hv5-depart-block__time {
+  font-family: 'Outfit', sans-serif;
+  font-size: 28px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.hv5-depart-block__hint {
+  font-size: 11px;
+  color: #888;
+}
+
+/* 카운트다운 원형 */
+.hv5-circle {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+}
+
+.hv5-circle__svg {
+  width: 56px;
+  height: 56px;
+  transform: rotate(-90deg);
+}
+
+.hv5-circle__track {
+  fill: white;
+  stroke: #e0e8f5;
+  stroke-width: 2.5;
+}
+
+.hv5-circle__ring {
+  fill: none;
+  stroke: #3B82F6;
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 150.8;
+  transition: stroke-dashoffset 1.2s ease;
+}
+
+.hv5-circle__inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.hv5-circle__num {
+  font-family: 'Outfit', sans-serif;
+  font-size: 20px;
+  font-weight: 700;
+  color: #3B82F6;
+  line-height: 1;
+}
+
+.hv5-circle__unit {
+  font-family: 'Outfit', sans-serif;
+  font-size: 8px;
+  font-weight: 400;
+  color: #888;
+  line-height: 1.4;
+}
+
+/* 통계 3칸 */
+.hv5-stats {
+  display: flex;
+  gap: 8px;
+  margin: 14px 24px 0;
+}
+
+.hv5-stat {
+  flex: 1;
+  background: #f8f9fb;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hv5-stat__num {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: #1a1a1a;
+  line-height: 1;
+}
+
+.hv5-stat__label {
+  font-size: 10px;
+  color: #888;
+}
+
+/* 타임라인 */
+.hv5-tl-label {
+  font-size: 10px;
+  color: #888;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  padding: 14px 24px 0;
+}
+
+.hv5-timeline {
+  padding: 14px 24px 0;
+}
+
+.hv5-tl-row {
+  display: flex;
+  gap: 14px;
+}
+
+.hv5-tl-track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 12px;
+  flex-shrink: 0;
+}
+
+.hv5-tl-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.hv5-tl-dot--filled {
+  background: #3B82F6;
+}
+
+.hv5-tl-dot--hollow {
+  background: white;
+  border: 1.5px solid #3B82F6;
+}
+
+.hv5-tl-line {
+  width: 0.5px;
+  flex: 1;
+  background: #ddd;
+  margin: 4px 0;
+  min-height: 24px;
+}
+
+.hv5-tl-text {
+  flex: 1;
+  padding-bottom: 16px;
+}
+
+.hv5-tl-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.hv5-tl-name--accent {
+  color: #3B82F6;
+}
+
+.hv5-tl-detail {
+  font-size: 12px;
+  color: #888;
+  margin-top: 2px;
+}
+
+/* 네비게이션 버튼 */
+.hv5-btn-nav {
+  display: block;
+  width: calc(100% - 48px);
+  margin: 16px 24px;
+  padding: 14px;
+  background: #3B82F6;
+  color: white;
+  border: none;
+  border-radius: 14px;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.hv5-btn-nav:hover  { opacity: 0.9; }
+.hv5-btn-nav:active { transform: scale(0.98); opacity: 0.85; }
+
+/* 빈 상태 패널 */
+.hv5-panel--empty {
+  height: 160px !important;
+  transition: none !important;
+  animation: hv5-slide-up 0.5s ease both;
+}
+
+.hv5-empty__main {
+  font-size: 16px;
+  color: #888;
+  text-align: center;
+  padding: 8px 24px 0;
+}
+
+.hv5-empty__cta {
+  display: block;
+  margin: 12px auto 0;
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 14px;
+  color: #3B82F6;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+/* ── 지도 위 커스텀 마커
+   마커는 전부 인라인 스타일로 구현 (CustomOverlay HTML 문자열).
+   CSS 클래스는 이동 점(moving-dot)만 남김.
+   ─────────────────────────────────────────────────────────────── */
+
+/* 이동하는 점 — dotDiv.style.cssText로도 설정되어 있어 백업용 */
+.hv5-moving-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #3B82F6;
+  border: 2px solid white;
+  transform: translate(-50%, -50%);
+}
+
+/* ── 애니메이션 ──────────────────────────────────────────────── */
+
+@keyframes hv5-slide-down {
+  from { opacity: 0; transform: translateY(-20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hv5-slide-up {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes hv5-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── 반응형 ──────────────────────────────────────────────────── */
+
+/* 태블릿/데스크톱: 패널 너비 제한 + 우측 배치 */
+@media (min-width: 768px) {
+  .hv5-panel {
+    left: auto;
+    right: 24px;
+    bottom: 24px;
+    width: 380px;
+    border-radius: 20px;
+  }
+
+  .hv5-panel--empty {
+    width: 380px;
+  }
+
+  .hv5-panel__handle-area {
+    cursor: default;
+  }
+
+  .hv5-topbar {
+    left: 24px;
+    right: auto;
+    width: 320px;
+  }
+
+  .hv5-side {
+    left: 24px;
+  }
+}

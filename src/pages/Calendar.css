@@ -1,0 +1,1323 @@
+/* ================================================================
+   Calendar Page
+   ================================================================ */
+
+.cal-page {
+  min-height: calc(100vh - 60px);
+  background: #F0E9E0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Noto Sans KR", "Apple SD Gothic Neo", "Helvetica Neue", sans-serif;
+  overflow-x: hidden;
+}
+
+.cal-container {
+  max-width: 680px;
+  margin: 0 auto;
+  padding: 24px 16px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ── 월 네비게이션 ── */
+.cal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 4px;
+}
+
+.cal-nav__label {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1C1C1E;
+  letter-spacing: -0.5px;
+}
+
+.cal-nav__arrow {
+  width: 38px;
+  height: 38px;
+  background: #FAF5EF;
+  border: none;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: transform 0.1s ease;
+}
+
+.cal-nav__arrow:active { transform: scale(0.93); }
+
+/* ── 달력 카드 ── */
+.cal-card {
+  background: #FAF5EF;
+  border-radius: 24px;
+  padding: 16px;
+}
+
+/* 요일 헤더 */
+.cal-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 4px;
+}
+
+.cal-wd {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #A09A93;
+  padding: 6px 0;
+  letter-spacing: 0.02em;
+}
+
+.cal-wd--sun { color: #E05A5A; }
+.cal-wd--sat { color: #5A8AE0; }
+
+/* 날짜 그리드 */
+.cal-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.cal-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 4px 0 6px;
+  cursor: pointer;
+  border-radius: 12px;
+  transition: background 0.12s;
+  -webkit-tap-highlight-color: transparent;
+  min-height: 46px;
+}
+
+.cal-cell:hover:not(.cal-cell--empty) {
+  background: rgba(185, 165, 145, 0.12);
+}
+
+.cal-cell--empty {
+  cursor: default;
+  pointer-events: none;
+}
+
+.cal-cell__num {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1C1C1E;
+  line-height: 1;
+}
+
+.cal-cell--sun .cal-cell__num { color: #E05A5A; }
+.cal-cell--sat .cal-cell__num { color: #5A8AE0; }
+
+/* 오늘 */
+.cal-cell--today .cal-cell__num {
+  background: var(--color-point);
+  color: #ffffff;
+  font-weight: 700;
+}
+
+/* 선택된 날짜 */
+.cal-cell--selected .cal-cell__num {
+  background: #E8DDD3;
+  color: #1C1C1E;
+  font-weight: 700;
+}
+
+/* 일정 점 */
+.cal-cell__dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  margin-top: 3px;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+/* 1개: 연한 파랑 */
+.cal-cell__dot--1 { background: #93C5FD; }
+/* 2개: 중간 파랑 */
+.cal-cell__dot--2 { background: var(--color-point); }
+/* 3개 이상: 진한 파랑 */
+.cal-cell__dot--3 { background: var(--color-point-dark); }
+
+/* 오늘 날짜 위는 항상 흰색 */
+.cal-cell--today .cal-cell__dot {
+  background: rgba(255, 255, 255, 0.85);
+}
+
+/* ── 일정 섹션 ── */
+.cal-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.cal-section__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.cal-section__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1C1C1E;
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+.cal-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--color-point);
+  color: white;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px 14px;
+  border-radius: 20px;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: transform 0.1s ease;
+}
+
+.cal-add-btn:active { transform: scale(0.96); }
+
+/* 빈 상태 */
+.cal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 40px 20px;
+  background: #FAF5EF;
+  border-radius: 20px;
+}
+
+.cal-empty p {
+  font-size: 14px;
+  font-weight: 600;
+  color: #6E6E73;
+  margin: 0;
+}
+
+.cal-empty span {
+  font-size: 12px;
+  color: #A09A93;
+}
+
+.cal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ================================================================
+   ScheduleCard — 스와이프 삭제
+   ================================================================ */
+
+.sch-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+}
+
+.sch-card {
+  display: flex;
+  align-items: stretch;
+  background: #FAF5EF;
+  border-radius: 18px;
+  cursor: pointer;
+  position: relative;
+  z-index: 1;
+  will-change: transform;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sch-card__accent {
+  width: 4px;
+  background: linear-gradient(180deg, #38C55A, #1B6B38);
+  flex-shrink: 0;
+  border-radius: 2px 0 0 2px;
+}
+
+.sch-card__body {
+  flex: 1;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.sch-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sch-card__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1C1C1E;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sch-card__time {
+  font-size: 12px;
+  font-weight: 600;
+  color: #0A7AFF;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sch-card__route {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #A09A93;
+  font-weight: 500;
+  overflow: hidden;
+}
+
+.sch-card__route span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sch-card__days {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.sch-card__day-badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--color-point);
+  background: var(--color-point-bg);
+  padding: 2px 7px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+}
+
+/* 데스크톱 수정 버튼 */
+.sch-card__edit-btn {
+  display: none;
+  background: none;
+  border: none;
+  padding: 14px 14px 14px 8px;
+  cursor: pointer;
+  align-items: center;
+  color: #A09A93;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.sch-card__edit-btn:hover { color: #6E6E73; }
+
+@media (hover: hover) {
+  .sch-card__edit-btn { display: flex; }
+}
+
+/* 삭제 버튼 */
+.sch-delete-btn {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 76px;
+  background: #EF4444;
+  border: none;
+  color: white;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  cursor: pointer;
+  border-radius: 0 18px 18px 0;
+  font-family: inherit;
+}
+
+/* ================================================================
+   BottomSheet
+   ================================================================ */
+
+.sheet-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 200;
+  animation: fade-in 0.2s ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.sheet {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  min-height: 75vh;
+  max-height: 92vh;
+  background: #FAF5EF;
+  border-radius: 24px 24px 0 0;
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  animation: slide-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Noto Sans KR", "Apple SD Gothic Neo", "Helvetica Neue", sans-serif;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0);    }
+}
+
+.sheet__handle {
+  width: 40px;
+  height: 5px;
+  background: #D5CFC8;
+  border-radius: 3px;
+  margin: 12px auto 0;
+  flex-shrink: 0;
+}
+
+.sheet__header {
+  padding: 16px 22px 0;
+  flex-shrink: 0;
+}
+
+.sheet__title {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1C1C1E;
+  letter-spacing: -0.4px;
+  margin: 0;
+}
+
+.sheet__body {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.sheet__footer {
+  display: flex;
+  gap: 10px;
+  padding: 16px 22px calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid #EAE2D8;
+  flex-shrink: 0;
+}
+
+.sheet__btn {
+  flex: 1;
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: -0.2px;
+  transition: transform 0.1s ease;
+}
+
+.sheet__btn:active { transform: scale(0.97); }
+
+.sheet__btn--cancel {
+  background: #E8DDD3;
+  color: #6E6E73;
+}
+
+.sheet__btn--save {
+  background: var(--color-point);
+  color: white;
+}
+
+/* ── 폼 필드 ── */
+.sf {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.sf__label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #A09A93;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sf__input {
+  background: #F0EBE3;
+  border: none;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1C1C1E;
+  font-family: inherit;
+  outline: none;
+  transition: outline 0.15s;
+  width: 100%;
+}
+
+.sf__input:focus {
+  outline: 2px solid var(--color-point);
+  outline-offset: -2px;
+}
+
+.sf__input--time {
+  width: fit-content;
+  min-width: 140px;
+  cursor: pointer;
+}
+
+.sf__hint {
+  font-size: 11px;
+  color: #A09A93;
+  font-weight: 500;
+  margin: 0;
+  padding-left: 2px;
+}
+
+/* 장소 입력 */
+.sf__place-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: #F0EBE3;
+  border-radius: 12px;
+  padding: 12px 14px;
+  cursor: pointer;
+}
+
+.sf__place-row:active {
+  opacity: 0.85;
+}
+
+.sf__place-val {
+  font-size: 15px;
+  font-weight: 500;
+  color: #1C1C1E;
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sf__place-placeholder {
+  font-size: 15px;
+  color: #C0BAB4;
+  flex: 1;
+}
+
+.sf__loc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0A7AFF;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  width: fit-content;
+}
+
+/* 요일 선택 */
+.sf__row-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sf__quick-btns {
+  display: flex;
+  gap: 6px;
+}
+
+.sf__quick {
+  background: #E8DDD3;
+  border: none;
+  border-radius: 8px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6E6E73;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sf__quick:active { opacity: 0.7; }
+
+.sf__days {
+  display: flex;
+  gap: 7px;
+}
+
+.sf__day-btn {
+  flex: 1;
+  aspect-ratio: 1;
+  max-width: 42px;
+  border-radius: 50%;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  background: #E8DDD3;
+  color: #A09A93;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sf__day-btn--on {
+  background: var(--color-point);
+  color: white;
+}
+
+/* ================================================================
+   PlaceSearchOverlay
+   ================================================================ */
+
+.place-overlay {
+  position: fixed;
+  inset: 0;
+  background: #FAF5EF;
+  z-index: 300;
+  display: flex;
+  flex-direction: column;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Noto Sans KR", "Apple SD Gothic Neo", "Helvetica Neue", sans-serif;
+  animation: fade-in 0.18s ease;
+}
+
+.place-overlay__bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid #EAE2D8;
+  flex-shrink: 0;
+}
+
+.place-overlay__back {
+  width: 36px;
+  height: 36px;
+  background: none;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 10px;
+}
+
+.place-overlay__back:active { background: #EAE2D8; }
+
+.place-overlay__input {
+  flex: 1;
+  background: #F0EBE3;
+  border: none;
+  border-radius: 12px;
+  padding: 11px 14px;
+  font-size: 15px;
+  font-weight: 500;
+  color: #1C1C1E;
+  font-family: inherit;
+  outline: none;
+}
+
+.place-overlay__clear {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.place-overlay__results {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 0;
+}
+
+.place-overlay__status,
+.place-overlay__hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 40px 20px;
+  font-size: 14px;
+  color: #A09A93;
+  font-weight: 500;
+}
+
+.place-overlay__spinner {
+  width: 18px;
+  height: 18px;
+  border: 2.5px solid #EAE2D8;
+  border-top-color: #0A7AFF;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.place-result {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 14px 20px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid #EAE2D8;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: background 0.1s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.place-result:active { background: #F0EBE3; }
+
+.place-result__name {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1C1C1E;
+  letter-spacing: -0.2px;
+}
+
+.place-result__addr {
+  font-size: 12px;
+  color: #A09A93;
+  font-weight: 400;
+}
+
+/* ================================================================
+   반응형
+   ================================================================ */
+
+@media (max-width: 480px) {
+  .cal-container { padding: 20px 14px 60px; }
+  .cal-card { padding: 12px 10px; }
+  .cal-cell__num { width: 28px; height: 28px; font-size: 13px; }
+  .sf__days { gap: 5px; }
+  .sf__day-btn { font-size: 12px; max-width: 38px; }
+}
+
+@media (min-width: 768px) {
+  .sheet {
+    bottom: auto;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    width: 560px;
+    min-height: 0;
+    max-height: 88vh;
+    border-radius: 24px;
+    transform: translate(-50%, -50%);
+    animation: sheet-modal-in 0.28s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  @keyframes sheet-modal-in {
+    from { opacity: 0; transform: translate(-50%, -46%); }
+    to   { opacity: 1; transform: translate(-50%, -50%); }
+  }
+}
+
+/* ================================================================
+   이번 주 요약 배지
+   ================================================================ */
+
+.cal-week-summary {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--color-point-bg);
+  color: var(--color-point);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 14px;
+  border-radius: 20px;
+  width: fit-content;
+  letter-spacing: -0.1px;
+}
+
+/* ================================================================
+   오늘 타임라인
+   ================================================================ */
+
+.cal-tl {
+  background: #FAF5EF;
+  border-radius: 18px;
+  padding: 16px 18px;
+  margin-top: 4px;
+}
+
+.cal-tl__title {
+  font-size: 11px;
+  font-weight: 700;
+  color: #A09A93;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+.cal-tl__item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: 54px;
+}
+
+.cal-tl__item--past { opacity: 0.38; }
+
+.cal-tl__times {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 52px;
+  flex-shrink: 0;
+  text-align: right;
+  padding-top: 2px;
+}
+
+.cal-tl__dept {
+  font-size: 13px;
+  font-weight: 700;
+  color: #1C1C1E;
+  letter-spacing: -0.2px;
+}
+
+.cal-tl__arr {
+  font-size: 10px;
+  color: #A09A93;
+  font-weight: 500;
+}
+
+.cal-tl__line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 14px;
+}
+
+.cal-tl__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #C5BFB8;
+  border: 2px solid #FAF5EF;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.cal-tl__item--next .cal-tl__dot {
+  background: var(--color-point);
+}
+
+.cal-tl__connector {
+  width: 2px;
+  flex: 1;
+  min-height: 24px;
+  background: #EAE2D8;
+  margin: 3px 0;
+}
+
+.cal-tl__info {
+  flex: 1;
+  min-width: 0;
+  padding-top: 1px;
+}
+
+.cal-tl__name {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1C1C1E;
+  letter-spacing: -0.2px;
+  margin-bottom: 2px;
+}
+
+.cal-tl__item--next .cal-tl__name { color: var(--color-point); }
+
+.cal-tl__route {
+  font-size: 11.5px;
+  color: #A09A93;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-tl__next-badge {
+  display: inline-block;
+  margin-top: 5px;
+  background: var(--color-point-bg);
+  color: var(--color-point);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 20px;
+}
+
+/* ================================================================
+   ScheduleCard — 경로 보기 버튼
+   ================================================================ */
+
+.sch-card__route-btn {
+  width: 32px;
+  height: 32px;
+  background: var(--color-point-bg);
+  border: none;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.12s;
+}
+
+.sch-card__route-btn:active { background: #DBEAFE; }
+
+/* ================================================================
+   경로 미리보기 시트
+   ================================================================ */
+
+.cal-route-sheet {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 680px;
+  background: #FAF5EF;
+  border-radius: 22px 22px 0 0;
+  z-index: 200;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  animation: sheet-in 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.cal-route-sheet__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid #EAE2D8;
+}
+
+.cal-route-sheet__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1C1C1E;
+  letter-spacing: -0.3px;
+}
+
+.cal-route-sheet__close {
+  width: 32px;
+  height: 32px;
+  background: #F0EBE3;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.cal-route-sheet__body {
+  padding: 16px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 경로 요약 2열 */
+.cal-rp__row {
+  display: flex;
+  align-items: stretch;
+}
+
+.cal-rp__cell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.cal-rp__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #A09A93;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cal-rp__val {
+  font-size: 20px;
+  font-weight: 800;
+  color: #1C1C1E;
+  letter-spacing: -0.4px;
+}
+
+.cal-rp__sub {
+  font-size: 12px;
+  color: var(--color-point);
+  font-weight: 600;
+}
+
+.cal-rp__divider {
+  width: 1px;
+  background: #EAE2D8;
+  margin: 0 16px;
+}
+
+/* 소요 시간 타임라인 */
+.cal-rp__timeline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #F0EBE3;
+  border-radius: 14px;
+  padding: 14px 16px;
+}
+
+.cal-rp__tl-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.cal-rp__tl-icon { font-size: 18px; }
+
+.cal-rp__tl-val {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1C1C1E;
+}
+
+.cal-rp__tl-item--total .cal-rp__tl-val { color: var(--color-point); }
+
+.cal-rp__tl-sub {
+  font-size: 10px;
+  color: #A09A93;
+}
+
+.cal-rp__tl-arrow {
+  font-size: 14px;
+  color: #C5BFB8;
+  padding-bottom: 14px;
+}
+
+/* 메타 칩 */
+.cal-rp__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.cal-rp__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--color-point-bg);
+  color: var(--color-point);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+}
+
+/* ================================================================
+   Dark mode 추가
+   ================================================================ */
+
+[data-theme="dark"] .cal-week-summary {
+  background: var(--color-point-bg);
+  color: var(--color-point);
+}
+
+[data-theme="dark"] .cal-tl {
+  background: #252527;
+}
+
+[data-theme="dark"] .cal-tl__title    { color: #4A4A4E; }
+[data-theme="dark"] .cal-tl__dept     { color: #F5F5F7; }
+[data-theme="dark"] .cal-tl__arr      { color: #636366; }
+[data-theme="dark"] .cal-tl__dot      { background: #4A4A4E; border-color: #252527; }
+[data-theme="dark"] .cal-tl__item--next .cal-tl__dot { background: var(--color-point); }
+[data-theme="dark"] .cal-tl__connector { background: #3A3A3C; }
+[data-theme="dark"] .cal-tl__name     { color: #F5F5F7; }
+[data-theme="dark"] .cal-tl__route    { color: #636366; }
+[data-theme="dark"] .cal-tl__next-badge { background: var(--color-point-bg); color: var(--color-point); }
+[data-theme="dark"] .cal-tl__item--next .cal-tl__name { color: var(--color-point); }
+
+[data-theme="dark"] .sch-card__route-btn { background: var(--color-point-bg); }
+
+[data-theme="dark"] .cal-route-sheet {
+  background: #252527;
+}
+
+[data-theme="dark"] .sheet {
+  background: #252527;
+}
+[data-theme="dark"] .cal-route-sheet__header { border-bottom-color: #3A3A3C; }
+[data-theme="dark"] .cal-route-sheet__title  { color: #F5F5F7; }
+[data-theme="dark"] .cal-route-sheet__close  { background: #313134; }
+[data-theme="dark"] .cal-rp__label          { color: #636366; }
+[data-theme="dark"] .cal-rp__val            { color: #F5F5F7; }
+[data-theme="dark"] .cal-rp__divider        { background: #3A3A3C; }
+[data-theme="dark"] .cal-rp__timeline       { background: #313134; }
+[data-theme="dark"] .cal-rp__tl-val         { color: #F5F5F7; }
+[data-theme="dark"] .cal-rp__tl-sub         { color: #636366; }
+[data-theme="dark"] .cal-rp__chip           { background: var(--color-point-bg); color: var(--color-point); }
+
+/* ================================================================
+   ScheduleAccordion (sac) — 아코디언 카드 스택
+   ================================================================ */
+
+.cal-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 카드 기본 */
+.sac {
+  background: #FAF5EF;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+/* ── 헤더 ── */
+.sac-header {
+  padding: 18px 20px 0;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sac-header__info {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+
+.sac-header__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sac-header__sub {
+  font-size: 12px;
+  color: #888;
+  font-weight: 400;
+}
+
+.sac-header__arr {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-point);
+  flex-shrink: 0;
+  letter-spacing: -0.3px;
+  padding-top: 1px;
+}
+
+/* ── 카드 본문 ── */
+.sac-body {
+  padding: 12px 20px 18px;
+  display: flex;
+  flex-direction: column;
+}
+
+.sac-route {
+  font-size: 12px;
+  color: #888;
+  margin: 0;
+  padding-top: 2px;
+}
+
+.sac-divider {
+  height: 0.5px;
+  background: #f0f0f0;
+  margin: 12px 0;
+}
+
+.sac-depart__main {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0 0 3px;
+}
+
+.sac-depart__sub {
+  font-size: 11px;
+  color: #888;
+  margin: 0;
+}
+
+/* ── 반복 요일 ── */
+.sac-days {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.sac-day {
+  font-size: 12px;
+  font-weight: 400;
+  color: #ccc;
+}
+
+.sac-day--on {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-point);
+}
+
+.sac-day--today {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-point);
+}
+
+/* ── 버튼 ── */
+.sac-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.sac-btn {
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.15s;
+}
+
+.sac-btn:active { opacity: 0.7; }
+
+.sac-btn--edit {
+  background: #f5f5f5;
+  color: #1a1a1a;
+}
+
+.sac-btn--del {
+  background: transparent;
+  color: #888;
+}
+
+/* ── 빈 날 카드 ── */
+.sac--empty {
+  background: #FAF5EF;
+  padding: 24px;
+  text-align: center;
+}
+
+.sac-empty__text {
+  font-size: 14px;
+  color: #888;
+  margin: 0;
+}
+
+/* ── 새 일정 추가 카드 ── */
+.sac--add {
+  background: transparent;
+  border: 1.5px dashed #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  cursor: pointer;
+  width: 100%;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.sac--add:active {
+  background: var(--color-point-bg);
+  border-color: var(--color-point);
+}
+
+.sac-add__label {
+  font-size: 14px;
+  color: #888;
+}
+
+/* ── 다크모드 ── */
+[data-theme="dark"] .sac {
+  background: #2A2825;
+}
+
+[data-theme="dark"] .sac--empty { background: #252527; }
+
+[data-theme="dark"] .sac-header__title { color: #f0f0f0; }
+[data-theme="dark"] .sac-header__sub   { color: #555; }
+[data-theme="dark"] .sac-route         { color: #555; }
+[data-theme="dark"] .sac-depart__main  { color: #f0f0f0; }
+[data-theme="dark"] .sac-depart__sub   { color: #555; }
+[data-theme="dark"] .sac-divider       { background: #2a2a2a; }
+[data-theme="dark"] .sac-btn--edit     { background: #2a2a2a; color: #f0f0f0; }
+[data-theme="dark"] .sac--add          { border-color: #333; }

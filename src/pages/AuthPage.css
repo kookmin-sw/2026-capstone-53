@@ -1,0 +1,235 @@
+/* ================================================================
+   Auth Pages — 로그인 / 회원가입 공통
+   ================================================================ */
+
+.auth {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: #F7F2EB;
+  padding: 0 24px 48px;
+}
+
+[data-theme="dark"] .auth {
+  background: #1a1917;
+}
+
+.auth__inner {
+  width: 100%;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ── 헤더 ── */
+.auth__logo {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.auth__app-name {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--color-point);
+  margin: 0 0 8px;
+  letter-spacing: -0.3px;
+}
+
+.auth__tagline {
+  font-size: 13px;
+  color: #888;
+  margin: 0;
+  font-weight: 400;
+}
+
+[data-theme="dark"] .auth__tagline {
+  color: #666;
+}
+
+/* ── 뒤로가기 헤더 (회원가입) ── */
+.auth__topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 32px;
+}
+
+.auth__back-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: #888;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-theme="dark"] .auth__back-btn {
+  color: #666;
+}
+
+.auth__page-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0;
+  letter-spacing: -0.3px;
+}
+
+[data-theme="dark"] .auth__page-title {
+  color: #e8e4dc;
+}
+
+/* ── 입력 필드 ── */
+.auth__field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.auth__field + .auth__field {
+  margin-top: 10px;
+}
+
+.auth__input {
+  width: 100%;
+  padding: 14px 16px;
+  font-size: 14px;
+  font-family: inherit;
+  border: 1.5px solid #e0e0e0;
+  border-radius: 12px;
+  background: #fff;
+  color: #1a1a1a;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.auth__input::placeholder {
+  color: #b0b0b0;
+}
+
+.auth__input:focus {
+  border-color: var(--color-point);
+}
+
+.auth__input--error {
+  border-color: #ef4444;
+}
+
+[data-theme="dark"] .auth__input {
+  background: #2A2825;
+  border-color: #3a3835;
+  color: #e8e4dc;
+}
+
+[data-theme="dark"] .auth__input::placeholder {
+  color: #5a5855;
+}
+
+[data-theme="dark"] .auth__input:focus {
+  border-color: var(--color-point);
+}
+
+[data-theme="dark"] .auth__input--error {
+  border-color: #ef4444;
+}
+
+.auth__error {
+  font-size: 11px;
+  color: #ef4444;
+  padding-left: 4px;
+  line-height: 1.4;
+}
+
+/* ── 버튼 ── */
+.auth__btn {
+  width: 100%;
+  padding: 14px;
+  font-size: 15px;
+  font-weight: 600;
+  font-family: inherit;
+  color: white;
+  background: var(--color-point);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: opacity 0.15s, transform 0.1s;
+  letter-spacing: -0.2px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.auth__btn:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}
+
+.auth__btn--disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+[data-theme="dark"] .auth__btn--disabled {
+  background: #3a3835;
+  color: #666;
+}
+
+.auth__btn-signup {
+  margin-top: 24px;
+}
+
+/* ── 하단 링크 ── */
+.auth__footer {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 13px;
+  color: #888;
+}
+
+[data-theme="dark"] .auth__footer {
+  color: #666;
+}
+
+.auth__link {
+  color: var(--color-point);
+  font-weight: 500;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  font-family: inherit;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── 토스트 ── */
+.auth__toast {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1a1a1a;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 10px 20px;
+  border-radius: 20px;
+  white-space: nowrap;
+  animation: auth-toast-in 0.2s ease;
+  z-index: 9999;
+}
+
+[data-theme="dark"] .auth__toast {
+  background: #e8e4dc;
+  color: #1a1917;
+}
+
+@keyframes auth-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}

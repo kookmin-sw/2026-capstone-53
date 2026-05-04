@@ -1,0 +1,774 @@
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { mockSchedules, mockRouteInfo } from '../data/mockData';
+import './Calendar.css';
+
+/* ================================================================
+   상수 & 유틸
+   ================================================================ */
+
+const DAY_LABELS  = ['일', '월', '화', '수', '목', '금', '토'];
+const DAY_KEYS    = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+const DAY_SHORT   = { SUN: '일', MON: '월', TUE: '화', WED: '수', THU: '목', FRI: '금', SAT: '토' };
+const DAY_NUM     = { SUN: 0, MON: 1, TUE: 2, WED: 3, THU: 4, FRI: 5, SAT: 6 };
+
+function getCalendarDays(year, month) {
+  const firstDow    = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const days = Array(firstDow).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) days.push(d);
+  while (days.length % 7 !== 0) days.push(null);
+  return days;
+}
+
+function scheduleActiveOnDate(sch, year, month, day) {
+  if (sch.status !== 'ACTIVE') return false;
+  const target = new Date(year, month, day);
+  const [sy, sm, sd] = sch.startDate.split('-').map(Number);
+  if (target < new Date(sy, sm - 1, sd)) return false;
+  if (sch.endDate) {
+    const [ey, em, ed] = sch.endDate.split('-').map(Number);
+    if (target > new Date(ey, em - 1, ed)) return false;
+  }
+  const dow = target.getDay();
+  return sch.repeatDays.some(d => DAY_NUM[d] === dow);
+}
+
+function getSchedulesForDate(schedules, year, month, day) {
+  return schedules.filter(s => scheduleActiveOnDate(s, year, month, day));
+}
+
+function hasSchedule(schedules, year, month, day) {
+  return schedules.some(s => scheduleActiveOnDate(s, year, month, day));
+}
+
+function padTwo(n) { return String(n).padStart(2, '0'); }
+
+/* ================================================================
+   PlaceSearchOverlay — 카카오 장소 검색
+   ================================================================ */
+
+function PlaceSearchOverlay({ field, onSelect, onClose }) {
+  const [query, setQuery]     = useState('');
+  const [results, setResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const timerRef  = useRef(null);
+  const inputRef  = useRef(null);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
+  const search = (q) => {
+    setQuery(q);
+    clearTimeout(timerRef.current);
+    if (!q.trim()) { setResults([]); setLoading(false); return; }
+    setLoading(true);
+    timerRef.current = setTimeout(() => {
+      const kakao = window.kakao;
+      if (!kakao?.maps?.services) { setLoading(false); return; }
+      new kakao.maps.services.Places().keywordSearch(q, (data, status) => {
+        setLoading(false);
+        setResults(status === kakao.maps.services.Status.OK ? data.slice(0, 7) : []);
+      });
+    }, 380);
+  };
+
+  return (
+    <div className="place-overlay">
+      <div className="place-overlay__bar">
+        <button className="place-overlay__back" onClick={onClose}>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+            <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="#1C1C1E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
+        <input
+          ref={inputRef}
+          className="place-overlay__input"
+          type="text"
+          placeholder={field === 'origin' ? '출발지를 검색하세요' : '도착지를 검색하세요'}
+          value={query}
+          onChange={e => search(e.target.value)}
+        />
+        {query && (
+          <button className="place-overlay__clear" onClick={() => { setQuery(''); setResults([]); inputRef.current?.focus(); }}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="12" r="9" fill="#C0BAB4"/>
+              <path d="M9 9l6 6M15 9l-6 6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        )}
+      </div>
+
+      <div className="place-overlay__results">
+        {loading && (
+          <div className="place-overlay__status">
+            <div className="place-overlay__spinner" />
+            검색 중...
+          </div>
+        )}
+        {!loading && query && results.length === 0 && (
+          <div className="place-overlay__status">검색 결과가 없어요</div>
+        )}
+        {!loading && !query && (
+          <div className="place-overlay__hint">장소명, 주소, 건물명으로 검색하세요</div>
+        )}
+        {results.map(place => (
+          <button key={place.id} className="place-result" onClick={() => onSelect(place)}>
+            <div className="place-result__name">{place.place_name}</div>
+            <div className="place-result__addr">{place.road_address_name || place.address_name}</div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   BottomSheet — 일정 추가 / 수정
+   ================================================================ */
+
+const EMPTY_FORM = {
+  title: '',
+  originName: '', originCoordinates: null,
+  destinationName: '', destinationCoordinates: null,
+  arrivalTime: '09:00',
+  repeatDays: [],
+};
+
+function BottomSheet({ editingSchedule, onClose, onSave }) {
+  const [form, setForm]           = useState(EMPTY_FORM);
+  const [placeField, setPlaceField] = useState(null); // 'origin' | 'destination' | null
+  const sheetRef = useRef(null);
+
+  useEffect(() => {
+    if (editingSchedule) {
+      setForm({
+        title:                editingSchedule.title            || '',
+        originName:           editingSchedule.originName       || '',
+        originCoordinates:    editingSchedule.originCoordinates || null,
+        destinationName:      editingSchedule.destinationName  || '',
+        destinationCoordinates: editingSchedule.destinationCoordinates || null,
+        arrivalTime:          editingSchedule.arrivalTime      || '09:00',
+        repeatDays:           [...(editingSchedule.repeatDays || [])],
+      });
+    } else {
+      setForm(EMPTY_FORM);
+    }
+  }, [editingSchedule]);
+
+  // 바텀시트 열릴 때 스크롤 잠금
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => { document.body.style.overflow = ''; };
+  }, []);
+
+  const set = (key, val) => setForm(f => ({ ...f, [key]: val }));
+
+  const toggleDay = (day) =>
+    set('repeatDays', form.repeatDays.includes(day)
+      ? form.repeatDays.filter(d => d !== day)
+      : [...form.repeatDays, day]);
+
+  const setAllDays = () => set('repeatDays', [...DAY_KEYS]);
+  const setWeekdays = () => set('repeatDays', ['MON', 'TUE', 'WED', 'THU', 'FRI']);
+
+  const fillCurrentLocation = (field) => {
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(({ coords }) => {
+      const nameKey  = field === 'origin' ? 'originName'        : 'destinationName';
+      const coordKey = field === 'origin' ? 'originCoordinates' : 'destinationCoordinates';
+      setForm(f => ({ ...f, [nameKey]: '현재 위치', [coordKey]: { lat: coords.latitude, lng: coords.longitude } }));
+    });
+  };
+
+  const handlePlaceSelect = (place) => {
+    const nameKey  = placeField === 'origin' ? 'originName'        : 'destinationName';
+    const coordKey = placeField === 'origin' ? 'originCoordinates' : 'destinationCoordinates';
+    setForm(f => ({
+      ...f,
+      [nameKey]:  place.place_name,
+      [coordKey]: { lat: parseFloat(place.y), lng: parseFloat(place.x) },
+    }));
+    setPlaceField(null);
+  };
+
+  const handleSave = () => {
+    if (!form.title.trim()) { alert('일정 이름을 입력해주세요'); return; }
+    onSave(form);
+  };
+
+  const isEditing = !!editingSchedule;
+
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="sheet" ref={sheetRef}>
+        <div className="sheet__handle" />
+        <div className="sheet__header">
+          <h3 className="sheet__title">{isEditing ? '일정 수정' : '새 일정 추가'}</h3>
+        </div>
+
+        <div className="sheet__body">
+          {/* 일정 이름 */}
+          <div className="sf">
+            <label className="sf__label">일정 이름</label>
+            <input
+              className="sf__input"
+              type="text"
+              placeholder="일정 이름 (예: 학교 수업)"
+              value={form.title}
+              onChange={e => set('title', e.target.value)}
+            />
+          </div>
+
+          {/* 출발지 */}
+          <div className="sf">
+            <label className="sf__label">출발지</label>
+            <div className="sf__place-row" onClick={() => setPlaceField('origin')}>
+              <span className={form.originName ? 'sf__place-val' : 'sf__place-placeholder'}>
+                {form.originName || '출발지를 검색하세요'}
+              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="7" stroke="#A09A93" strokeWidth="2"/>
+                <path d="M21 21l-4-4" stroke="#A09A93" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <button className="sf__loc-btn" onClick={() => fillCurrentLocation('origin')}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="4" fill="#0A7AFF"/>
+                <circle cx="12" cy="12" r="9" stroke="#0A7AFF" strokeWidth="2" fill="none"/>
+              </svg>
+              현재 위치 사용
+            </button>
+          </div>
+
+          {/* 도착지 */}
+          <div className="sf">
+            <label className="sf__label">도착지</label>
+            <div className="sf__place-row" onClick={() => setPlaceField('destination')}>
+              <span className={form.destinationName ? 'sf__place-val' : 'sf__place-placeholder'}>
+                {form.destinationName || '도착지를 검색하세요'}
+              </span>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="11" cy="11" r="7" stroke="#A09A93" strokeWidth="2"/>
+                <path d="M21 21l-4-4" stroke="#A09A93" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </div>
+            <button className="sf__loc-btn" onClick={() => fillCurrentLocation('destination')}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="4" fill="#0A7AFF"/>
+                <circle cx="12" cy="12" r="9" stroke="#0A7AFF" strokeWidth="2" fill="none"/>
+              </svg>
+              현재 위치 사용
+            </button>
+          </div>
+
+          {/* 도착 희망 시간 */}
+          <div className="sf">
+            <label className="sf__label">도착 희망 시간</label>
+            <input
+              className="sf__input sf__input--time"
+              type="time"
+              value={form.arrivalTime}
+              onChange={e => set('arrivalTime', e.target.value)}
+            />
+            <p className="sf__hint">출발 시간이 아닌 도착 시간입니다</p>
+          </div>
+
+          {/* 반복 요일 */}
+          <div className="sf">
+            <div className="sf__row-label">
+              <label className="sf__label">반복 요일</label>
+              <div className="sf__quick-btns">
+                <button className="sf__quick" onClick={setWeekdays}>평일</button>
+                <button className="sf__quick" onClick={setAllDays}>매일</button>
+              </div>
+            </div>
+            <div className="sf__days">
+              {DAY_KEYS.map(d => (
+                <button
+                  key={d}
+                  className={`sf__day-btn ${form.repeatDays.includes(d) ? 'sf__day-btn--on' : ''}`}
+                  onClick={() => toggleDay(d)}
+                >
+                  {DAY_SHORT[d]}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="sheet__footer">
+          <button className="sheet__btn sheet__btn--cancel" onClick={onClose}>취소</button>
+          <button className="sheet__btn sheet__btn--save"   onClick={handleSave}>
+            {isEditing ? '수정 완료' : '저장'}
+          </button>
+        </div>
+      </div>
+
+      {placeField && (
+        <PlaceSearchOverlay
+          field={placeField}
+          onSelect={handlePlaceSelect}
+          onClose={() => setPlaceField(null)}
+        />
+      )}
+    </>
+  );
+}
+
+/* ================================================================
+   DayTimeline — 오늘 일정 타임라인
+   ================================================================ */
+
+function DayTimeline({ schedules }) {
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+
+  const toMins = (timeStr) => {
+    if (!timeStr) return 9999;
+    const [h, m] = timeStr.split(':').map(Number);
+    return h * 60 + m;
+  };
+
+  const sorted = [...schedules].sort((a, b) =>
+    toMins(a.departureTime || a.arrivalTime) - toMins(b.departureTime || b.arrivalTime)
+  );
+
+  const nextIdx = sorted.findIndex(s => toMins(s.departureTime || s.arrivalTime) > nowMins);
+
+  return (
+    <div className="cal-tl">
+      <div className="cal-tl__title">오늘 타임라인</div>
+      {sorted.map((sch, i) => {
+        const deptMins = toMins(sch.departureTime || sch.arrivalTime);
+        const past     = deptMins < nowMins;
+        const isNext   = i === nextIdx;
+        return (
+          <div
+            key={sch.scheduleId}
+            className={`cal-tl__item${past ? ' cal-tl__item--past' : ''}${isNext ? ' cal-tl__item--next' : ''}`}
+          >
+            <div className="cal-tl__times">
+              <span className="cal-tl__dept">{sch.departureTime || '—'}</span>
+              <span className="cal-tl__arr">{sch.arrivalTime} 도착</span>
+            </div>
+            <div className="cal-tl__line">
+              <div className="cal-tl__dot" />
+              {i < sorted.length - 1 && <div className="cal-tl__connector" />}
+            </div>
+            <div className="cal-tl__info">
+              <div className="cal-tl__name">{sch.title}</div>
+              <div className="cal-tl__route">
+                {sch.originName} → {sch.destinationName}
+              </div>
+              {isNext && <span className="cal-tl__next-badge">다음 일정</span>}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+/* ================================================================
+   RoutePreviewSheet — 경로 미리보기 시트
+   ================================================================ */
+
+function RoutePreviewSheet({ schedule, onClose }) {
+  const r = mockRouteInfo;
+  const walkMins = Math.max(1, Math.round(r.route.boardingStop.walkingTimeSeconds / 60));
+
+  return (
+    <>
+      <div className="sheet-backdrop" onClick={onClose} />
+      <div className="cal-route-sheet">
+        <div className="sheet__handle" />
+        <div className="cal-route-sheet__header">
+          <span className="cal-route-sheet__title">{schedule.title} — 경로</span>
+          <button className="cal-route-sheet__close" onClick={onClose}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M18 6L6 18M6 6l12 12" stroke="#A09A93" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          </button>
+        </div>
+
+        <div className="cal-route-sheet__body">
+          {/* 경로 요약 */}
+          <div className="cal-rp__row">
+            <div className="cal-rp__cell">
+              <span className="cal-rp__label">승차 정류장</span>
+              <span className="cal-rp__val">{r.route.boardingStop.stopName}</span>
+              <span className="cal-rp__sub">도보 {walkMins}분</span>
+            </div>
+            <div className="cal-rp__divider" />
+            <div className="cal-rp__cell">
+              <span className="cal-rp__label">이용 노선</span>
+              <span className="cal-rp__val">{r.route.busRoute.routeName}번</span>
+              <span className="cal-rp__sub">{r.route.busRoute.busTripMinutes}분 소요</span>
+            </div>
+          </div>
+
+          {/* 소요 시간 */}
+          <div className="cal-rp__timeline">
+            <div className="cal-rp__tl-item">
+              <span className="cal-rp__tl-icon">🚶</span>
+              <span className="cal-rp__tl-val">{walkMins}분</span>
+              <span className="cal-rp__tl-sub">도보</span>
+            </div>
+            <span className="cal-rp__tl-arrow">→</span>
+            <div className="cal-rp__tl-item">
+              <span className="cal-rp__tl-icon">🚌</span>
+              <span className="cal-rp__tl-val">{r.route.busRoute.busTripMinutes}분</span>
+              <span className="cal-rp__tl-sub">버스</span>
+            </div>
+            <span className="cal-rp__tl-arrow">=</span>
+            <div className="cal-rp__tl-item cal-rp__tl-item--total">
+              <span className="cal-rp__tl-val">총 {r.route.totalTripMinutes}분</span>
+              <span className="cal-rp__tl-sub">소요</span>
+            </div>
+          </div>
+
+          {/* 메타 */}
+          <div className="cal-rp__meta">
+            <span className="cal-rp__chip">환승 없음</span>
+            <span className="cal-rp__chip">여유시간 {r.departureInfo.bufferMinutes}분 포함</span>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ================================================================
+   ScheduleCard — 플랫 카드 (항상 펼쳐진 형태)
+   ================================================================ */
+
+const DAY_ORDER = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+
+function calcDepTime(arrivalTime, durationMin) {
+  if (!arrivalTime || !durationMin) return null;
+  const [h, m] = arrivalTime.split(':').map(Number);
+  const dep = h * 60 + m - durationMin;
+  const norm = ((dep % 1440) + 1440) % 1440;
+  return `${String(Math.floor(norm / 60)).padStart(2, '0')}:${String(norm % 60).padStart(2, '0')}`;
+}
+
+function ScheduleAccordion({ schedule, onEdit, onDelete, todayDow }) {
+  const depTime    = calcDepTime(schedule.arrivalTime, schedule.averageDurationMinutes);
+  const sortedDays = [...(schedule.repeatDays || [])].sort(
+    (a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b)
+  );
+
+  return (
+    <div className="sac">
+
+      {/* 상단: 타이틀 + 도착 시각 */}
+      <div className="sac-header">
+        <div className="sac-header__info">
+          <span className="sac-header__title">{schedule.title}</span>
+          <span className="sac-header__sub">{schedule.originName} → {schedule.destinationName}</span>
+        </div>
+        <span className="sac-header__arr">{schedule.arrivalTime}</span>
+      </div>
+
+      {/* 본문 */}
+      <div className="sac-body">
+
+        {/* 구분선 */}
+        <div className="sac-divider" />
+
+        {/* 출발 안내 */}
+        <div className="sac-depart">
+          <p className="sac-depart__main">
+            {depTime
+              ? `${depTime} 출발 → ${schedule.arrivalTime} 도착`
+              : `${schedule.arrivalTime} 도착`}
+          </p>
+          <p className="sac-depart__sub">
+            {schedule.averageDurationMinutes ? `${schedule.averageDurationMinutes}분 · ` : ''}환승 1회 · 여유 30분
+          </p>
+        </div>
+
+        {/* 반복 요일 */}
+        {sortedDays.length > 0 && (
+          <div className="sac-days">
+            {DAY_KEYS.map(key => {
+              const isOn    = sortedDays.includes(key);
+              const isToday = DAY_NUM[key] === todayDow;
+              return (
+                <span
+                  key={key}
+                  className={[
+                    'sac-day',
+                    isOn && isToday ? 'sac-day--today' :
+                    isOn            ? 'sac-day--on'    : '',
+                  ].join(' ')}
+                >
+                  {DAY_SHORT[key]}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 버튼 */}
+        <div className="sac-actions">
+          <button className="sac-btn sac-btn--edit" onClick={() => onEdit(schedule)}>수정</button>
+          <button className="sac-btn sac-btn--del"  onClick={() => onDelete(schedule.scheduleId)}>삭제</button>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+/* ── 빈 날 카드 ── */
+function EmptyDayCard() {
+  return (
+    <div className="sac sac--empty">
+      <p className="sac-empty__text">이 날에는 일정이 없어요</p>
+    </div>
+  );
+}
+
+/* ── 새 일정 추가 카드 ── */
+function AddScheduleCard({ onClick }) {
+  return (
+    <button className="sac sac--add" onClick={onClick}>
+      <span className="sac-add__label">새 일정 추가</span>
+    </button>
+  );
+}
+
+/* ================================================================
+   CalendarPage — 메인
+   ================================================================ */
+
+function CalendarPage() {
+  const today     = new Date();
+  const todayY    = today.getFullYear();
+  const todayM    = today.getMonth();
+  const todayD    = today.getDate();
+
+  const [year, setYear]         = useState(todayY);
+  const [month, setMonth]       = useState(todayM);
+  const [selDay, setSelDay]     = useState(todayD);
+  const [schedules, setSchedules] = useState(mockSchedules);
+  const [showSheet, setShowSheet]   = useState(false);
+  const [editingSch, setEditingSch] = useState(null);
+  const todayDow = today.getDay();
+
+  // 이번 주 일정 수
+  const thisWeekCount = useMemo(() => {
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay());
+    let count = 0;
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(weekStart);
+      d.setDate(weekStart.getDate() + i);
+      count += getSchedulesForDate(schedules, d.getFullYear(), d.getMonth(), d.getDate()).length;
+    }
+    return count;
+  }, [schedules]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isToday = selDay === todayD && month === todayM && year === todayY;
+
+  const prevMonth = () => {
+    if (month === 0) { setYear(y => y - 1); setMonth(11); }
+    else setMonth(m => m - 1);
+    setSelDay(1);
+  };
+  const nextMonth = () => {
+    if (month === 11) { setYear(y => y + 1); setMonth(0); }
+    else setMonth(m => m + 1);
+    setSelDay(1);
+  };
+
+  const calDays = getCalendarDays(year, month);
+  const daySchedules = getSchedulesForDate(schedules, year, month, selDay);
+  const selDow = new Date(year, month, selDay).getDay();
+
+  const openAdd = () => { setEditingSch(null); setShowSheet(true); };
+  const openEdit = (sch) => { setEditingSch(sch); setShowSheet(true); };
+  const closeSheet = () => { setShowSheet(false); setEditingSch(null); };
+
+  const handleSave = (form) => {
+    // POST /schedules 요청 형식 (API 명세 v0.3 §5.1)
+    const apiRequest = {
+      title: form.title,
+      origin: {
+        name: form.originName,
+        lat:  form.originCoordinates?.lat ?? null,
+        lng:  form.originCoordinates?.lng ?? null,
+      },
+      destination: {
+        name: form.destinationName,
+        lat:  form.destinationCoordinates?.lat ?? null,
+        lng:  form.destinationCoordinates?.lng ?? null,
+      },
+      arrivalTime: `${year}-${padTwo(month + 1)}-${padTwo(selDay)}T${form.arrivalTime}:00+09:00`,
+      reminderOffsetMinutes: 30,
+      routineRule: form.repeatDays.length > 0
+        ? { type: 'WEEKLY', daysOfWeek: form.repeatDays }
+        : null,
+    };
+
+    // TODO: await api.post('/schedules', apiRequest)
+    // 응답을 받으면 scheduleId / reminderAt / averageDurationMinutes 서버가 채워줌
+    // 로컬 상태용 Calendar 표시 형식으로 변환
+    const scheduleId = editingSch?.scheduleId ?? `sch-${Date.now()}`;
+    const calEntry = {
+      scheduleId,
+      title:                  apiRequest.title,
+      originName:             apiRequest.origin.name,
+      originCoordinates:      { lat: apiRequest.origin.lat, lng: apiRequest.origin.lng },
+      destinationName:        apiRequest.destination.name,
+      destinationCoordinates: { lat: apiRequest.destination.lat, lng: apiRequest.destination.lng },
+      arrivalTime:            form.arrivalTime,          // "09:00" 표시용
+      departureTime:          null,                      // 서버 계산 (reminderAt)
+      repeatDays:             apiRequest.routineRule?.daysOfWeek ?? [],
+      routineRule:            apiRequest.routineRule,
+      startDate:              `${year}-${padTwo(month + 1)}-${padTwo(selDay)}`,
+      endDate:                null,
+      status:                 'ACTIVE',
+      averageDurationMinutes: null,                      // 서버 계산
+    };
+
+    if (editingSch) {
+      setSchedules(s => s.map(x => x.scheduleId === scheduleId ? calEntry : x));
+    } else {
+      setSchedules(s => [...s, calEntry]);
+    }
+    closeSheet();
+  };
+
+  const handleDelete = useCallback((id) => {
+    setSchedules(s => s.filter(x => x.scheduleId !== id));
+  }, []);
+
+  const monthLabel = `${year}년 ${month + 1}월`;
+  const selLabel   = `${month + 1}월 ${selDay}일 (${DAY_LABELS[selDow]})`;
+
+  return (
+    <div className="cal-page">
+      <div className="cal-container">
+
+        {/* ── 월 네비게이션 ── */}
+        <div className="cal-nav">
+          <button className="cal-nav__arrow" onClick={prevMonth}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M15 18l-6-6 6-6" stroke="#1C1C1E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <span className="cal-nav__label">{monthLabel}</span>
+          <button className="cal-nav__arrow" onClick={nextMonth}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <path d="M9 18l6-6-6-6" stroke="#1C1C1E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* ── 이번 주 요약 배지 ── */}
+        {thisWeekCount > 0 && (
+          <div className="cal-week-summary">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
+              <path d="M3 10h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+            이번 주 일정 {thisWeekCount}개
+          </div>
+        )}
+
+        {/* ── 달력 카드 ── */}
+        <div className="cal-card">
+          {/* 요일 헤더 */}
+          <div className="cal-weekdays">
+            {DAY_LABELS.map((d, i) => (
+              <span key={d} className={`cal-wd ${i === 0 ? 'cal-wd--sun' : i === 6 ? 'cal-wd--sat' : ''}`}>
+                {d}
+              </span>
+            ))}
+          </div>
+
+          {/* 날짜 그리드 */}
+          <div className="cal-grid">
+            {calDays.map((day, i) => {
+              if (day === null) return <div key={`e-${i}`} className="cal-cell cal-cell--empty" />;
+              const col     = i % 7;
+              const isToday = day === todayD && month === todayM && year === todayY;
+              const isSel   = day === selDay && !isToday;
+              const dotCount = getSchedulesForDate(schedules, year, month, day).length;
+              const isSun   = col === 0;
+              const isSat   = col === 6;
+              const dotClass = dotCount === 0 ? ''
+                : dotCount === 1 ? 'cal-cell__dot--1'
+                : dotCount === 2 ? 'cal-cell__dot--2'
+                : 'cal-cell__dot--3';
+              return (
+                <div
+                  key={`d-${day}`}
+                  className={[
+                    'cal-cell',
+                    isToday ? 'cal-cell--today'    : '',
+                    isSel   ? 'cal-cell--selected' : '',
+                    isSun   ? 'cal-cell--sun'      : '',
+                    isSat   ? 'cal-cell--sat'      : '',
+                  ].join(' ')}
+                  onClick={() => setSelDay(day)}
+                >
+                  <span className="cal-cell__num">{day}</span>
+                  {dotCount > 0 && <span className={`cal-cell__dot ${dotClass}`} />}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* ── 선택된 날짜 일정 ── */}
+        <div className="cal-section">
+          <div className="cal-section__header">
+            <h3 className="cal-section__title">{selLabel}</h3>
+            <button className="cal-add-btn" onClick={openAdd}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+                <path d="M12 5v14M5 12h14" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+              </svg>
+              새 일정
+            </button>
+          </div>
+
+          {/* 아코디언 카드 스택 */}
+          <div className="cal-stack">
+            {daySchedules.length === 0 && <EmptyDayCard />}
+            {daySchedules.map(sch => (
+              <ScheduleAccordion
+                key={sch.scheduleId}
+                schedule={sch}
+                onEdit={openEdit}
+                onDelete={handleDelete}
+                todayDow={todayDow}
+              />
+            ))}
+            <AddScheduleCard onClick={openAdd} />
+          </div>
+
+          {/* 오늘 선택 시 타임라인 뷰 */}
+          {isToday && daySchedules.length > 0 && (
+            <DayTimeline schedules={daySchedules} />
+          )}
+        </div>
+
+      </div>
+
+      {/* ── 일정 추가/수정 바텀시트 ── */}
+      {showSheet && (
+        <BottomSheet
+          editingSchedule={editingSch}
+          onClose={closeSheet}
+          onSave={handleSave}
+        />
+      )}
+
+    </div>
+  );
+}
+
+export default CalendarPage;

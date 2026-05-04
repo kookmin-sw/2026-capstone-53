@@ -1,0 +1,870 @@
+/* ================================================================
+   CalendarV3 — 감성 미니멀 캘린더
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@200;300;400;500&family=Noto+Sans+KR:wght@300;400&display=swap');
+
+/* ── 디자인 토큰 ── */
+.cv3 {
+  --serif:   'Noto Serif KR', serif;
+  --sans:    'Noto Sans KR', sans-serif;
+  --bg:      #faf9f7;
+  --ink:     #1a1917;
+  --accent:  #8B7BB5;
+  --sub1:    #b5b0a8;
+  --sub2:    #8a8580;
+  --dim:     #ccc;
+  --rule:    #e4e0da;
+  --sun:     #c4a0a0;
+  --sat:     #a0a4c4;
+  --del:     #c4a0a0;
+  --pad:     28px;
+}
+
+/* ── 셸 ── */
+.cv3 {
+  height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--sans);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ================================================================
+   상단 바 (데스크톱)
+   ================================================================ */
+
+.cv3-topbar { display: none; }
+
+@media (min-width: 768px) {
+  .cv3-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 40px;
+    height: 56px;
+    flex-shrink: 0;
+    border-bottom: 0.5px solid var(--rule);
+    background: var(--bg);
+  }
+}
+
+.cv3-topbar__brand {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: 1px;
+}
+
+.cv3-topbar__nav { display: flex; gap: 32px; }
+
+.cv3-topbar__link {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--sub2);
+  letter-spacing: 0.5px;
+  padding: 4px 0;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+
+.cv3-topbar__link--on {
+  font-family: var(--serif);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* ================================================================
+   하단 탭 (모바일)
+   ================================================================ */
+
+.cv3-bottomtab {
+  display: flex;
+  flex-shrink: 0;
+  background: var(--bg);
+  border-top: 0.5px solid var(--rule);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+@media (min-width: 768px) {
+  .cv3-bottomtab { display: none; }
+}
+
+.cv3-bottomtab__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 12px 0 10px;
+  gap: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv3-bottomtab__dot-wrap {
+  height: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cv3-bottomtab__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.cv3-bottomtab__label {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--dim);
+  letter-spacing: 1px;
+  line-height: 1;
+}
+
+.cv3-bottomtab__item--on .cv3-bottomtab__label {
+  font-family: var(--serif);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* ================================================================
+   스크롤 바디 + 레이아웃
+   ================================================================ */
+
+.cv3-body {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.cv3-body::-webkit-scrollbar { display: none; }
+
+/* 모바일: 단열 세로 */
+.cv3-layout {
+  display: flex;
+  flex-direction: column;
+}
+
+/* 모바일에서 양쪽 열은 그냥 블록 */
+.cv3-layout__left,
+.cv3-layout__right {
+  width: 100%;
+}
+
+/* ================================================================
+   월 헤더
+   ================================================================ */
+
+.cv3-month-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 28px var(--pad) 0;
+}
+
+.cv3-month-arrow {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--serif);
+  font-size: 22px;
+  font-weight: 300;
+  color: var(--sub1);
+  padding: 4px 8px;
+  line-height: 1;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+
+.cv3-month-arrow:active { color: var(--ink); }
+
+.cv3-month-center {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.cv3-month-name {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 200;
+  color: var(--ink);
+  line-height: 1;
+  letter-spacing: -1px;
+}
+
+.cv3-month-year {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--sub1);
+  letter-spacing: 2px;
+}
+
+/* ================================================================
+   캘린더 그리드
+   ================================================================ */
+
+.cv3-cal-section {
+  padding: 24px var(--pad);
+}
+
+/* 요일 헤더 */
+.cv3-dow-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 16px;
+}
+
+.cv3-dow {
+  text-align: center;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 300;
+  color: var(--dim);
+  letter-spacing: 1px;
+}
+
+.cv3-dow--sun { color: var(--sun); }
+.cv3-dow--sat { color: var(--sat); }
+
+/* 날짜 그리드 */
+.cv3-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  transition: opacity 0.2s ease;
+}
+
+.cv3-grid--fade { opacity: 0; }
+
+.cv3-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 52px;
+  cursor: pointer;
+  gap: 4px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv3-cell--empty {
+  cursor: default;
+  pointer-events: none;
+}
+
+/* 날짜 숫자 */
+.cv3-num {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 300;
+  color: var(--ink);
+  line-height: 1;
+  text-align: center;
+  transition: color 0.15s;
+}
+
+/* 일정 없는 날 */
+.cv3-num--dim { color: var(--dim); }
+
+/* 일요일 / 토요일 */
+.cv3-num--sun { color: var(--sun); }
+.cv3-num--sat { color: var(--sat); }
+
+/* 오늘 */
+.cv3-num--today {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* 오늘 — 라벤더 점 */
+.cv3-today-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+/* 선택된 날 — 라벤더 밑줄 */
+.cv3-num--sel {
+  color: var(--ink);
+}
+
+.cv3-sel-line {
+  width: 16px;
+  height: 1.5px;
+  background: var(--accent);
+  border-radius: 1px;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   구분선
+   ================================================================ */
+
+.cv3-rule {
+  height: 0.5px;
+  background: var(--rule);
+}
+
+/* 캘린더-상세 사이 구분선 (모바일) */
+.cv3-rule--section {
+  margin: 0 var(--pad);
+}
+
+/* 모바일 전용 구분선 (데스크톱에서 숨김 — 미디어쿼리에서 처리) */
+.cv3-rule--mobile {
+  margin: 0 var(--pad);
+}
+
+/* ================================================================
+   일정 상세 영역
+   ================================================================ */
+
+.cv3-detail {
+  padding: 28px var(--pad) 0;
+  transition: opacity 0.2s ease;
+}
+
+.cv3-detail--fade { opacity: 0; }
+
+/* 날짜 히어로 */
+.cv3-date-hero {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 24px;
+}
+
+.cv3-date-hero__num {
+  font-family: var(--serif);
+  font-size: 48px;
+  font-weight: 200;
+  color: var(--ink);
+  line-height: 1;
+  letter-spacing: -2px;
+}
+
+.cv3-date-hero__wd {
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--sub1);
+  letter-spacing: 1px;
+}
+
+/* 일정 없음 */
+.cv3-empty-msg {
+  font-family: var(--serif);
+  font-size: 15px;
+  font-weight: 300;
+  color: var(--dim);
+  margin: 0 0 24px;
+}
+
+/* 일정 리스트 */
+.cv3-sched-list {
+  margin-bottom: 24px;
+}
+
+/* ================================================================
+   스와이프 아이템
+   ================================================================ */
+
+.cv3-swipe-wrap {
+  position: relative;
+  overflow: hidden;
+}
+
+.cv3-del-reveal {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  width: 72px;
+  background: var(--del);
+  color: white;
+  border: none;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv3-swipe-inner {
+  background: var(--bg);
+  transform: translateX(0);
+  transition: transform 0.2s ease;
+  will-change: transform;
+  touch-action: pan-y;
+}
+
+.cv3-swipe-inner--open {
+  transform: translateX(-72px);
+}
+
+/* ================================================================
+   일정 항목
+   ================================================================ */
+
+.cv3-sched-item {
+  padding: 16px 0;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv3-sched-item--rule {
+  border-bottom: 0.5px solid var(--rule);
+}
+
+.cv3-sched-item__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.cv3-sched-item__title {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+  letter-spacing: -0.2px;
+}
+
+.cv3-sched-item__time {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 300;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+.cv3-sched-item__route {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--sub1);
+  margin-bottom: 4px;
+}
+
+.cv3-sched-item__depart {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--dim);
+}
+
+/* 반복 요일 */
+.cv3-sched-item__days {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cv3-sched-item__day {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 300;
+  color: #ddd;
+}
+
+.cv3-sched-item__day--on {
+  color: var(--accent);
+}
+
+/* + 새 일정 버튼 */
+.cv3-add-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--sub1);
+  padding: 0;
+  letter-spacing: 0.3px;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.15s;
+}
+
+.cv3-add-btn:active { color: var(--ink); }
+
+.cv3-detail-spacer { height: 48px; }
+
+/* ================================================================
+   오버레이
+   ================================================================ */
+
+.cv3-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26, 25, 23, 0.3);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  animation: cv3-fadein 0.2s ease;
+}
+
+@keyframes cv3-fadein {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ================================================================
+   바텀시트
+   ================================================================ */
+
+.cv3-sheet {
+  width: 100%;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 16px var(--pad) 36px;
+  animation: cv3-slideup 0.3s ease;
+  max-height: 92dvh;
+  overflow-y: auto;
+}
+
+@keyframes cv3-slideup {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0);    }
+}
+
+.cv3-sheet__handle {
+  width: 30px;
+  height: 3px;
+  background: #ddd;
+  border-radius: 2px;
+  margin: 0 auto 28px;
+}
+
+/* 입력 필드 — 밑줄 스타일 */
+.cv3-sheet__field {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 0.5px solid var(--rule);
+  padding: 12px 0;
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 400;
+  color: var(--ink);
+  outline: none;
+  transition: border-bottom-color 0.2s;
+  margin-bottom: 0;
+  box-sizing: border-box;
+}
+
+.cv3-sheet__field:focus {
+  border-bottom-color: var(--accent);
+}
+
+.cv3-sheet__field::placeholder {
+  font-family: var(--sans);
+  font-weight: 300;
+  color: var(--dim);
+}
+
+/* 출발지/시간 — 아래에 힌트 */
+.cv3-sheet__group {
+  margin-bottom: 4px;
+}
+
+.cv3-sheet__group .cv3-sheet__field {
+  margin-bottom: 0;
+}
+
+.cv3-sheet__hint {
+  font-family: var(--sans);
+  font-size: 10px;
+  color: var(--sub1);
+  margin: 4px 0 16px;
+  display: block;
+}
+
+/* 시간 입력 */
+.cv3-sheet__field--time {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+/* 반복 요일 */
+.cv3-sheet__repeat-block {
+  margin-top: 20px;
+  margin-bottom: 8px;
+}
+
+.cv3-sheet__repeat-label {
+  display: block;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--sub1);
+  letter-spacing: 2px;
+  margin-bottom: 12px;
+}
+
+.cv3-sheet__daybtn-row {
+  display: flex;
+  gap: 16px;
+}
+
+.cv3-sheet__daybtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 300;
+  color: var(--dim);
+  padding: 0;
+  transition: color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv3-sheet__daybtn--on {
+  color: var(--accent);
+}
+
+/* 하단 버튼 */
+.cv3-sheet__footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 28px;
+  padding-top: 4px;
+}
+
+.cv3-sheet__cancel,
+.cv3-sheet__save {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 13px;
+  padding: 4px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv3-sheet__cancel {
+  color: var(--sub1);
+  font-weight: 300;
+}
+
+.cv3-sheet__save {
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* 삭제 텍스트 (수정 모드) */
+.cv3-sheet__delete-text {
+  display: block;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--del);
+  padding: 0;
+  margin-top: 20px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ================================================================
+   삭제 확인
+   ================================================================ */
+
+.cv3-confirm {
+  width: 100%;
+  background: var(--bg);
+  border-radius: 20px 20px 0 0;
+  padding: 32px var(--pad) 40px;
+  animation: cv3-slideup 0.25s ease;
+}
+
+.cv3-confirm__msg {
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 300;
+  color: var(--ink);
+  text-align: center;
+  margin: 0 0 28px;
+}
+
+.cv3-confirm__btns {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+}
+
+.cv3-confirm__cancel,
+.cv3-confirm__del {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--sans);
+  font-size: 14px;
+  padding: 4px 8px;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv3-confirm__cancel {
+  color: var(--sub1);
+  font-weight: 300;
+}
+
+.cv3-confirm__del {
+  color: var(--del);
+  font-weight: 400;
+}
+
+/* ================================================================
+   반응형
+   ================================================================ */
+
+/* ── 소형 모바일 ── */
+@media (max-width: 375px) {
+  .cv3 { --pad: 20px; }
+  .cv3-month-name     { font-size: 26px; }
+  .cv3-date-hero__num { font-size: 40px; }
+  .cv3-num            { font-size: 14px; }
+  .cv3-cell           { height: 44px; }
+}
+
+/* ── 태블릿 / 데스크톱 (768px+) ── */
+@media (min-width: 768px) {
+
+  /* 바디: 스크롤 끄고 레이아웃 컨테이너로 전환 */
+  .cv3-body {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* 2열 레이아웃 */
+  .cv3-layout {
+    flex-direction: row;
+    align-items: flex-start;
+    max-width: 1200px;
+    margin: 0 auto;
+    flex: 1;
+    width: 100%;
+    min-height: 0;
+  }
+
+  /* 왼쪽: 캘린더 고정 */
+  .cv3-layout__left {
+    flex: 0 0 460px;
+    width: 460px;
+    align-self: stretch;
+    overflow-y: auto;
+    scrollbar-width: none;
+    border-right: 0.5px solid var(--rule);
+    display: flex;
+    flex-direction: column;
+  }
+  .cv3-layout__left::-webkit-scrollbar { display: none; }
+
+  /* 오른쪽: 일정 상세 스크롤 */
+  .cv3-layout__right {
+    flex: 1;
+    min-width: 0;
+    align-self: stretch;
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+  .cv3-layout__right::-webkit-scrollbar { display: none; }
+
+  /* 모바일 전용 구분선 숨김 */
+  .cv3-rule--mobile { display: none; }
+
+  /* 월 헤더 여백 */
+  .cv3-month-header {
+    padding: 40px 40px 0;
+  }
+
+  /* 월 이름 크게 */
+  .cv3-month-name { font-size: 42px; }
+  .cv3-month-year { font-size: 13px; letter-spacing: 3px; }
+
+  /* 캘린더 섹션 여백 */
+  .cv3-cal-section {
+    padding: 28px 40px 40px;
+    flex: 1;
+  }
+
+  /* 셀 높이 더 넉넉하게 */
+  .cv3-cell { height: 64px; }
+
+  /* 날짜 숫자 */
+  .cv3-num { font-size: 17px; }
+
+  /* 요일 헤더 */
+  .cv3-dow { font-size: 12px; letter-spacing: 2px; }
+  .cv3-dow-row { margin-bottom: 20px; }
+
+  /* 일정 상세 여백 */
+  .cv3-detail {
+    padding: 48px 52px 0;
+  }
+
+  /* 날짜 히어로 크게 */
+  .cv3-date-hero__num { font-size: 72px; letter-spacing: -4px; }
+  .cv3-date-hero__wd  { font-size: 13px; letter-spacing: 2px; margin-top: 6px; }
+
+  /* 일정 항목 */
+  .cv3-sched-item__title { font-size: 17px; }
+  .cv3-sched-item__time  { font-size: 17px; }
+  .cv3-sched-item__route { font-size: 13px; }
+  .cv3-sched-item { padding: 20px 0; }
+
+  /* + 새 일정 */
+  .cv3-add-btn { font-size: 14px; margin-top: 4px; }
+}
+
+/* ── 와이드 데스크톱 (1100px+) ── */
+@media (min-width: 1100px) {
+  .cv3-layout__left { flex: 0 0 540px; }
+  .cv3-month-name   { font-size: 52px; }
+  .cv3-cell         { height: 72px; }
+  .cv3-num          { font-size: 18px; }
+
+  .cv3-date-hero__num { font-size: 88px; letter-spacing: -5px; }
+  .cv3-detail { padding: 56px 64px 0; }
+}
+
+/* ── 바텀시트: 데스크톱에서 중앙 배치 ── */
+@media (min-width: 768px) {
+  .cv3-overlay {
+    align-items: center;
+    justify-content: center;
+  }
+
+  .cv3-sheet {
+    width: 480px;
+    border-radius: 20px;
+    max-height: 86dvh;
+  }
+
+  .cv3-confirm {
+    width: 360px;
+    border-radius: 20px;
+  }
+}

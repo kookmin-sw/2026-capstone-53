@@ -1,0 +1,62 @@
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  background: #FAF5EF;
+  border-top: 1px solid #E8DDD3;
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+  z-index: 100;
+}
+
+/* 데스크톱에서는 숨김 */
+@media (min-width: 769px) {
+  .bottom-nav {
+    display: none;
+  }
+}
+
+.bottom-nav__tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 10px 0 8px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  gap: 4px;
+  transition: opacity 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav__tab:active {
+  opacity: 0.6;
+}
+
+.bottom-nav__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 24px;
+}
+
+.bottom-nav__label {
+  font-size: 10px;
+  font-weight: 500;
+  color: #9CA3AF;
+  line-height: 1;
+}
+
+.bottom-nav__tab--active .bottom-nav__label {
+  color: #3B82F6;
+  font-weight: 600;
+}
+
+/* 다크모드 */
+[data-theme="dark"] .bottom-nav {
+  background: #1C1C1E;
+  border-top-color: #2C2C2E;
+}

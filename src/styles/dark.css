@@ -1,0 +1,86 @@
+/* ================================================================
+   Dark Mode Overrides — [data-theme="dark"]
+   ================================================================ */
+
+[data-theme="dark"] body {
+  background: #1a1917;
+  color: #e8e4dc;
+}
+
+[data-theme="dark"] .app-shell {
+  background: #1a1917;
+}
+
+/* TopNav */
+[data-theme="dark"] .top-nav {
+  background: #242220;
+  border-bottom-color: #333;
+}
+[data-theme="dark"] .top-nav__logo-text { color: #e8e4dc; }
+[data-theme="dark"] .top-nav__link      { color: #9e9a93; }
+[data-theme="dark"] .top-nav__link--active { color: var(--color-point); }
+[data-theme="dark"] .top-nav__action-btn {
+  background: #333330;
+}
+[data-theme="dark"] .top-nav__action-btn:hover {
+  background: #3e3c39;
+}
+[data-theme="dark"] .top-nav__theme-btn svg path,
+[data-theme="dark"] .top-nav__theme-btn svg circle { stroke: #e8e4dc; }
+[data-theme="dark"] .top-nav__action-btn svg path { stroke: #e8e4dc; }
+[data-theme="dark"] .top-nav__notif-dot { border-color: #242220; }
+
+/* Home */
+[data-theme="dark"] .home            { background: #1a1917; }
+[data-theme="dark"] .home__title          { color: #e8e4dc; }
+[data-theme="dark"] .home__greeting       { color: #9e9a93; }
+[data-theme="dark"] .home__section-title  { color: #e8e4dc; }
+[data-theme="dark"] .home__map-caption    { color: #6b6b6b; }
+[data-theme="dark"] .rc-arrive-time       { color: #9e9a93; }
+
+/* RouteCard */
+[data-theme="dark"] .rc-card {
+  background: #242220;
+  border-color: #333;
+}
+[data-theme="dark"] .rc-cell-label  { color: #9e9a93; }
+[data-theme="dark"] .rc-stop__name  { color: #e8e4dc; }
+[data-theme="dark"] .rc-bus__num    { color: #e8e4dc; }
+[data-theme="dark"] .rc-divider-v   { background: #333; }
+[data-theme="dark"] .rc-divider-h   { background: #333; }
+[data-theme="dark"] .rc-tl-val      { color: #e8e4dc; }
+[data-theme="dark"] .rc-meta__chip  { background: #333; color: #9e9a93; }
+[data-theme="dark"] .rc-flow__chip  { background: #333; color: #9e9a93; }
+
+/* Calendar */
+[data-theme="dark"] .cal-page       { background: #1a1917; }
+[data-theme="dark"] .cal-card       { background: #242220; border-color: #333; }
+[data-theme="dark"] .cal-nav__label { color: #e8e4dc; }
+[data-theme="dark"] .cal-nav__arrow { background: #2A2825; }
+[data-theme="dark"] .cal-nav__arrow svg path { stroke: #6b6b6b; }
+[data-theme="dark"] .cal-cell__num  { color: #e8e4dc; }
+[data-theme="dark"] .cal-cell--today .cal-cell__num { color: white; }
+[data-theme="dark"] .cal-cell__dot--1 { background: rgba(139, 181, 224, 0.35); }
+[data-theme="dark"] .cal-cell__dot--2 { background: rgba(139, 181, 224, 0.65); }
+[data-theme="dark"] .cal-cell__dot--3 { background: #8BB5E0; }
+[data-theme="dark"] .cal-section__title { color: #e8e4dc; }
+[data-theme="dark"] .sch-card       { background: #2d2b28; }
+[data-theme="dark"] .sch-card__title { color: #e8e4dc; }
+[data-theme="dark"] .sch-card__time  { color: #9e9a93; }
+[data-theme="dark"] .sch-card__route span { color: #9e9a93; }
+[data-theme="dark"] .sch-card__day-badge { background: #333; color: #9e9a93; }
+[data-theme="dark"] .cal-empty p    { color: #9e9a93; }
+
+/* Settings */
+[data-theme="dark"] .st-page        { background: #1a1917; }
+[data-theme="dark"] .st-page-title  { color: #e8e4dc; }
+[data-theme="dark"] .st-section__card { background: #242220; border-color: #333; }
+[data-theme="dark"] .st-section__title { color: #e8e4dc; }
+[data-theme="dark"] .st-row__label  { color: #e8e4dc; }
+[data-theme="dark"] .st-row__desc   { color: #9e9a93; }
+[data-theme="dark"] .st-slider-track { background: #333; }
+[data-theme="dark"] .st-segment     { background: #333; }
+[data-theme="dark"] .st-segment__btn { color: #9e9a93; }
+[data-theme="dark"] .st-segment__btn--on { background: var(--color-point); color: white; }
+[data-theme="dark"] .st-chip        { background: #333; color: #9e9a93; }
+[data-theme="dark"] .st-chip--on    { background: var(--color-point); color: white; }

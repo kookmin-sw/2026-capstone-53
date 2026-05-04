@@ -1,0 +1,92 @@
+.notif {
+  min-height: 100vh;
+  background: #F0E9E0;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-theme="dark"] .notif {
+  background: #1a1917;
+}
+
+/* 상단 바 */
+.notif__topbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  height: 56px;
+  border-bottom: 1px solid rgba(0,0,0,0.06);
+  background: #F0E9E0;
+}
+
+[data-theme="dark"] .notif__topbar {
+  background: #1a1917;
+  border-bottom-color: #2a2825;
+}
+
+.notif__back {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #E8DDD3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #1C1C1E;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-theme="dark"] .notif__back {
+  background: #333330;
+  color: #e8e4dc;
+}
+
+.notif__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #1C1C1E;
+}
+
+[data-theme="dark"] .notif__title {
+  color: #e8e4dc;
+}
+
+/* 빈 상태 */
+.notif__empty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 0 32px 60px;
+  text-align: center;
+}
+
+.notif__empty-icon {
+  color: #ccc;
+}
+
+[data-theme="dark"] .notif__empty-icon {
+  color: #3a3835;
+}
+
+.notif__empty-title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #888;
+  margin: 12px 0 0;
+}
+
+.notif__empty-desc {
+  font-size: 13px;
+  color: #aaa;
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+[data-theme="dark"] .notif__empty-title { color: #6b6b6b; }
+[data-theme="dark"] .notif__empty-desc  { color: #555; }

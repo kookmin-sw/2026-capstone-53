@@ -1,0 +1,597 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500&display=swap');
+
+/* ── Design Tokens ──────────────────────────────────────────────── */
+.cv4 {
+  --bg:       #0f1423;
+  --card:     #161d33;
+  --card2:    #1c2440;
+  --accent:   #64B5F6;
+  --accent-d: rgba(100, 181, 246, 0.12);
+  --sub:      #5a6280;
+  --dim:      #3a4160;
+  --text:     #e8eaf2;
+  --text-2:   #a0a8c8;
+  --rule:     rgba(255, 255, 255, 0.06);
+  --danger:   #ef4444;
+  --radius:   16px;
+  --nav-h:    64px;
+
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: none;
+}
+
+/* ── Header ─────────────────────────────────────────────────────── */
+.cv4-header {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 20px 20px 12px;
+  background: var(--bg);
+}
+
+.cv4-header__title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+
+.cv4-header__badge {
+  font-size: 12px;
+  color: var(--accent);
+  background: var(--accent-d);
+  padding: 2px 10px;
+  border-radius: 20px;
+  font-weight: 500;
+}
+
+/* ── Body / Cards ───────────────────────────────────────────────── */
+.cv4-body {
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: calc(var(--nav-h) + 16px);
+}
+
+.cv4-cards {
+  padding: 8px 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Routine Card ───────────────────────────────────────────────── */
+.cv4-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 0.5px solid var(--rule);
+  display: flex;
+  overflow: hidden;
+  animation: cv4-card-in 0.4s ease both;
+}
+
+@keyframes cv4-card-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+.cv4-card--removing {
+  animation: cv4-card-out 0.3s ease both !important;
+}
+
+@keyframes cv4-card-out {
+  to { opacity: 0; transform: scale(0.96); }
+}
+
+/* ── Left: Days Panel ───────────────────────────────────────────── */
+.cv4-card__days-panel {
+  flex: 0 0 56px;
+  background: rgba(100, 181, 246, 0.06);
+  border-right: 0.5px solid var(--rule);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 14px 0;
+}
+
+.cv4-card__day-item {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-weight: 600;
+  color: var(--accent);
+  line-height: 1;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
+}
+
+.cv4-card__day-item--today {
+  background: var(--accent);
+  color: #0f1423;
+  font-weight: 700;
+}
+
+/* ── Right: Info Panel ──────────────────────────────────────────── */
+.cv4-card__info {
+  flex: 1;
+  padding: 14px 16px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+/* Card head */
+.cv4-card__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 3px;
+}
+
+.cv4-card__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cv4-card__arr {
+  font-family: 'Outfit', sans-serif;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--accent);
+  letter-spacing: -0.3px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+/* Route line */
+.cv4-card__route {
+  font-size: 12px;
+  color: var(--sub);
+  margin-bottom: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Departure info */
+.cv4-card__depart {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 12px;
+}
+
+.cv4-card__depart-main {
+  font-size: 13px;
+  color: var(--text);
+  font-weight: 400;
+}
+
+.cv4-card__depart-sub {
+  font-size: 11px;
+  color: var(--sub);
+}
+
+/* Card actions */
+.cv4-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: auto;
+}
+
+.cv4-card__route-btn {
+  flex: 1;
+  height: 30px;
+  border: 0.5px solid var(--dim);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.cv4-card__route-btn:hover {
+  border-color: var(--accent);
+  background: var(--accent-d);
+}
+
+.cv4-card__act {
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: none;
+  background: transparent;
+  color: var(--sub);
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.15s;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.cv4-card__act:hover {
+  color: var(--text-2);
+}
+
+.cv4-card__act--del:hover {
+  color: var(--danger);
+}
+
+/* ── Add Card Button ─────────────────────────────────────────────── */
+.cv4-add-card {
+  width: 100%;
+  min-height: 64px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--dim);
+  background: transparent;
+  color: var(--sub);
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  font-family: 'Noto Sans KR', sans-serif;
+  letter-spacing: 0.2px;
+}
+
+.cv4-add-card:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-d);
+}
+
+/* ── Empty State ─────────────────────────────────────────────────── */
+.cv4-empty {
+  text-align: center;
+  padding: 60px 20px 40px;
+}
+
+.cv4-empty__main {
+  font-size: 16px;
+  color: var(--text-2);
+  margin-bottom: 6px;
+}
+
+.cv4-empty__sub {
+  font-size: 13px;
+  color: var(--sub);
+}
+
+/* ── Bottom Nav ──────────────────────────────────────────────────── */
+.cv4-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: var(--nav-h);
+  background: rgba(15, 20, 35, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top: 0.5px solid var(--rule);
+  display: flex;
+  z-index: 100;
+}
+
+.cv4-nav__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  padding: 0;
+  color: var(--sub);
+  transition: color 0.15s;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.cv4-nav__item--on {
+  color: var(--accent);
+}
+
+.cv4-nav__dot-wrap {
+  height: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.cv4-nav__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.cv4-nav__label {
+  font-size: 11px;
+  font-weight: 400;
+}
+
+/* ── Overlay / Sheet / Dialog ────────────────────────────────────── */
+.cv4-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  backdrop-filter: blur(2px);
+}
+
+.cv4-overlay--center {
+  justify-content: center;
+  align-items: center;
+}
+
+/* Bottom Sheet */
+.cv4-sheet {
+  background: var(--card);
+  border-radius: 20px 20px 0 0;
+  padding: 0 20px 32px;
+  max-height: 85dvh;
+  overflow-y: auto;
+  animation: cv4-sheet-in 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes cv4-sheet-in {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.cv4-sheet__handle {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--dim);
+  margin: 12px auto 16px;
+}
+
+.cv4-sheet__heading {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 20px;
+}
+
+.cv4-sheet__input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--card2);
+  border: 0.5px solid var(--dim);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--text);
+  margin-bottom: 10px;
+  outline: none;
+  transition: border-color 0.15s;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.cv4-sheet__input:focus {
+  border-color: var(--accent);
+}
+
+.cv4-sheet__input::placeholder {
+  color: var(--sub);
+}
+
+.cv4-sheet__input--time {
+  color-scheme: dark;
+}
+
+.cv4-sheet__hint-group {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.cv4-sheet__hint-group .cv4-sheet__input {
+  margin-bottom: 0;
+}
+
+.cv4-sheet__hint {
+  display: block;
+  font-size: 11px;
+  color: var(--sub);
+  margin-top: 4px;
+  padding-left: 4px;
+}
+
+/* Days block */
+.cv4-sheet__days-block {
+  margin: 4px 0 16px;
+}
+
+.cv4-sheet__days-label {
+  font-size: 12px;
+  color: var(--text-2);
+  display: block;
+  margin-bottom: 8px;
+}
+
+.cv4-sheet__days-row {
+  display: flex;
+  gap: 6px;
+}
+
+.cv4-sheet__daybtn {
+  flex: 1;
+  height: 36px;
+  border-radius: 8px;
+  border: 0.5px solid var(--dim);
+  background: transparent;
+  color: var(--sub);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.cv4-sheet__daybtn--on {
+  background: var(--accent-d);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* Sheet footer */
+.cv4-sheet__footer {
+  display: flex;
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.cv4-sheet__cancel,
+.cv4-sheet__save {
+  flex: 1;
+  height: 46px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+.cv4-sheet__cancel {
+  background: var(--card2);
+  color: var(--text-2);
+}
+
+.cv4-sheet__save {
+  background: var(--accent);
+  color: #0f1423;
+}
+
+.cv4-sheet__cancel:active,
+.cv4-sheet__save:active {
+  opacity: 0.75;
+}
+
+/* Delete Dialog */
+.cv4-dialog {
+  background: var(--card);
+  border-radius: 16px;
+  padding: 24px 20px 18px;
+  width: min(320px, calc(100vw - 40px));
+  border: 0.5px solid var(--rule);
+  animation: cv4-dialog-in 0.22s ease;
+}
+
+@keyframes cv4-dialog-in {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1);    }
+}
+
+.cv4-dialog__msg {
+  font-size: 15px;
+  color: var(--text);
+  text-align: center;
+  margin-bottom: 6px;
+}
+
+.cv4-dialog__name {
+  font-size: 13px;
+  color: var(--text-2);
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.cv4-dialog__btns {
+  display: flex;
+  gap: 10px;
+}
+
+.cv4-dialog__cancel,
+.cv4-dialog__del {
+  flex: 1;
+  height: 42px;
+  border-radius: 10px;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: opacity 0.15s;
+}
+
+.cv4-dialog__cancel {
+  background: var(--card2);
+  color: var(--text-2);
+}
+
+.cv4-dialog__del {
+  background: var(--danger);
+  color: #fff;
+}
+
+.cv4-dialog__cancel:active,
+.cv4-dialog__del:active {
+  opacity: 0.75;
+}
+
+/* ── Responsive: Desktop ─────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .cv4-header {
+    padding: 28px 40px 16px;
+  }
+
+  .cv4-body {
+    padding-bottom: 24px;
+  }
+
+  .cv4-cards {
+    padding: 8px 40px 24px;
+    max-width: 800px;
+    margin: 0 auto;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .cv4-nav {
+    display: none;
+  }
+
+  .cv4-overlay {
+    justify-content: center;
+    align-items: center;
+  }
+
+  .cv4-sheet {
+    border-radius: 20px;
+    width: 480px;
+    max-height: 80dvh;
+  }
+}
+
+@media (min-width: 1100px) {
+  .cv4-cards {
+    max-width: 960px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .cv4-add-card {
+    grid-column: 1 / -1;
+  }
+}

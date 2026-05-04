@@ -1,0 +1,406 @@
+/* ================================================================
+   HomeV2 — 대화형 경로 안내 홈 (블루 톤)
+   ================================================================ */
+
+.hv2-page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: #fafaf7;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont,
+    'Noto Sans KR', 'Apple SD Gothic Neo', 'Helvetica Neue', sans-serif;
+  max-width: 430px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+/* ================================================================
+   헤더
+   ================================================================ */
+
+.hv2-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px 14px;
+  background: #fafaf7;
+  border-bottom: 1px solid #edeae3;
+  flex-shrink: 0;
+}
+
+.hv2-header__left {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.hv2-header__avatar {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-point), var(--color-point-dark));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hv2-header__name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.hv2-header__status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: #8a8680;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.hv2-header__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--color-point);
+  flex-shrink: 0;
+  animation: hv2-pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes hv2-pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.hv2-date-badge {
+  background: var(--color-point-bg);
+  color: var(--color-point);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   대화 영역
+   ================================================================ */
+
+.hv2-chat {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 18px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scrollbar-width: none;
+}
+
+.hv2-chat::-webkit-scrollbar { display: none; }
+
+.hv2-chat-spacer { height: 12px; flex-shrink: 0; }
+
+/* ── 말풍선 행 ── */
+.hv2-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* ── AI 미니 아바타 ── */
+.hv2-mini-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--color-point), var(--color-point-dark));
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* ── 말풍선 ── */
+.hv2-bubble {
+  background: #f0ede6;
+  border-radius: 4px 16px 16px 16px;
+  padding: 11px 14px;
+  font-size: 14.5px;
+  line-height: 1.56;
+  color: #2a2825;
+  word-break: keep-all;
+  max-width: calc(100% - 38px);
+}
+
+.hv2-bubble--cont {
+  margin-left: 38px;
+  border-radius: 16px;
+}
+
+.hv2-bubble__sub {
+  font-size: 11.5px;
+  color: #9e9a93;
+  font-weight: 500;
+  margin-top: 5px;
+}
+
+/* 텍스트 강조 */
+.hv2-blue { color: var(--color-point); }
+
+/* ── 카드 들여쓰기 ── */
+.hv2-indent { margin-left: 38px; }
+
+/* ================================================================
+   경로 요약 카드
+   ================================================================ */
+
+.hv2-route-card {
+  background: #fff;
+  border: 1.5px solid var(--color-point-border);
+  border-radius: 18px;
+  padding: 14px 16px;
+}
+
+.hv2-route-card__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.hv2-badge-blue {
+  background: linear-gradient(135deg, var(--color-point), var(--color-point-dark));
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.03em;
+}
+
+.hv2-route-card__dist {
+  font-size: 12px;
+  color: #9e9a93;
+  font-weight: 500;
+}
+
+.hv2-route-card__body {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.hv2-route-card__info {
+  flex: 1;
+  min-width: 0;
+}
+
+.hv2-route-card__stop {
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a1a1a;
+  letter-spacing: -0.4px;
+  margin-bottom: 3px;
+}
+
+.hv2-route-card__bus {
+  font-size: 13px;
+  color: #8a8680;
+  margin-bottom: 12px;
+}
+
+/* 통계 칩 */
+.hv2-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hv2-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #f5f3ee;
+  color: #5a5753;
+  font-size: 12px;
+  font-weight: 500;
+  padding: 5px 10px;
+  border-radius: 20px;
+}
+
+.hv2-pill--blue  { background: var(--color-point-bg); color: var(--color-point); font-weight: 600; }
+
+/* ================================================================
+   인포 카드 (노선 흐름)
+   ================================================================ */
+
+.hv2-info-card {
+  background: #f0ede6;
+  border-radius: 16px;
+  padding: 13px 15px;
+}
+
+.hv2-info-card__label {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #b0ada6;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+.hv2-flow-scroll {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.hv2-flow-scroll::-webkit-scrollbar { display: none; }
+
+.hv2-stop-chip {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 12px;
+  border-radius: 20px;
+  background: #e8e5de;
+  color: #6b6760;
+  flex-shrink: 0;
+}
+
+.hv2-stop-chip--boarding {
+  background: var(--color-point-bg);
+  color: var(--color-point);
+  border: 1.5px solid var(--color-point-border);
+}
+
+.hv2-arrow { flex-shrink: 0; opacity: 0.7; }
+
+/* ================================================================
+   하단 푸터
+   ================================================================ */
+
+.hv2-footer {
+  flex-shrink: 0;
+  background: #fafaf7;
+  border-top: 1px solid #edeae3;
+  padding: 14px 16px 0;
+}
+
+.hv2-actions {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+
+.hv2-btn-primary {
+  flex: 1;
+  background: linear-gradient(135deg, var(--color-point) 0%, var(--color-point-dark) 100%);
+  color: white;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: -0.2px;
+  transition: transform 0.1s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hv2-btn-primary:active {
+  transform: scale(0.97);
+}
+
+.hv2-btn-map {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: #f0ede6;
+  color: #5a5753;
+  border: none;
+  border-radius: 14px;
+  padding: 14px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hv2-btn-map:active { background: #e8e5de; }
+
+.hv2-actions__meta {
+  text-align: center;
+  font-size: 11px;
+  color: #b8b5ae;
+  font-weight: 500;
+  margin-bottom: 12px;
+}
+
+/* ── 하단 네비게이션 ── */
+.hv2-nav {
+  display: flex;
+  border-top: 1px solid #edeae3;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+}
+
+.hv2-nav__tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c0bdb6;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.hv2-nav__tab--active { color: var(--color-point); }
+.hv2-nav__tab:not(.hv2-nav__tab--active):active { color: #8a8680; }
+
+/* ================================================================
+   페이드인 애니메이션
+   ================================================================ */
+
+.hv2-fadein {
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.36s ease, transform 0.36s ease;
+}
+
+.hv2-fadein--in {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ================================================================
+   반응형
+   ================================================================ */
+
+@media (max-width: 375px) {
+  .hv2-route-card__stop { font-size: 16px; }
+  .hv2-btn-primary      { font-size: 14px; }
+  .hv2-btn-map          { padding: 14px 14px; }
+}
