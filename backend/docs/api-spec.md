@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.9-MVP
-> **최종 수정**: 2026-04-30 (이상진 — Step 6 OdsayRouteService 구현: §6.1 WALK 좌표 보충 알고리즘 명시)
+> **버전**: v1.1.10-MVP
+> **최종 수정**: 2026-05-04 (이상진 — §6.1 transit path 출처를 ODsay `loadLane` 도로 곡선으로 승격, `route_summary_json` wrapped 형식 도입)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -26,6 +26,7 @@
 | **v1.1.7** | **2026-04-30** | **§1.7 Resolver 동작 정정 — `Authentication.getName()`으로 raw `member_uid` 반환만(DB 호출 X), Service가 `findByMemberUid` 1회 조회. §3.3 탈퇴 회원 응답: 404 `MEMBER_NOT_FOUND` → **401 `UNAUTHORIZED`** (Service 부재 시 응답). β PR Resolver 마이그레이션 (이상진 PR #5 I-1 + claude.ai P1).** |
 | **v1.1.8** | **2026-04-30** | **§5.4 PATCH 검증 정정 — `arrivalTime`의 NOW() 검사는 `arrivalTime`이 요청에 포함된 경우에만 적용. 지난 일정의 `title` 등 메모 편집 허용. (Step 5 PR #10 claude.ai 리뷰 P1 흡수)** |
 | **v1.1.9** | **2026-04-30** | **§6.1 WALK 구간 path 보충 알고리즘 명시 (Step 6 이상진) — ODsay WALK subPath에 좌표 키가 없어 `origin`/`destination`/이전 transit 끝점으로 합성. 매핑표의 `path` 행에 WALK 분기 추가.** |
+| **v1.1.10** | **2026-05-04** | **§6.1 transit path 출처 승격 (이상진) — `passStopList` 정류장 직선 → ODsay `loadLane` 도로 곡선 (`lane[i].section[].graphPos[]`) 정식 사용. `route_summary_json`을 `{"path":..., "lane":...}` wrapped 형식으로 저장 — 캐시 hit 시 재호출 없이 곡선 복원. loadLane 실패는 graceful — `passStopList` 직선 fallback. ODsay 호출 cache miss 1회당 1회 → 2회 (직렬, mapObj 의존).** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -842,7 +843,7 @@ LIMIT ?
 | `stationStart` | `subPath.startName` (SUBWAY 한정) | BUS는 from과 중복이라 null |
 | `stationEnd` | `subPath.endName` (SUBWAY 한정) | |
 | `stationCount` | `subPath.stationCount` | |
-| `path` | (transit) `[startX, startY]` + `passStopList.stations[].x/y` + `[endX, endY]` 직선<br>(WALK) 좌표 키 없음 → 합성 (아래 알고리즘) | `[lng, lat]` 배열. transit 정확 곡선은 `loadLane` 추가 호출 (선택) |
+| `path` | (transit) `loadLane.result.lane[i].section[].graphPos[]` 평탄화 (도로 곡선)<br>(WALK) 좌표 키 없음 → 합성 (아래 알고리즘) | `[lng, lat]` 배열. loadLane 실패/누락 시 `passStopList` 직선으로 graceful fallback (v1.1.10) |
 
 🆕 **v1.1.9 — WALK 구간 path 보충 알고리즘** (ODsay WALK subPath는 `startX/Y`/`endX/Y` 키가 없음):
 
@@ -852,15 +853,22 @@ LIMIT ?
 
 여기서 `origin/destination`은 `schedule.origin_lng/lat`, `schedule.destination_lng/lat`. 매핑은 lookahead 1패스로 transit 시작점들을 미리 수집한 뒤 결정적으로 적용 (자의적 보간 금지).
 
-**정확한 `path` 좌표가 필요하면 — ODsay `loadLane` API**:
+🆕 **v1.1.10 — transit `path` 출처 = ODsay `loadLane` 도로 곡선**:
 
 ```
-GET https://api.odsay.com/v1/api/loadLane?mapObject={mapObject}&apiKey={key}
+GET https://api.odsay.com/v1/api/loadLane?mapObject=0:0@{info.mapObj}&apiKey={key}
 ```
 
 - `mapObject` 형식: **`"0:0@" + result.path[0].info.mapObj`** ⚠️ ODsay 공식 문서엔 prefix 명시 안 됨. 검증된 패턴
-- 응답: `result.lane[].section[].graphPos[].{x, y}` — 실제 도로 곡선 좌표
-- 선택: 추가 호출 비용 있음. MVP 단계엔 생략하고 `passStopList` 좌표 직선 허용
+- 응답: `result.lane[i].section[j].graphPos[k].{x, y}` — `lane[i]`가 i번째 transit subPath와 1:1 매칭, `section[]`은 평탄화하여 한 transit segment의 path로 합침
+- 호출 흐름: `searchPubTransPathT` → 응답에서 `info.mapObj` 추출 → `loadLane` 호출 (직렬, mapObj 의존)
+- **graceful fallback**: `loadLane` 5xx/timeout/응답 형식 위반 / `info.mapObj` 누락 / `lane[]` 비었을 때 → `passStopList.stations[].x/y` 직선으로 fallback. `searchPubTransPathT`는 정상이라 응답 가능 (cache 갱신도 진행)
+
+**`route_summary_json` 저장 형식 (wrapped)**:
+```json
+{ "path": <searchPubTransPathT raw>, "lane": <loadLane raw or null> }
+```
+캐시 hit 시 두 raw를 함께 unwrap → mapper에 전달 → 곡선 그대로 복원 (재호출 불필요).
 
 #### 에러
 - `404 SCHEDULE_NOT_FOUND`

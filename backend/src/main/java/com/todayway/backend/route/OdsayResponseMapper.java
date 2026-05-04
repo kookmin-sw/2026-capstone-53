@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -36,25 +37,29 @@ import java.util.List;
  * 부분 매핑은 안 함 — 데이터 무결성 우선.
  */
 @Component
+@Slf4j
 @RequiredArgsConstructor
 public class OdsayResponseMapper {
 
     private final ObjectMapper objectMapper;
 
     /**
-     * @param rawJson    ODsay raw 응답 (전체 트리)
-     * @param originLng  WALK path 보충용 — schedule.origin_lng
-     * @param originLat  schedule.origin_lat
-     * @param destLng    schedule.destination_lng
-     * @param destLat    schedule.destination_lat
-     * @throws IllegalStateException 응답 형식 위반 ({@code path[0]} 없음, 좌표 파싱 실패 등)
+     * @param pathRawJson  {@code searchPubTransPathT} raw 응답
+     * @param laneRawJson  {@code loadLane} raw 응답 (nullable). null이거나 매핑 실패 시
+     *                     transit segment의 path는 {@code passStopList} 직선으로 fallback —
+     *                     명세 §6.1 v1.1.10 비고
+     * @param originLng    WALK path 보충용 — schedule.origin_lng
+     * @param originLat    schedule.origin_lat
+     * @param destLng      schedule.destination_lng
+     * @param destLat      schedule.destination_lat
+     * @throws IllegalStateException pathRawJson 형식 위반 ({@code path[0]} 없음, 좌표 파싱 실패 등)
      * @throws IllegalArgumentException ODsay 스펙 외 {@code trafficType}
      *         (예: 4=택시 추가 등 — {@link SegmentMode#fromOdsayTrafficType(int)}에서 throw)
      */
-    public Route toRoute(String rawJson,
+    public Route toRoute(String pathRawJson, String laneRawJson,
                          double originLng, double originLat,
                          double destLng, double destLat) {
-        JsonNode root = parse(rawJson);
+        JsonNode root = parse(pathRawJson);
         JsonNode path0 = root.path("result").path("path").path(0);
         if (path0.isMissingNode() || path0.isNull()) {
             throw new IllegalStateException("ODsay 응답에 result.path[0]이 없음");
@@ -75,12 +80,16 @@ public class OdsayResponseMapper {
                           + info.path("busTransitCount").asInt();
         int payment = info.path("payment").asInt();
 
+        // loadLane 곡선 좌표 — transit segment 인덱스 순으로 정렬됨.
+        // null/빈 리스트면 buildTransitSegment 내부에서 passStopList 직선으로 fallback.
+        List<List<double[]>> lanePaths = parseLanePaths(laneRawJson);
+
         // ── segments[] — 두 패스 ──
         // 1) transit start 좌표 미리 수집 (WALK가 다음 transit 시작점을 lookahead 가능)
         JsonNode subPathArr = path0.path("subPath");
         List<double[]> transitStarts = collectTransitStarts(subPathArr);
 
-        // 2) 순회: WALK는 lastPoint→nextTransitStart, transit은 station 좌표
+        // 2) 순회: WALK는 lastPoint→nextTransitStart, transit은 lane[] 곡선 또는 passStopList
         List<RouteSegment> segments = new ArrayList<>();
         double[] lastPoint = {originLng, originLat};
         int transitIdx = 0;
@@ -99,7 +108,10 @@ public class OdsayResponseMapper {
                 segments.add(buildWalkSegment(sectionTime, distance, lastPoint, nextPoint));
                 lastPoint = nextPoint;
             } else {
-                RouteSegment seg = buildTransitSegment(mode, sectionTime, distance, sp);
+                List<double[]> graphPath = transitIdx < lanePaths.size()
+                        ? lanePaths.get(transitIdx)
+                        : null;
+                RouteSegment seg = buildTransitSegment(mode, sectionTime, distance, sp, graphPath);
                 segments.add(seg);
                 // lastPoint 갱신: transit 끝점 — 다음 WALK가 이걸 시작점으로 사용
                 lastPoint = new double[]{
@@ -113,6 +125,43 @@ public class OdsayResponseMapper {
         return new Route(
                 totalDurationMinutes, totalDistanceMeters, totalWalkMeters,
                 transferCount, payment, List.copyOf(segments));
+    }
+
+    /**
+     * loadLane raw 응답을 transit segment 인덱스 순서의 path 좌표 리스트로 변환.
+     * <p>응답 형식: {@code result.lane[i].section[j].graphPos[k].{x, y}} (명세 §6.1 비고).
+     * lane[i]가 i번째 transit subPath와 1:1 매칭된다고 가정 (ODsay 가이드).
+     * <p>null/파싱 실패/구조 위반 시 빈 리스트 반환 — caller(transit segment)는
+     * passStopList 직선으로 fallback. graceful 정책 (명세 §6.1 v1.1.10).
+     */
+    private List<List<double[]>> parseLanePaths(String laneRawJson) {
+        if (laneRawJson == null || laneRawJson.isBlank()) {
+            return List.of();
+        }
+        try {
+            JsonNode root = parse(laneRawJson);
+            JsonNode laneArr = root.path("result").path("lane");
+            if (!laneArr.isArray()) {
+                return List.of();
+            }
+            List<List<double[]>> result = new ArrayList<>();
+            for (JsonNode lane : laneArr) {
+                List<double[]> points = new ArrayList<>();
+                for (JsonNode section : lane.path("section")) {
+                    for (JsonNode pos : section.path("graphPos")) {
+                        points.add(new double[]{
+                                parseCoord(pos.path("x")),
+                                parseCoord(pos.path("y"))
+                        });
+                    }
+                }
+                result.add(List.copyOf(points));
+            }
+            return result;
+        } catch (RuntimeException e) {
+            log.warn("ODsay loadLane 매핑 실패 — passStopList 직선 fallback", e);
+            return List.of();
+        }
     }
 
     // ── private helpers ──
@@ -158,7 +207,8 @@ public class OdsayResponseMapper {
     }
 
     private static RouteSegment buildTransitSegment(SegmentMode mode, int sectionTime,
-                                                    int distance, JsonNode sp) {
+                                                    int distance, JsonNode sp,
+                                                    List<double[]> graphPath) {
         String startName = textOrNull(sp.path("startName"));
         String endName = textOrNull(sp.path("endName"));
         Integer stationCount = sp.has("stationCount") ? sp.path("stationCount").asInt() : null;
@@ -179,7 +229,23 @@ public class OdsayResponseMapper {
         String stationStart = mode == SegmentMode.SUBWAY ? startName : null;
         String stationEnd = mode == SegmentMode.SUBWAY ? endName : null;
 
-        // path: startX/Y + passStopList.stations[].x/y + endX/Y 직선
+        // path 결정 (§6.1 v1.1.10):
+        //   - graphPath(loadLane.lane[i].section[].graphPos[]) 있으면 → 도로 곡선
+        //   - 없거나 비었으면 → passStopList 직선 fallback (startX/Y + stations[].x/y + endX/Y)
+        List<double[]> path = (graphPath != null && !graphPath.isEmpty())
+                ? graphPath
+                : buildPassStopListPath(sp);
+
+        return new RouteSegment(
+                mode, sectionTime, distance,
+                startName, endName,
+                lineName, lineId,
+                stationStart, stationEnd, stationCount,
+                path
+        );
+    }
+
+    private static List<double[]> buildPassStopListPath(JsonNode sp) {
         List<double[]> path = new ArrayList<>();
         path.add(new double[]{requireCoord(sp, "startX"), requireCoord(sp, "startY")});
         for (JsonNode st : sp.path("passStopList").path("stations")) {
@@ -189,14 +255,7 @@ public class OdsayResponseMapper {
             });
         }
         path.add(new double[]{requireCoord(sp, "endX"), requireCoord(sp, "endY")});
-
-        return new RouteSegment(
-                mode, sectionTime, distance,
-                startName, endName,
-                lineName, lineId,
-                stationStart, stationEnd, stationCount,
-                List.copyOf(path)
-        );
+        return List.copyOf(path);
     }
 
     private static String textOrNull(JsonNode node) {

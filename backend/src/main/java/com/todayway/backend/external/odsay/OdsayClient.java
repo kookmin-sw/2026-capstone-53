@@ -119,4 +119,53 @@ public class OdsayClient {
                     "ODsay 호출 중 예외 (" + e.getClass().getSimpleName() + ")", null);
         }
     }
+
+    /**
+     * 노선 그래픽 데이터 검색 — 명세 §6.1 비고. {@code searchPubTransPathT} 응답의
+     * {@code result.path[0].info.mapObj} 값을 받아 실제 도로 곡선 좌표 응답을 반환.
+     *
+     * <p>호출 형식: {@code GET /loadLane?mapObject=0:0@{mapObj}&apiKey={key}}.
+     * {@code "0:0@"} prefix는 ODsay 공식 가이드에 명시된 패턴이라 그대로 박는다.
+     *
+     * <p>호출자 정책: graceful — loadLane 실패 시 caller가 catch해서
+     * passStopList 직선 fallback (명세 §6.1 매핑표 비고 v1.1.10).
+     *
+     * @param mapObj {@code searchPubTransPathT} 응답의 {@code info.mapObj} 값 (prefix 없이)
+     * @return ODsay 응답 raw JSON 문자열
+     */
+    public String loadLane(String mapObj) {
+        log.debug("ODsay loadLane 호출: mapObj={}", mapObj);
+        try {
+            String body = restClient.get()
+                    .uri("/loadLane?mapObject=0:0@{mapObj}&apiKey={apiKey}",
+                            mapObj, properties.getApiKey())
+                    .retrieve()
+                    .body(String.class);
+
+            if (body == null || body.isBlank()) {
+                throw new ExternalApiException(SOURCE, ExternalApiException.Type.SERVER_ERROR,
+                        null, "ODsay loadLane 응답 본문이 비어있음", null);
+            }
+            log.debug("ODsay loadLane 응답 수신: {} bytes", body.length());
+            return body;
+        } catch (RestClientResponseException e) {
+            HttpStatusCode status = e.getStatusCode();
+            ExternalApiException.Type type = status.is4xxClientError()
+                    ? ExternalApiException.Type.CLIENT_ERROR
+                    : ExternalApiException.Type.SERVER_ERROR;
+            throw new ExternalApiException(SOURCE, type, status.value(),
+                    "ODsay loadLane 호출 실패: HTTP " + status, null);
+        } catch (ResourceAccessException e) {
+            Throwable rootCause = NestedExceptionUtils.getMostSpecificCause(e);
+            ExternalApiException.Type type = rootCause instanceof SocketTimeoutException
+                    ? ExternalApiException.Type.TIMEOUT
+                    : ExternalApiException.Type.NETWORK;
+            String causeName = rootCause != null ? rootCause.getClass().getSimpleName() : "ResourceAccessException";
+            throw new ExternalApiException(SOURCE, type, null,
+                    "ODsay loadLane 통신 실패 (" + causeName + ")", null);
+        } catch (RestClientException e) {
+            throw new ExternalApiException(SOURCE, ExternalApiException.Type.NETWORK, null,
+                    "ODsay loadLane 호출 중 예외 (" + e.getClass().getSimpleName() + ")", null);
+        }
+    }
 }
