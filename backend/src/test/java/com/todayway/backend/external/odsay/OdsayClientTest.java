@@ -128,11 +128,19 @@ class OdsayClientTest {
     // ─── loadLane (§6.1 v1.1.10) ─────────────────────────────────
 
     @Test
-    void loadLane_정상_200_응답_raw_그대로_반환_mapObject_prefix_포함() {
-        // mapObject prefix "0:0@" 검증 + apiKey 함께 인코딩
+    void loadLane_정상_200_응답_mapObject_prefix는_raw_mapObj변수는_strict_encoding() {
+        // 회귀 가드: 템플릿 "0:0@"는 raw 박혀있어 percent-encoding 안 됨
+        // (Spring RestClient default EncodingMode.TEMPLATE_AND_VALUES).
+        // 변수 {mapObj}만 strict — "908:1:1:16"의 ':' 모두 %3A로 변환.
+        // 누가 .queryParam("mapObject", "0:0@" + mapObj) 패턴으로 바꾸면 prefix까지 인코딩되어
+        // ODsay에 다른 형태로 전달됨 — 그 회귀 차단.
         server.expect(requestTo(Matchers.allOf(
                         Matchers.containsString("/loadLane"),
-                        Matchers.containsString("mapObject=0:0@908"),
+                        // prefix는 raw — '0:0@'가 percent-encoded 안 됨
+                        Matchers.containsString("mapObject=0:0@"),
+                        // mapObj 변수는 strict — '908:1:1:16' → '908%3A1%3A1%3A16'
+                        Matchers.containsString("908%3A1%3A1%3A16"),
+                        // apiKey도 strict
                         Matchers.containsString("apiKey=test%2Bkey%2Fwith%3Dspecial"))))
                 .andExpect(method(HttpMethod.GET))
                 .andRespond(withSuccess("{\"result\":{\"lane\":[]}}", MediaType.APPLICATION_JSON));

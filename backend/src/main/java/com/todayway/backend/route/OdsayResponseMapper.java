@@ -99,7 +99,7 @@ public class OdsayResponseMapper {
         // loadLane 곡선 좌표 — transit segment 인덱스 순으로 정렬됨.
         // 길이 mismatch / 범위 외 좌표 / 매핑 실패 시 빈 리스트 → 전체 transit이 passStopList 직선으로 fallback.
         // 부분 매핑은 swap 위험(잘못된 노선 곡선이 silent하게 그려짐) 때문에 허용 X.
-        List<List<double[]>> lanePaths = parseLanePaths(laneRawJson, transitStarts);
+        List<List<double[]>> lanePaths = parseLanePaths(laneRawJson, transitStarts.size());
 
         // 2) 순회: WALK는 lastPoint→nextTransitStart, transit은 lane[] 곡선 또는 passStopList
         List<RouteSegment> segments = new ArrayList<>();
@@ -150,20 +150,18 @@ public class OdsayResponseMapper {
      * loadLane raw 응답을 transit segment 인덱스 순서의 path 좌표 리스트로 변환.
      * <p>응답 형식: {@code result.lane[i].section[j].graphPos[k].{x, y}} (명세 §6.1 비고).
      * lane[i]가 i번째 transit subPath와 1:1 매칭된다고 가정 — ODsay 공식 문서엔 명시 X,
-     * fixture로 검증된 패턴. 길이 mismatch 시 swap 위험 차단을 위해 전체 fallback.
+     * fixture로 검증된 패턴. 길이 mismatch 시 부분 매핑(swap 위험)은 허용 X — 전체 fallback.
      *
      * <h3>Fallback 정책 (전부 graceful — 빈 리스트 반환)</h3>
      * <ul>
      *   <li>null/blank/파싱 실패/{@code result.lane}이 array 아님</li>
-     *   <li>lane 길이 ≠ transit subPath 개수 — 부분 매핑은 swap 위험이라 허용 X</li>
+     *   <li>lane 길이 ≠ {@code expectedLaneCount} — 부분 매핑은 swap 위험이라 허용 X</li>
      *   <li>graphPos 좌표 sanity 위반 (NaN/Infinity/한국 좌표 범위 밖/단일 점)</li>
      * </ul>
      *
-     * @param transitStarts transit subPath 시작점 리스트 — 결합 invariant: lane[]과 1:1 매칭 기대.
-     *                      {@code .size()}만 사용하지만 caller 결합을 명시적으로 표현하기 위해 통째로 받음.
+     * @param expectedLaneCount transit subPath 개수와 일치해야 하는 lane[] 길이
      */
-    private List<List<double[]>> parseLanePaths(String laneRawJson, List<double[]> transitStarts) {
-        int expectedLaneCount = transitStarts.size();
+    private List<List<double[]>> parseLanePaths(String laneRawJson, int expectedLaneCount) {
         if (laneRawJson == null || laneRawJson.isBlank()) {
             return List.of();
         }
@@ -180,7 +178,8 @@ public class OdsayResponseMapper {
                 return List.of();
             }
             List<List<double[]>> result = new ArrayList<>();
-            for (JsonNode lane : laneArr) {
+            for (int i = 0; i < laneArr.size(); i++) {
+                JsonNode lane = laneArr.get(i);
                 List<double[]> points = new ArrayList<>();
                 for (JsonNode section : lane.path("section")) {
                     for (JsonNode pos : section.path("graphPos")) {
@@ -188,8 +187,8 @@ public class OdsayResponseMapper {
                     }
                 }
                 if (points.size() < 2) {
-                    log.warn("ODsay loadLane lane의 graphPos 점 {}개 — 단일 점/빈 path는 polyline 무의미, fallback",
-                            points.size());
+                    log.warn("ODsay loadLane lane[{}] graphPos 점 {}개 — 단일 점/빈 path는 polyline 무의미, fallback",
+                            i, points.size());
                     return List.of();
                 }
                 result.add(List.copyOf(points));

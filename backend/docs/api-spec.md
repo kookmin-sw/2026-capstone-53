@@ -461,6 +461,8 @@ ORDER BY arrival_time ASC LIMIT 1
 
 > ⚠️ **중요**: 본 엔드포인트는 내부에서 ODsay API를 **동기 호출**한다. 응답 시간 평균 2~5초.
 > ODsay 호출 실패 시에도 일정은 정상 등록되며, 경로 관련 필드는 `null`로 응답된다 (graceful degradation).
+> 401/403(API 키 미설정/만료)도 등록 흐름에선 graceful 흡수 — 일정 등록 우선. 단 운영자 alert가 필요하므로
+> `log.error` 레벨로 격상해 모니터링 신호는 보존 (조회 흐름 §6.1은 503 격상으로 분리).
 
 #### Request Body
 
@@ -828,7 +830,7 @@ LIMIT ?
 | `totalDurationMinutes` | `result.path[0].info.totalTime` | 분 |
 | `totalDistanceMeters` | `result.path[0].info.totalDistance` | m |
 | `totalWalkMeters` | `result.path[0].info.totalWalk` | m |
-| `transferCount` | `result.path[0].info.subwayTransitCount + busTransitCount` | 합산. ⚠️ 의미(*환승 횟수* vs *이용 노선 수*) 미확정 — 명세팀 답변 후 v1.1.x 후속 패치 (PR #11 P2 #3) |
+| `transferCount` | `result.path[0].info.subwayTransitCount + busTransitCount` | 합산. ⚠️ 의미(*환승 횟수* vs *이용 노선 수*) 미확정 — 명세팀 답변 후 정의/산식 갱신 가능 |
 | `payment` | `result.path[0].info.payment` | 원 |
 
 `segments[]` 매핑 (`result.path[0].subPath[]` 순회):
@@ -868,17 +870,23 @@ GET https://api.odsay.com/v1/api/loadLane?mapObject=0:0@{info.mapObj}&apiKey={ke
   - `loadLane` 5xx/timeout/응답 형식 위반
   - `searchPubTransPathT` 응답에 `info.mapObj` 누락 또는 빈 문자열
   - `result.lane`이 array 아님 또는 길이가 transit subPath 개수와 불일치 (부분 매핑은 *swap 위험*으로 금지 — 잘못된 노선 곡선이 silent하게 그려지는 시각 버그)
-  - `graphPos[].{x, y}` 좌표 sanity 위반: NaN/Infinity, 한국 좌표 범위 밖(경도 124~132 / 위도 33~39)
+  - `graphPos[].{x, y}` 좌표 sanity 위반: NaN/Infinity, 서비스 영역 bbox 밖 (경도 `[124.0, 132.0]` / 위도 `[33.0, 39.0]` — 마라도 33.07°N / 백령도 124.7°E 포함)
   - lane의 graphPos 점이 2개 미만 (polyline 무의미)
 
   `searchPubTransPathT`는 정상이라 응답 자체는 가능 (cache 갱신도 진행).
-- **auth 격상 (운영자 alert)**: `loadLane` 401/403은 graceful 흡수하지 않고 propagate → `searchPubTransPathT`와 동일하게 `503 EXTERNAL_AUTH_MISCONFIGURED`로 격상 (API 키 미설정/만료는 운영 조치 필요)
+  거리 기반 swap 의심 검사(예: lane 시작점-transit 시작점 거리 비교)는 도입 검토했으나 평행 노선/동일 정류장/shift swap에 본질적으로 비효과적이라 채택 안 함 — ODsay 1:1 매칭 가이드 신뢰가 전제. 실 운영에서 이상 곡선 발견 시 lane name 비교 등 별도 검증 로직 추가 검토.
+- **auth 격상 (운영자 alert) — 조회 흐름(`getRoute`) 한정**: `loadLane`/`searchPubTransPathT` 401/403은 graceful 흡수하지 않고 propagate → `503 EXTERNAL_AUTH_MISCONFIGURED`로 격상 (API 키 미설정/만료는 운영 조치 필요).
+  등록/수정 흐름(`refreshRouteSync` — §5.1)은 `routeStatus = PENDING_RETRY` graceful 정책 우선. 401/403도 false 반환하되 `log.error`로 운영자 모니터링 신호는 보존.
 
 **`route_summary_json` 저장 형식 (wrapped)**:
 ```json
 { "path": <searchPubTransPathT raw>, "lane": <loadLane raw or null> }
 ```
 캐시 hit 시 두 raw를 함께 unwrap → mapper에 전달 → 곡선 그대로 복원 (재호출 불필요).
+
+**Wrapped JSON 타입 invariant**:
+- `path` 키: 항상 JSON object (`{...}`). 누락/null/array/primitive면 캐시 손상 판정 → fresh 호출로 자동 복구
+- `lane` 키: JSON object (`{...}`) 또는 `null`만 valid. 텍스트 `"null"` / 빈 문자열 / 숫자 / array는 거부 → 캐시 손상 판정. graceful로 흡수하지 않고 명시 거부해야 silent corruption 방지
 
 **v1.1.10 운영 노트 — 마이그레이션**:
 v1.1.10 배포 직후엔 v1.1.9 이전 비-wrapped 캐시(`route_summary_json`이 `searchPubTransPathT` raw 그대로 박힘)가 자동으로 invalid 판정됨 → cache miss로 ODsay 재호출 → cache 갱신. 자동 마이그레이션이라 별도 데이터 작업 불필요. 단, 배포 직후 잠깐(TTL 윈도우만큼) ODsay 호출 spike 가능 — 운영 모니터링 권장.

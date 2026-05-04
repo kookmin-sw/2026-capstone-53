@@ -10,6 +10,8 @@ import com.todayway.backend.schedule.domain.Schedule;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -83,34 +85,23 @@ class OdsayRouteServiceTest {
                 .isEqualTo(s.getArrivalTime().minusMinutes(34));
     }
 
-    @Test
-    void refreshRouteSync_401이면_BusinessException_503_AUTH_MISCONFIGURED_propagate() {
-        // 401/403은 운영자 조치 필요 — silent false 반환 X. 일정 등록 시점에도 동일 정책.
+    @ParameterizedTest
+    @ValueSource(ints = {401, 403})
+    void refreshRouteSync_401_403도_graceful_false반환_명세_5_1_정책(int status) {
+        // 명세 §5.1 — ODsay 호출 실패 시 일정은 정상 등록 + PENDING_RETRY (graceful degradation).
+        // 401/403도 등록 흐름에선 §5.1 우선이라 BusinessException throw X (조회 §6.1만 503 격상).
+        // 운영자 alert는 log.error 레벨 격상으로 보존. isAuthError의 || 양쪽 분기 회귀 가드.
         Schedule s = newSchedule();
         when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
                 .thenThrow(new ExternalApiException(
                         ExternalApiException.Source.ODSAY,
-                        ExternalApiException.Type.CLIENT_ERROR, 401, "auth", null));
+                        ExternalApiException.Type.CLIENT_ERROR, status, "auth", null));
 
-        BusinessException ex = catchThrowableOfType(
-                BusinessException.class, () -> service.refreshRouteSync(s));
+        boolean result = service.refreshRouteSync(s);
 
-        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
+        assertThat(result).isFalse();
         assertThat(s.getRouteSummaryJson()).isNull();
-    }
-
-    @Test
-    void refreshRouteSync_403이면_BusinessException_503_AUTH_MISCONFIGURED_propagate() {
-        Schedule s = newSchedule();
-        when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
-                .thenThrow(new ExternalApiException(
-                        ExternalApiException.Source.ODSAY,
-                        ExternalApiException.Type.CLIENT_ERROR, 403, "forbidden", null));
-
-        BusinessException ex = catchThrowableOfType(
-                BusinessException.class, () -> service.refreshRouteSync(s));
-
-        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
+        assertThat(s.getEstimatedDurationMinutes()).isNull();
     }
 
     @Test

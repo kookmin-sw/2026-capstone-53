@@ -95,16 +95,18 @@ public class OdsayRouteService implements RouteService {
             applyToSchedule(schedule, route, raw);
             return true;
         } catch (ExternalApiException e) {
-            // 401/403은 운영자 조치 필요 — graceful 흡수 X. caller(ScheduleService)에서
-            // BusinessException으로 격상되어 503 EXTERNAL_AUTH_MISCONFIGURED 응답.
-            // (getRoute의 mapToBusinessException과 동일 정책 — silent false 반환 시
-            //  일정 등록은 성공해도 운영자 alert 누락되어 발견 시점이 늦어짐)
+            // graceful degradation — 명세 §5.1 정책: ODsay 호출 실패 시 일정은 정상 등록되며
+            // 경로 필드 null + routeStatus=PENDING_RETRY로 응답. 401/403도 graceful 흡수
+            // (조회 흐름 §6.1은 503 격상이지만 등록 흐름은 §5.1 우선 — 등록 자체가 실패하면
+            //  사용자 경험 더 나쁨). 단 401/403은 운영자 조치가 필요하므로 log.error로 격상해
+            //  모니터링 신호 보존.
             if (isAuthError(e)) {
-                throw mapToBusinessException(e);
+                log.error("ODsay refresh 401/403 (auth 미설정/만료, 운영자 alert) scheduleUid={} httpStatus={}",
+                        schedule.getScheduleUid(), e.getHttpStatus(), e);
+            } else {
+                log.warn("ODsay refresh 실패 (graceful) scheduleUid={} type={} httpStatus={}",
+                        schedule.getScheduleUid(), e.getType(), e.getHttpStatus(), e);
             }
-            // graceful degradation — ScheduleService.create()/update()는 ODsay 결과 없이 진행.
-            log.warn("ODsay refresh 실패 (graceful) scheduleUid={} type={} httpStatus={}",
-                    schedule.getScheduleUid(), e.getType(), e.getHttpStatus(), e);
             return false;
         } catch (IllegalStateException | IllegalArgumentException e) {
             // 응답 매핑 실패 (path[0] 없음, unknown trafficType, 좌표 파싱 실패) — 동일 graceful 처리.
@@ -210,14 +212,13 @@ public class OdsayRouteService implements RouteService {
         try {
             return odsayClient.loadLane(mapObj);
         } catch (ExternalApiException e) {
-            Integer status = e.getHttpStatus();
-            if (status != null && (status == 401 || status == 403)) {
+            if (isAuthError(e)) {
                 // auth 미설정/만료는 운영자 alert 필요 — graceful 흡수 X.
                 // searchPubTransPathT 흐름과 일관되게 throw → caller가 503 매핑.
                 throw e;
             }
             log.warn("ODsay loadLane 호출 실패 (graceful) type={} httpStatus={}",
-                    e.getType(), status, e);
+                    e.getType(), e.getHttpStatus(), e);
             return null;
         }
     }
@@ -351,16 +352,12 @@ public class OdsayRouteService implements RouteService {
      * </ul>
      */
     private static BusinessException mapToBusinessException(ExternalApiException e) {
+        if (isAuthError(e)) {
+            return new BusinessException(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
+        }
         return switch (e.getType()) {
             case TIMEOUT -> new BusinessException(ErrorCode.EXTERNAL_TIMEOUT);
-            case CLIENT_ERROR -> {
-                Integer status = e.getHttpStatus();
-                boolean authIssue = status != null && (status == 401 || status == 403);
-                yield new BusinessException(
-                        authIssue ? ErrorCode.EXTERNAL_AUTH_MISCONFIGURED
-                                  : ErrorCode.EXTERNAL_ROUTE_API_FAILED);
-            }
-            case SERVER_ERROR, NETWORK ->
+            case CLIENT_ERROR, SERVER_ERROR, NETWORK ->
                     new BusinessException(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
         };
     }

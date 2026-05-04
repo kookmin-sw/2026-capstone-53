@@ -11,9 +11,9 @@ import java.util.List;
  * <p>모든 필드 {@code int} (not null primitive) — 명세상 number 필수.
  * ODsay 응답에 missing field가 있으면 mapper의 {@code .asInt()}가 0을 반환 (graceful).
  *
- * @param transferCount 잠정 정의: {@code subwayTransitCount + busTransitCount} (명세 §6.1 매핑표).
- *                      합산 의미가 *환승 횟수*인지 *이용 노선 수*인지는 PR #11 P2 #3 (황찬우)
- *                      명세팀 답변 대기 — 답 수령 후 정의 또는 산식 갱신 필요.
+ * @param transferCount {@code subwayTransitCount + busTransitCount} 합산 (명세 §6.1 매핑표).
+ *                      합산 의미(*환승 횟수* vs *이용 노선 수*)는 명세팀 답변 후 정의 또는 산식
+ *                      갱신 가능 — 잠정적으로 두 값이 합쳐서 '총 갈아탄 횟수'를 표현한다고 가정.
  */
 public record Route(
         int totalDurationMinutes,
