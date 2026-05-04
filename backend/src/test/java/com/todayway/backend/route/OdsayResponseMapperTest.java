@@ -408,6 +408,101 @@ class OdsayResponseMapperTest {
     }
 
     @Test
+    void loadLane_길이_불일치면_swap_위험_방지를_위해_전체_passStopList_fallback() throws IOException {
+        // fixture는 transit 1개(BUS). lane 0개 응답이 와도 부분 매핑 X (잘못된 segment에 매핑되어
+        // silent하게 다른 노선 곡선이 그려지면 visual 버그라 명세 §6.1 v1.1.10에서 전체 fallback 정책).
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        String laneRaw = "{ \"result\": { \"lane\": [] } }";  // size 0
+
+        Route route = mapper.toRoute(pathRaw, laneRaw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        // BUS path가 passStopList 18점 그대로 (size mismatch → graphPos 무시)
+        assertThat(route.segments().get(1).path()).hasSize(18);
+    }
+
+    @Test
+    void loadLane_graphPos_한국_좌표_범위_밖이면_passStopList_fallback() throws IOException {
+        // (0, 0) 같은 좌표가 섞이면 polyline 대서양 점프. silent 통과 차단.
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        String laneRaw = """
+                {
+                  "result": {
+                    "lane": [
+                      {
+                        "section": [
+                          {
+                            "graphPos": [
+                              {"x": 126.994769, "y": 37.61072},
+                              {"x": 0, "y": 0},
+                              {"x": 126.976851, "y": 37.565929}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        Route route = mapper.toRoute(pathRaw, laneRaw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        // 한국 범위 밖 좌표 발견 → 전체 lane drop → passStopList 18점
+        assertThat(route.segments().get(1).path()).hasSize(18);
+    }
+
+    @Test
+    void loadLane_graphPos_NaN이면_passStopList_fallback() throws IOException {
+        // ODsay 응답 손상으로 NaN/Infinity가 섞일 가능성 — silent 통과 X
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        // JSON에 NaN은 invalid라 string으로 시뮬레이션 (parseCoord가 NumberFormatException → IllegalStateException)
+        String laneRaw = """
+                {
+                  "result": {
+                    "lane": [
+                      {
+                        "section": [
+                          {
+                            "graphPos": [
+                              {"x": "NaN", "y": "37.61"},
+                              {"x": 126.99, "y": 37.61}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        Route route = mapper.toRoute(pathRaw, laneRaw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        assertThat(route.segments().get(1).path()).hasSize(18);
+    }
+
+    @Test
+    void loadLane_lane의_graphPos가_2점_미만이면_fallback() throws IOException {
+        // polyline은 최소 2점 필요. lane[0]이 1점만 주면 visual 무의미 → fallback.
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        String laneRaw = """
+                {
+                  "result": {
+                    "lane": [
+                      {
+                        "section": [
+                          {"graphPos": [{"x": 126.994769, "y": 37.61072}]}
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        Route route = mapper.toRoute(pathRaw, laneRaw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        assertThat(route.segments().get(1).path()).hasSize(18);
+    }
+
+    @Test
     void unknown_trafficType이면_IllegalArgumentException() {
         // ODsay가 명세 외 trafficType (예: 4=택시)을 추가했을 때 silent fallback 안 함.
         // OdsayRouteService에서 명시적 catch → graceful degradation.

@@ -33,4 +33,14 @@ public record RouteSegment(
         String stationEnd,
         Integer stationCount,
         List<double[]> path
-) {}
+) {
+    public RouteSegment {
+        // polyline은 최소 2점 필요 — 단일 점/null/빈 path는 명세 §11.5 위반.
+        // record 자체에 invariant 박아 caller(mapper/외부)와 무관하게 보장.
+        if (path == null || path.size() < 2) {
+            throw new IllegalArgumentException(
+                    "RouteSegment.path는 2점 이상 필요 — mode=" + mode
+                            + " size=" + (path == null ? "null" : path.size()));
+        }
+    }
+}

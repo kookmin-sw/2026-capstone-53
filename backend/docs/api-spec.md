@@ -131,7 +131,7 @@ Authorization: Bearer {accessToken}
 | 404 | `GEOCODE_NO_MATCH` | 지오코딩 결과 없음 |
 | 404 | `SUBSCRIPTION_NOT_FOUND` | 푸시 구독 없음 |
 | 409 | `LOGIN_ID_DUPLICATED` | 로그인 ID 중복 |
-| 502 | `EXTERNAL_ROUTE_API_FAILED` | ODsay 호출 실패 |
+| 502 | `EXTERNAL_ROUTE_API_FAILED` | ODsay 호출 실패 (5xx / 네트워크 장애 / 일반 4xx — 401/403 제외) |
 | **503** | **`EXTERNAL_AUTH_MISCONFIGURED`** | **외부 API 키 미설정 또는 인증 실패. 운영자 조치 필요 (일반 외부장애와 구분) — v1.1.4 추가** |
 | 503 | `MAP_PROVIDER_UNAVAILABLE` | 지도 SDK 설정 조회 불가 |
 | 504 | `EXTERNAL_TIMEOUT` | 외부 API 타임아웃 |
@@ -780,8 +780,10 @@ LIMIT ?
           "mode": "SUBWAY",
           "durationMinutes": 25,
           "distanceMeters": 7500,
+          "from": "우이동역",
+          "to": "성신여대입구역",
           "lineName": "우이신설선",
-          "lineId": "1027",
+          "lineId": "109",
           "stationStart": "우이동역",
           "stationEnd": "성신여대입구역",
           "stationCount": 7,
@@ -826,7 +828,7 @@ LIMIT ?
 | `totalDurationMinutes` | `result.path[0].info.totalTime` | 분 |
 | `totalDistanceMeters` | `result.path[0].info.totalDistance` | m |
 | `totalWalkMeters` | `result.path[0].info.totalWalk` | m |
-| `transferCount` | `result.path[0].info.subwayTransitCount + busTransitCount` | 합산 |
+| `transferCount` | `result.path[0].info.subwayTransitCount + busTransitCount` | 합산. ⚠️ 의미(*환승 횟수* vs *이용 노선 수*) 미확정 — 명세팀 답변 후 v1.1.x 후속 패치 (PR #11 P2 #3) |
 | `payment` | `result.path[0].info.payment` | 원 |
 
 `segments[]` 매핑 (`result.path[0].subPath[]` 순회):
@@ -862,7 +864,15 @@ GET https://api.odsay.com/v1/api/loadLane?mapObject=0:0@{info.mapObj}&apiKey={ke
 - `mapObject` 형식: **`"0:0@" + result.path[0].info.mapObj`** ⚠️ ODsay 공식 문서엔 prefix 명시 안 됨. 검증된 패턴
 - 응답: `result.lane[i].section[j].graphPos[k].{x, y}` — `lane[i]`가 i번째 transit subPath와 1:1 매칭, `section[]`은 평탄화하여 한 transit segment의 path로 합침
 - 호출 흐름: `searchPubTransPathT` → 응답에서 `info.mapObj` 추출 → `loadLane` 호출 (직렬, mapObj 의존)
-- **graceful fallback**: `loadLane` 5xx/timeout/응답 형식 위반 / `info.mapObj` 누락 / `lane[]` 비었을 때 → `passStopList.stations[].x/y` 직선으로 fallback. `searchPubTransPathT`는 정상이라 응답 가능 (cache 갱신도 진행)
+- **graceful fallback** — 다음 케이스에서 `passStopList.stations[].x/y` 직선으로 fallback:
+  - `loadLane` 5xx/timeout/응답 형식 위반
+  - `searchPubTransPathT` 응답에 `info.mapObj` 누락 또는 빈 문자열
+  - `result.lane`이 array 아님 또는 길이가 transit subPath 개수와 불일치 (부분 매핑은 *swap 위험*으로 금지 — 잘못된 노선 곡선이 silent하게 그려지는 시각 버그)
+  - `graphPos[].{x, y}` 좌표 sanity 위반: NaN/Infinity, 한국 좌표 범위 밖(경도 124~132 / 위도 33~39)
+  - lane의 graphPos 점이 2개 미만 (polyline 무의미)
+
+  `searchPubTransPathT`는 정상이라 응답 자체는 가능 (cache 갱신도 진행).
+- **auth 격상 (운영자 alert)**: `loadLane` 401/403은 graceful 흡수하지 않고 propagate → `searchPubTransPathT`와 동일하게 `503 EXTERNAL_AUTH_MISCONFIGURED`로 격상 (API 키 미설정/만료는 운영 조치 필요)
 
 **`route_summary_json` 저장 형식 (wrapped)**:
 ```json
@@ -870,14 +880,17 @@ GET https://api.odsay.com/v1/api/loadLane?mapObject=0:0@{info.mapObj}&apiKey={ke
 ```
 캐시 hit 시 두 raw를 함께 unwrap → mapper에 전달 → 곡선 그대로 복원 (재호출 불필요).
 
+**v1.1.10 운영 노트 — 마이그레이션**:
+v1.1.10 배포 직후엔 v1.1.9 이전 비-wrapped 캐시(`route_summary_json`이 `searchPubTransPathT` raw 그대로 박힘)가 자동으로 invalid 판정됨 → cache miss로 ODsay 재호출 → cache 갱신. 자동 마이그레이션이라 별도 데이터 작업 불필요. 단, 배포 직후 잠깐(TTL 윈도우만큼) ODsay 호출 spike 가능 — 운영 모니터링 권장.
+
 #### 에러
 - `404 SCHEDULE_NOT_FOUND`
 - `403 FORBIDDEN_RESOURCE`
 - `502 EXTERNAL_ROUTE_API_FAILED` — ODsay 호출 실패 + 캐시도 없음
-- `503 EXTERNAL_AUTH_MISCONFIGURED` — ODsay API 키 미설정/만료 (v1.1.4)
+- `503 EXTERNAL_AUTH_MISCONFIGURED` — ODsay API 키 미설정/만료 (v1.1.4). `searchPubTransPathT` / `loadLane` 둘 다 401/403 시 동일 격상 (v1.1.10)
 - `504 EXTERNAL_TIMEOUT` — ODsay 타임아웃 + 캐시도 없음
 
-> 캐시가 있으면 ODsay 실패 시에도 캐시로 응답 (캐시 stale 허용). `calculatedAt`으로 신선도 판단.
+> 캐시가 있으면 ODsay 실패 또는 fresh 응답 매핑 실패 시에도 캐시로 응답 (캐시 stale 허용). `calculatedAt`으로 신선도 판단. v1.1.10부터 매핑 실패도 동일 정책.
 
 #### DB 매핑
 - 캐시 hit: `schedule.route_summary_json` 그대로 사용. 첫 path만 변환해 응답.

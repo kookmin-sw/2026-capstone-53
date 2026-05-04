@@ -84,6 +84,36 @@ class OdsayRouteServiceTest {
     }
 
     @Test
+    void refreshRouteSync_401이면_BusinessException_503_AUTH_MISCONFIGURED_propagate() {
+        // 401/403은 운영자 조치 필요 — silent false 반환 X. 일정 등록 시점에도 동일 정책.
+        Schedule s = newSchedule();
+        when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenThrow(new ExternalApiException(
+                        ExternalApiException.Source.ODSAY,
+                        ExternalApiException.Type.CLIENT_ERROR, 401, "auth", null));
+
+        BusinessException ex = catchThrowableOfType(
+                BusinessException.class, () -> service.refreshRouteSync(s));
+
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
+        assertThat(s.getRouteSummaryJson()).isNull();
+    }
+
+    @Test
+    void refreshRouteSync_403이면_BusinessException_503_AUTH_MISCONFIGURED_propagate() {
+        Schedule s = newSchedule();
+        when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenThrow(new ExternalApiException(
+                        ExternalApiException.Source.ODSAY,
+                        ExternalApiException.Type.CLIENT_ERROR, 403, "forbidden", null));
+
+        BusinessException ex = catchThrowableOfType(
+                BusinessException.class, () -> service.refreshRouteSync(s));
+
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
+    }
+
+    @Test
     void refreshRouteSync_ExternalApiException은_graceful_false반환_schedule변경없음() {
         Schedule s = newSchedule();
         when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
@@ -330,6 +360,78 @@ class OdsayRouteServiceTest {
         // stale — calculatedAt은 갱신되지 않음 (15분 전 그대로), routeSummaryJson도 보존
         assertThat(res.calculatedAt()).isEqualTo(FIXED_NOW.minusMinutes(15));
         assertThat(s.getRouteSummaryJson()).isEqualTo("{\"path\":{\"cached\":true},\"lane\":null}");
+    }
+
+    // ─── unwrapRaw / wrapRaw 분기 (§6.1 v1.1.10) ────────────────
+
+    @Test
+    void getRoute_캐시_wrapped_path_없으면_unwrap_실패_fresh_복구() {
+        // 잘못 저장된 캐시 (path 키 없음) → unwrapRaw IllegalStateException → tryMapCache empty → fresh.
+        // v1.1.10 이전 raw가 그대로 남아있는 경우 자동 마이그레이션 (운영 spike 가능성 P1 T2).
+        Schedule s = newSchedule();
+        s.updateRouteInfo(34, s.getArrivalTime().minusMinutes(34),
+                "{\"result\":{\"path\":[]}}",  // v1.1.10 이전 형식: path 키 없이 ODsay raw 그대로
+                FIXED_NOW.minusMinutes(5));   // TTL 내
+        when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn("{\"result\":{\"path\":[{\"info\":{}}]}}");
+        when(mapper.toRoute(anyString(), nullable(String.class), anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(fakeRoute(34));
+
+        service.getRoute(s, false);
+
+        verify(odsayClient, times(1))
+                .searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void getRoute_캐시_wrapped_lane이_텍스트_null이면_unwrap_거부_fresh_복구() {
+        // lane 노드가 text "null" 또는 비-object 형태면 명시 거부 (M1 안전망)
+        Schedule s = newSchedule();
+        s.updateRouteInfo(34, s.getArrivalTime().minusMinutes(34),
+                "{\"path\":{\"a\":1},\"lane\":\"null\"}",  // lane이 string "null"
+                FIXED_NOW.minusMinutes(5));
+        when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn("{\"result\":{\"path\":[{\"info\":{}}]}}");
+        when(mapper.toRoute(anyString(), nullable(String.class), anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn(fakeRoute(34));
+
+        service.getRoute(s, false);
+
+        verify(odsayClient, times(1))
+                .searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble());
+    }
+
+    @Test
+    void getRoute_loadLane_401이면_503_AUTH_MISCONFIGURED_propagate() {
+        // M3: loadLane이 401/403이면 운영자 alert 필요 → graceful 흡수 X, BusinessException으로 격상
+        Schedule s = newSchedule();
+        when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn("{\"result\":{\"path\":[{\"info\":{\"mapObj\":\"x:y\"}}]}}");
+        when(odsayClient.loadLane(anyString()))
+                .thenThrow(new ExternalApiException(
+                        ExternalApiException.Source.ODSAY,
+                        ExternalApiException.Type.CLIENT_ERROR, 401, "auth", null));
+
+        BusinessException ex = catchThrowableOfType(
+                BusinessException.class, () -> service.getRoute(s, false));
+
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
+    }
+
+    @Test
+    void getRoute_loadLane_403이면_503_AUTH_MISCONFIGURED_propagate() {
+        Schedule s = newSchedule();
+        when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenReturn("{\"result\":{\"path\":[{\"info\":{\"mapObj\":\"x:y\"}}]}}");
+        when(odsayClient.loadLane(anyString()))
+                .thenThrow(new ExternalApiException(
+                        ExternalApiException.Source.ODSAY,
+                        ExternalApiException.Type.CLIENT_ERROR, 403, "forbidden", null));
+
+        BusinessException ex = catchThrowableOfType(
+                BusinessException.class, () -> service.getRoute(s, false));
+
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
     }
 
     // ─── helpers ──────────────────────────────────────────────────

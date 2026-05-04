@@ -23,8 +23,9 @@ import org.springframework.web.client.RestClientResponseException;
 import java.net.SocketTimeoutException;
 
 /**
- * ODsay 대중교통 길찾기 API 클라이언트.
- * 명세 §5.1: 응답을 raw JSON 그대로 schedule.route_summary_json에 저장한다.
+ * ODsay 대중교통 길찾기 / 노선 그래픽 API 클라이언트. 명세 §5.1 / §6.1 v1.1.10 —
+ * raw JSON을 호출자에게 그대로 반환. wrapped 저장 형식
+ * ({@code {"path":..., "lane":...}})은 {@code OdsayRouteService} 책임.
  */
 @Component
 public class OdsayClient {
@@ -125,10 +126,13 @@ public class OdsayClient {
      * {@code result.path[0].info.mapObj} 값을 받아 실제 도로 곡선 좌표 응답을 반환.
      *
      * <p>호출 형식: {@code GET /loadLane?mapObject=0:0@{mapObj}&apiKey={key}}.
-     * {@code "0:0@"} prefix는 ODsay 공식 가이드에 명시된 패턴이라 그대로 박는다.
+     * {@code "0:0@"} prefix는 ODsay 공식 문서에 명시되지 않은 *검증된 패턴*이다 (명세 §6.1 v1.1.10 비고).
      *
-     * <p>호출자 정책: graceful — loadLane 실패 시 caller가 catch해서
-     * passStopList 직선 fallback (명세 §6.1 매핑표 비고 v1.1.10).
+     * <p>호출자 정책 (명세 §6.1 v1.1.10):
+     * <ul>
+     *   <li>5xx/timeout/응답 형식 위반: graceful — caller가 catch해서 passStopList 직선 fallback</li>
+     *   <li>401/403: 운영자 alert 필요 — caller가 propagate해서 503 EXTERNAL_AUTH_MISCONFIGURED 격상</li>
+     * </ul>
      *
      * @param mapObj {@code searchPubTransPathT} 응답의 {@code info.mapObj} 값 (prefix 없이)
      * @return ODsay 응답 raw JSON 문자열

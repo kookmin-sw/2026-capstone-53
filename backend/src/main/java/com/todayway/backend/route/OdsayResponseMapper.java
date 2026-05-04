@@ -22,15 +22,21 @@ import java.util.List;
  *   <li>첫 WALK: {@code origin} → 다음 transit {@code startX/startY}</li>
  *   <li>중간 WALK: 이전 transit {@code endX/endY} → 다음 transit {@code startX/startY}</li>
  *   <li>마지막 WALK: 이전 transit {@code endX/endY} → {@code destination}</li>
- *   <li>all-WALK (transit 0개): 단일 WALK가 {@code origin} → {@code destination} 직선
- *       (ODsay 700m 이내 응답은 코드 -98로 path 없이 떨어지지만, 그 이상에서 도보만 반환되는
- *        case도 스펙상 가능 — 같은 보충 로직으로 자연스럽게 처리)</li>
+ *   <li>all-WALK (transit 0개): 단일 WALK가 {@code origin} → {@code destination} 직선.
+ *       ODsay 도보-only 응답이 path 형태로 들어오는 가설적 케이스에 대한 보충 — 실제 운영에선
+ *       700m 이내 응답이 에러 코드(코드 -98)로 떨어져 mapper의 {@code path[0] 없음} 분기에서
+ *       graceful catch (구현 메모)</li>
  * </ul>
  *
- * <h3>transit 구간 path</h3>
- * <p>{@code [startX, startY]} + {@code passStopList.stations[].x/y} + {@code [endX, endY]} 직선 연결.
- * 정확한 도로 곡선이 필요하면 ODsay {@code loadLane} 추가 호출이지만 MVP 범위 외 — 명세 §6.1
- * v1.1.4 비고 *"passStopList 좌표 직선 허용"*.
+ * <h3>transit 구간 path (v1.1.10)</h3>
+ * <p>우선순위: {@code loadLane} 도로 곡선 → {@code passStopList} 직선 fallback.
+ * <ul>
+ *   <li>1순위: {@code laneRawJson}의 {@code result.lane[i].section[].graphPos[].{x, y}}
+ *       (i = transit subPath 인덱스 — ODsay 공식 문서엔 명시 X, 검증된 가정. 길이 mismatch 시 전체 fallback)</li>
+ *   <li>2순위 (laneRawJson 누락 / 길이 불일치 / 좌표 sanity 위반 / 파싱 실패):
+ *       {@code [startX, startY]} + {@code passStopList.stations[].x/y} + {@code [endX, endY]} 직선
+ *       — 명세 §6.1 v1.1.10 비고</li>
+ * </ul>
  *
  * <h3>예외 정책</h3>
  * <p>매핑 실패 시 {@link IllegalStateException} (호출자 {@code OdsayRouteService}가 catch).
@@ -52,9 +58,14 @@ public class OdsayResponseMapper {
      * @param originLat    schedule.origin_lat
      * @param destLng      schedule.destination_lng
      * @param destLat      schedule.destination_lat
-     * @throws IllegalStateException pathRawJson 형식 위반 ({@code path[0]} 없음, 좌표 파싱 실패 등)
-     * @throws IllegalArgumentException ODsay 스펙 외 {@code trafficType}
-     *         (예: 4=택시 추가 등 — {@link SegmentMode#fromOdsayTrafficType(int)}에서 throw)
+     * @throws IllegalStateException pathRawJson 형식 위반 — (a) JSON 파싱 실패,
+     *         (b) {@code result.path[0]} 없음, (c) {@code result.path[0].info} 없음,
+     *         (d) transit subPath의 {@code startX/startY/endX/endY} 누락 (transit 자체 좌표 — passStopList 직선 fallback도 이걸 사용),
+     *         (e) {@code passStopList.stations[].x/y}의 숫자 파싱 실패.
+     *         laneRawJson 손상은 throw하지 않음 (passStopList 직선 fallback — 명세 §6.1 v1.1.10 비고).
+     * @throws IllegalArgumentException — (a) ODsay 스펙 외 {@code trafficType}
+     *         ({@link SegmentMode#fromOdsayTrafficType(int)}에서 throw),
+     *         (b) transit segment 최종 path가 2점 미만 ({@link RouteSegment} record invariant)
      */
     public Route toRoute(String pathRawJson, String laneRawJson,
                          double originLng, double originLat,
@@ -80,14 +91,15 @@ public class OdsayResponseMapper {
                           + info.path("busTransitCount").asInt();
         int payment = info.path("payment").asInt();
 
-        // loadLane 곡선 좌표 — transit segment 인덱스 순으로 정렬됨.
-        // null/빈 리스트면 buildTransitSegment 내부에서 passStopList 직선으로 fallback.
-        List<List<double[]>> lanePaths = parseLanePaths(laneRawJson);
-
         // ── segments[] — 두 패스 ──
         // 1) transit start 좌표 미리 수집 (WALK가 다음 transit 시작점을 lookahead 가능)
         JsonNode subPathArr = path0.path("subPath");
         List<double[]> transitStarts = collectTransitStarts(subPathArr);
+
+        // loadLane 곡선 좌표 — transit segment 인덱스 순으로 정렬됨.
+        // 길이 mismatch / 범위 외 좌표 / 매핑 실패 시 빈 리스트 → 전체 transit이 passStopList 직선으로 fallback.
+        // 부분 매핑은 swap 위험(잘못된 노선 곡선이 silent하게 그려짐) 때문에 허용 X.
+        List<List<double[]>> lanePaths = parseLanePaths(laneRawJson, transitStarts);
 
         // 2) 순회: WALK는 lastPoint→nextTransitStart, transit은 lane[] 곡선 또는 passStopList
         List<RouteSegment> segments = new ArrayList<>();
@@ -127,14 +139,31 @@ public class OdsayResponseMapper {
                 transferCount, payment, List.copyOf(segments));
     }
 
+    // 서비스 영역 (한국) bounding box — ODsay가 한국 대중교통 특화 API라 응답 좌표는 이 범위 안.
+    // 마라도(33.07) / 백령도(124.7) 포함 여유. 글로벌 확장 시 정책 재검토 필요.
+    private static final double SERVICE_LNG_MIN = 124.0;
+    private static final double SERVICE_LNG_MAX = 132.0;
+    private static final double SERVICE_LAT_MIN = 33.0;
+    private static final double SERVICE_LAT_MAX = 39.0;
+
     /**
      * loadLane raw 응답을 transit segment 인덱스 순서의 path 좌표 리스트로 변환.
      * <p>응답 형식: {@code result.lane[i].section[j].graphPos[k].{x, y}} (명세 §6.1 비고).
-     * lane[i]가 i번째 transit subPath와 1:1 매칭된다고 가정 (ODsay 가이드).
-     * <p>null/파싱 실패/구조 위반 시 빈 리스트 반환 — caller(transit segment)는
-     * passStopList 직선으로 fallback. graceful 정책 (명세 §6.1 v1.1.10).
+     * lane[i]가 i번째 transit subPath와 1:1 매칭된다고 가정 — ODsay 공식 문서엔 명시 X,
+     * fixture로 검증된 패턴. 길이 mismatch 시 swap 위험 차단을 위해 전체 fallback.
+     *
+     * <h3>Fallback 정책 (전부 graceful — 빈 리스트 반환)</h3>
+     * <ul>
+     *   <li>null/blank/파싱 실패/{@code result.lane}이 array 아님</li>
+     *   <li>lane 길이 ≠ transit subPath 개수 — 부분 매핑은 swap 위험이라 허용 X</li>
+     *   <li>graphPos 좌표 sanity 위반 (NaN/Infinity/한국 좌표 범위 밖/단일 점)</li>
+     * </ul>
+     *
+     * @param transitStarts transit subPath 시작점 리스트 — 결합 invariant: lane[]과 1:1 매칭 기대.
+     *                      {@code .size()}만 사용하지만 caller 결합을 명시적으로 표현하기 위해 통째로 받음.
      */
-    private List<List<double[]>> parseLanePaths(String laneRawJson) {
+    private List<List<double[]>> parseLanePaths(String laneRawJson, List<double[]> transitStarts) {
+        int expectedLaneCount = transitStarts.size();
         if (laneRawJson == null || laneRawJson.isBlank()) {
             return List.of();
         }
@@ -142,6 +171,12 @@ public class OdsayResponseMapper {
             JsonNode root = parse(laneRawJson);
             JsonNode laneArr = root.path("result").path("lane");
             if (!laneArr.isArray()) {
+                log.warn("ODsay loadLane 응답에 result.lane[] 배열 없음 — passStopList 직선 fallback");
+                return List.of();
+            }
+            if (laneArr.size() != expectedLaneCount) {
+                log.warn("ODsay loadLane 길이 불일치 — lane={} transitCount={} (전체 fallback)",
+                        laneArr.size(), expectedLaneCount);
                 return List.of();
             }
             List<List<double[]>> result = new ArrayList<>();
@@ -149,11 +184,13 @@ public class OdsayResponseMapper {
                 List<double[]> points = new ArrayList<>();
                 for (JsonNode section : lane.path("section")) {
                     for (JsonNode pos : section.path("graphPos")) {
-                        points.add(new double[]{
-                                parseCoord(pos.path("x")),
-                                parseCoord(pos.path("y"))
-                        });
+                        points.add(requireKoreaCoord(pos));
                     }
+                }
+                if (points.size() < 2) {
+                    log.warn("ODsay loadLane lane의 graphPos 점 {}개 — 단일 점/빈 path는 polyline 무의미, fallback",
+                            points.size());
+                    return List.of();
                 }
                 result.add(List.copyOf(points));
             }
@@ -161,6 +198,42 @@ public class OdsayResponseMapper {
         } catch (RuntimeException e) {
             log.warn("ODsay loadLane 매핑 실패 — passStopList 직선 fallback", e);
             return List.of();
+        }
+    }
+
+    /**
+     * graphPos 좌표 sanity 검증 (두 invariant 분리):
+     * <ol>
+     *   <li>{@link #requireFiniteCoord} — ODsay 응답 자체의 invariant (NaN/Infinity 거부)</li>
+     *   <li>{@link #requireServiceArea} — 우리 서비스 영역(한국) 비즈니스 invariant</li>
+     * </ol>
+     * silent 통과 시 polyline이 적도/대서양으로 점프하는 시각적 버그.
+     */
+    private static double[] requireKoreaCoord(JsonNode pos) {
+        double[] coord = requireFiniteCoord(pos);
+        requireServiceArea(coord);
+        return coord;
+    }
+
+    /** ODsay 응답 invariant — graphPos는 항상 유한한 숫자. */
+    private static double[] requireFiniteCoord(JsonNode pos) {
+        double lng = parseCoord(pos.path("x"));
+        double lat = parseCoord(pos.path("y"));
+        if (!Double.isFinite(lng) || !Double.isFinite(lat)) {
+            throw new IllegalStateException(
+                    "ODsay graphPos 좌표 NaN/Infinity: lng=" + lng + " lat=" + lat);
+        }
+        return new double[]{lng, lat};
+    }
+
+    /** 비즈니스 invariant — 우리 서비스 영역(한국) 안에 있어야 한다. 글로벌 확장 시 정책 재검토. */
+    private static void requireServiceArea(double[] coord) {
+        double lng = coord[0];
+        double lat = coord[1];
+        if (lng < SERVICE_LNG_MIN || lng > SERVICE_LNG_MAX
+                || lat < SERVICE_LAT_MIN || lat > SERVICE_LAT_MAX) {
+            throw new IllegalStateException(
+                    "graphPos 좌표 서비스 영역 밖: lng=" + lng + " lat=" + lat);
         }
     }
 
@@ -232,6 +305,7 @@ public class OdsayResponseMapper {
         // path 결정 (§6.1 v1.1.10):
         //   - graphPath(loadLane.lane[i].section[].graphPos[]) 있으면 → 도로 곡선
         //   - 없거나 비었으면 → passStopList 직선 fallback (startX/Y + stations[].x/y + endX/Y)
+        // size < 2 검증은 RouteSegment record compact ctor에서 IllegalArgumentException throw.
         List<double[]> path = (graphPath != null && !graphPath.isEmpty())
                 ? graphPath
                 : buildPassStopListPath(sp);

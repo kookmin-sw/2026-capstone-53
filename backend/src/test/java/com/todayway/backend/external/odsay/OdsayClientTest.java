@@ -124,4 +124,69 @@ class OdsayClientTest {
         assertThat(ex.getHttpStatus()).isEqualTo(500);
         assertThat(ex.getCause()).isNull();
     }
+
+    // ─── loadLane (§6.1 v1.1.10) ─────────────────────────────────
+
+    @Test
+    void loadLane_정상_200_응답_raw_그대로_반환_mapObject_prefix_포함() {
+        // mapObject prefix "0:0@" 검증 + apiKey 함께 인코딩
+        server.expect(requestTo(Matchers.allOf(
+                        Matchers.containsString("/loadLane"),
+                        Matchers.containsString("mapObject=0:0@908"),
+                        Matchers.containsString("apiKey=test%2Bkey%2Fwith%3Dspecial"))))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"result\":{\"lane\":[]}}", MediaType.APPLICATION_JSON));
+
+        String result = client.loadLane("908:1:1:16");
+
+        assertThat(result).contains("lane");
+        server.verify();
+    }
+
+    @Test
+    void loadLane_빈_응답_body면_SERVER_ERROR_cause_null() {
+        server.expect(requestTo(Matchers.any(String.class)))
+                .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
+
+        ExternalApiException ex = catchThrowableOfType(
+                ExternalApiException.class, () -> client.loadLane("908:1:1:16"));
+
+        assertThat(ex).isNotNull();
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.SERVER_ERROR);
+        assertThat(ex.getSource()).isEqualTo(ExternalApiException.Source.ODSAY);
+        assertThat(ex.getCause()).isNull();
+    }
+
+    @Test
+    void loadLane_HTTP_401이면_CLIENT_ERROR와_httpStatus_보존_cause_null() {
+        // 운영자 alert: searchPubTransPathT와 동일 정책 — 401/403은 503 EXTERNAL_AUTH_MISCONFIGURED로 격상
+        server.expect(requestTo(Matchers.any(String.class)))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED).body("ApiKeyAuthFailed"));
+
+        ExternalApiException ex = catchThrowableOfType(
+                ExternalApiException.class, () -> client.loadLane("908:1:1:16"));
+
+        assertThat(ex).isNotNull();
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.CLIENT_ERROR);
+        assertThat(ex.getHttpStatus()).isEqualTo(401);
+        assertThat(ex.getCause()).isNull();
+        assertThat(ex.getMessage())
+                .doesNotContain("apiKey")
+                .doesNotContain("test+key")
+                .doesNotContain("https://");
+    }
+
+    @Test
+    void loadLane_HTTP_500이면_SERVER_ERROR와_httpStatus_보존() {
+        server.expect(requestTo(Matchers.any(String.class)))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        ExternalApiException ex = catchThrowableOfType(
+                ExternalApiException.class, () -> client.loadLane("908:1:1:16"));
+
+        assertThat(ex).isNotNull();
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.SERVER_ERROR);
+        assertThat(ex.getHttpStatus()).isEqualTo(500);
+        assertThat(ex.getCause()).isNull();
+    }
 }
