@@ -33,4 +33,47 @@ public record RouteSegment(
         String stationEnd,
         Integer stationCount,
         List<double[]> path
-) {}
+) {
+    public RouteSegment {
+        // polyline은 최소 2점 필요 — 단일 점/null/빈 path는 명세 §11.5 위반.
+        // record 자체에 invariant 박아 caller(mapper/외부)와 무관하게 보장.
+        if (path == null || path.size() < 2) {
+            throw new IllegalArgumentException(
+                    "RouteSegment.path는 2점 이상 필요 — mode=" + mode
+                            + " size=" + (path == null ? "null" : path.size()));
+        }
+        if (mode == null) {
+            throw new IllegalArgumentException("RouteSegment.mode는 null 불가");
+        }
+        // mode-specific nullable matrix (명세 §11.5 / §6.1 매핑표):
+        //   WALK   — line*/station* 5필드 모두 null
+        //   SUBWAY — lineName + lineId + stationStart + stationEnd + stationCount 모두 non-null
+        //   BUS    — lineName + lineId만 non-null (station* 필드는 null — from/to와 중복)
+        switch (mode) {
+            case WALK -> {
+                if (from != null || to != null
+                        || lineName != null || lineId != null
+                        || stationStart != null || stationEnd != null || stationCount != null) {
+                    throw new IllegalArgumentException(
+                            "WALK segment는 from/to/line*/station* 필드 모두 null이어야 함");
+                }
+            }
+            case SUBWAY -> {
+                if (lineName == null || lineId == null
+                        || stationStart == null || stationEnd == null || stationCount == null) {
+                    throw new IllegalArgumentException(
+                            "SUBWAY segment는 lineName/lineId/stationStart/stationEnd/stationCount 모두 필수");
+                }
+            }
+            case BUS -> {
+                if (lineName == null || lineId == null) {
+                    throw new IllegalArgumentException("BUS segment는 lineName/lineId 필수");
+                }
+                if (stationStart != null || stationEnd != null) {
+                    throw new IllegalArgumentException(
+                            "BUS segment는 stationStart/stationEnd null 필수 (from/to와 중복 회피)");
+                }
+            }
+        }
+    }
+}

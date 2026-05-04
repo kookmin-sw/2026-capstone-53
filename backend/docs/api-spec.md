@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.9-MVP
-> **최종 수정**: 2026-04-30 (이상진 — Step 6 OdsayRouteService 구현: §6.1 WALK 좌표 보충 알고리즘 명시)
+> **버전**: v1.1.10-MVP
+> **최종 수정**: 2026-05-04 (이상진 — §6.1 transit path 출처를 ODsay `loadLane` 도로 곡선으로 승격, `route_summary_json` wrapped 형식 도입)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -26,6 +26,7 @@
 | **v1.1.7** | **2026-04-30** | **§1.7 Resolver 동작 정정 — `Authentication.getName()`으로 raw `member_uid` 반환만(DB 호출 X), Service가 `findByMemberUid` 1회 조회. §3.3 탈퇴 회원 응답: 404 `MEMBER_NOT_FOUND` → **401 `UNAUTHORIZED`** (Service 부재 시 응답). β PR Resolver 마이그레이션 (이상진 PR #5 I-1 + claude.ai P1).** |
 | **v1.1.8** | **2026-04-30** | **§5.4 PATCH 검증 정정 — `arrivalTime`의 NOW() 검사는 `arrivalTime`이 요청에 포함된 경우에만 적용. 지난 일정의 `title` 등 메모 편집 허용. (Step 5 PR #10 claude.ai 리뷰 P1 흡수)** |
 | **v1.1.9** | **2026-04-30** | **§6.1 WALK 구간 path 보충 알고리즘 명시 (Step 6 이상진) — ODsay WALK subPath에 좌표 키가 없어 `origin`/`destination`/이전 transit 끝점으로 합성. 매핑표의 `path` 행에 WALK 분기 추가.** |
+| **v1.1.10** | **2026-05-04** | **§6.1 transit path 출처 승격 (이상진) — `passStopList` 정류장 직선 → ODsay `loadLane` 도로 곡선 (`lane[i].section[].graphPos[]`) 정식 사용. `route_summary_json`을 `{"path":..., "lane":...}` wrapped 형식으로 저장 — 캐시 hit 시 재호출 없이 곡선 복원. loadLane 실패는 graceful — `passStopList` 직선 fallback. ODsay 호출 cache miss 1회당 1회 → 2회 (직렬, mapObj 의존).** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -130,7 +131,7 @@ Authorization: Bearer {accessToken}
 | 404 | `GEOCODE_NO_MATCH` | 지오코딩 결과 없음 |
 | 404 | `SUBSCRIPTION_NOT_FOUND` | 푸시 구독 없음 |
 | 409 | `LOGIN_ID_DUPLICATED` | 로그인 ID 중복 |
-| 502 | `EXTERNAL_ROUTE_API_FAILED` | ODsay 호출 실패 |
+| 502 | `EXTERNAL_ROUTE_API_FAILED` | ODsay 호출 실패 (5xx / 네트워크 장애 / 일반 4xx — 401/403 제외) |
 | **503** | **`EXTERNAL_AUTH_MISCONFIGURED`** | **외부 API 키 미설정 또는 인증 실패. 운영자 조치 필요 (일반 외부장애와 구분) — v1.1.4 추가** |
 | 503 | `MAP_PROVIDER_UNAVAILABLE` | 지도 SDK 설정 조회 불가 |
 | 504 | `EXTERNAL_TIMEOUT` | 외부 API 타임아웃 |
@@ -460,6 +461,8 @@ ORDER BY arrival_time ASC LIMIT 1
 
 > ⚠️ **중요**: 본 엔드포인트는 내부에서 ODsay API를 **동기 호출**한다. 응답 시간 평균 2~5초.
 > ODsay 호출 실패 시에도 일정은 정상 등록되며, 경로 관련 필드는 `null`로 응답된다 (graceful degradation).
+> 401/403(API 키 미설정/만료)도 등록 흐름에선 graceful 흡수 — 일정 등록 우선. 단 운영자 alert가 필요하므로
+> `log.error` 레벨로 격상해 모니터링 신호는 보존 (조회 흐름 §6.1은 503 격상으로 분리).
 
 #### Request Body
 
@@ -779,8 +782,10 @@ LIMIT ?
           "mode": "SUBWAY",
           "durationMinutes": 25,
           "distanceMeters": 7500,
+          "from": "우이동역",
+          "to": "성신여대입구역",
           "lineName": "우이신설선",
-          "lineId": "1027",
+          "lineId": "109",
           "stationStart": "우이동역",
           "stationEnd": "성신여대입구역",
           "stationCount": 7,
@@ -825,7 +830,7 @@ LIMIT ?
 | `totalDurationMinutes` | `result.path[0].info.totalTime` | 분 |
 | `totalDistanceMeters` | `result.path[0].info.totalDistance` | m |
 | `totalWalkMeters` | `result.path[0].info.totalWalk` | m |
-| `transferCount` | `result.path[0].info.subwayTransitCount + busTransitCount` | 합산 |
+| `transferCount` | `result.path[0].info.subwayTransitCount + busTransitCount` | 합산. ⚠️ 의미(*환승 횟수* vs *이용 노선 수*) 미확정 — 명세팀 답변 후 정의/산식 갱신 가능 |
 | `payment` | `result.path[0].info.payment` | 원 |
 
 `segments[]` 매핑 (`result.path[0].subPath[]` 순회):
@@ -842,7 +847,7 @@ LIMIT ?
 | `stationStart` | `subPath.startName` (SUBWAY 한정) | BUS는 from과 중복이라 null |
 | `stationEnd` | `subPath.endName` (SUBWAY 한정) | |
 | `stationCount` | `subPath.stationCount` | |
-| `path` | (transit) `[startX, startY]` + `passStopList.stations[].x/y` + `[endX, endY]` 직선<br>(WALK) 좌표 키 없음 → 합성 (아래 알고리즘) | `[lng, lat]` 배열. transit 정확 곡선은 `loadLane` 추가 호출 (선택) |
+| `path` | (transit) `loadLane.result.lane[i].section[].graphPos[]` 평탄화 (도로 곡선)<br>(WALK) 좌표 키 없음 → 합성 (아래 알고리즘) | `[lng, lat]` 배열. loadLane 실패/누락 시 `passStopList` 직선으로 graceful fallback (v1.1.10) |
 
 🆕 **v1.1.9 — WALK 구간 path 보충 알고리즘** (ODsay WALK subPath는 `startX/Y`/`endX/Y` 키가 없음):
 
@@ -852,24 +857,48 @@ LIMIT ?
 
 여기서 `origin/destination`은 `schedule.origin_lng/lat`, `schedule.destination_lng/lat`. 매핑은 lookahead 1패스로 transit 시작점들을 미리 수집한 뒤 결정적으로 적용 (자의적 보간 금지).
 
-**정확한 `path` 좌표가 필요하면 — ODsay `loadLane` API**:
+🆕 **v1.1.10 — transit `path` 출처 = ODsay `loadLane` 도로 곡선**:
 
 ```
-GET https://api.odsay.com/v1/api/loadLane?mapObject={mapObject}&apiKey={key}
+GET https://api.odsay.com/v1/api/loadLane?mapObject=0:0@{info.mapObj}&apiKey={key}
 ```
 
 - `mapObject` 형식: **`"0:0@" + result.path[0].info.mapObj`** ⚠️ ODsay 공식 문서엔 prefix 명시 안 됨. 검증된 패턴
-- 응답: `result.lane[].section[].graphPos[].{x, y}` — 실제 도로 곡선 좌표
-- 선택: 추가 호출 비용 있음. MVP 단계엔 생략하고 `passStopList` 좌표 직선 허용
+- 응답: `result.lane[i].section[j].graphPos[k].{x, y}` — `lane[i]`가 i번째 transit subPath와 1:1 매칭, `section[]`은 평탄화하여 한 transit segment의 path로 합침
+- 호출 흐름: `searchPubTransPathT` → 응답에서 `info.mapObj` 추출 → `loadLane` 호출 (직렬, mapObj 의존)
+- **graceful fallback** — 다음 케이스에서 `passStopList.stations[].x/y` 직선으로 fallback:
+  - `loadLane` 5xx/timeout/응답 형식 위반
+  - `searchPubTransPathT` 응답에 `info.mapObj` 누락 또는 빈 문자열
+  - `result.lane`이 array 아님 또는 길이가 transit subPath 개수와 불일치 (부분 매핑은 *swap 위험*으로 금지 — 잘못된 노선 곡선이 silent하게 그려지는 시각 버그)
+  - `graphPos[].{x, y}` 좌표 sanity 위반: NaN/Infinity, 서비스 영역 bbox 밖 (경도 `[124.0, 132.0]` / 위도 `[33.0, 39.0]` — 마라도 33.07°N / 백령도 124.7°E 포함)
+  - lane의 graphPos 점이 2개 미만 (polyline 무의미)
+
+  `searchPubTransPathT`는 정상이라 응답 자체는 가능 (cache 갱신도 진행).
+  거리 기반 swap 의심 검사(예: lane 시작점-transit 시작점 거리 비교)는 도입 검토했으나 평행 노선/동일 정류장/shift swap에 본질적으로 비효과적이라 채택 안 함 — ODsay 1:1 매칭 가이드 신뢰가 전제. 실 운영에서 이상 곡선 발견 시 lane name 비교 등 별도 검증 로직 추가 검토.
+- **auth 격상 (운영자 alert) — 조회 흐름(`getRoute`) 한정**: `loadLane`/`searchPubTransPathT` 401/403은 graceful 흡수하지 않고 propagate → `503 EXTERNAL_AUTH_MISCONFIGURED`로 격상 (API 키 미설정/만료는 운영 조치 필요).
+  등록/수정 흐름(`refreshRouteSync` — §5.1)은 `routeStatus = PENDING_RETRY` graceful 정책 우선. 401/403도 false 반환하되 `log.error`로 운영자 모니터링 신호는 보존.
+
+**`route_summary_json` 저장 형식 (wrapped)**:
+```json
+{ "path": <searchPubTransPathT raw>, "lane": <loadLane raw or null> }
+```
+캐시 hit 시 두 raw를 함께 unwrap → mapper에 전달 → 곡선 그대로 복원 (재호출 불필요).
+
+**Wrapped JSON 타입 invariant**:
+- `path` 키: 항상 JSON object (`{...}`). 누락/null/array/primitive면 캐시 손상 판정 → fresh 호출로 자동 복구
+- `lane` 키: JSON object (`{...}`) 또는 `null`만 valid. 텍스트 `"null"` / 빈 문자열 / 숫자 / array는 거부 → 캐시 손상 판정. graceful로 흡수하지 않고 명시 거부해야 silent corruption 방지
+
+**v1.1.10 운영 노트 — 마이그레이션**:
+v1.1.10 배포 직후엔 v1.1.9 이전 비-wrapped 캐시(`route_summary_json`이 `searchPubTransPathT` raw 그대로 박힘)가 자동으로 invalid 판정됨 → cache miss로 ODsay 재호출 → cache 갱신. 자동 마이그레이션이라 별도 데이터 작업 불필요. 단, 배포 직후 잠깐(TTL 윈도우만큼) ODsay 호출 spike 가능 — 운영 모니터링 권장.
 
 #### 에러
 - `404 SCHEDULE_NOT_FOUND`
 - `403 FORBIDDEN_RESOURCE`
 - `502 EXTERNAL_ROUTE_API_FAILED` — ODsay 호출 실패 + 캐시도 없음
-- `503 EXTERNAL_AUTH_MISCONFIGURED` — ODsay API 키 미설정/만료 (v1.1.4)
+- `503 EXTERNAL_AUTH_MISCONFIGURED` — ODsay API 키 미설정/만료 (v1.1.4). `searchPubTransPathT` / `loadLane` 둘 다 401/403 시 동일 격상 (v1.1.10)
 - `504 EXTERNAL_TIMEOUT` — ODsay 타임아웃 + 캐시도 없음
 
-> 캐시가 있으면 ODsay 실패 시에도 캐시로 응답 (캐시 stale 허용). `calculatedAt`으로 신선도 판단.
+> 캐시가 있으면 ODsay 실패 또는 fresh 응답 매핑 실패 시에도 캐시로 응답 (캐시 stale 허용). `calculatedAt`으로 신선도 판단. v1.1.10부터 매핑 실패도 동일 정책.
 
 #### DB 매핑
 - 캐시 hit: `schedule.route_summary_json` 그대로 사용. 첫 path만 변환해 응답.

@@ -124,4 +124,77 @@ class OdsayClientTest {
         assertThat(ex.getHttpStatus()).isEqualTo(500);
         assertThat(ex.getCause()).isNull();
     }
+
+    // ─── loadLane (§6.1 v1.1.10) ─────────────────────────────────
+
+    @Test
+    void loadLane_정상_200_응답_mapObject_prefix는_raw_mapObj변수는_strict_encoding() {
+        // 회귀 가드: 템플릿 "0:0@"는 raw 박혀있어 percent-encoding 안 됨
+        // (Spring RestClient default EncodingMode.TEMPLATE_AND_VALUES).
+        // 변수 {mapObj}만 strict — "908:1:1:16"의 ':' 모두 %3A로 변환.
+        // 누가 .queryParam("mapObject", "0:0@" + mapObj) 패턴으로 바꾸면 prefix까지 인코딩되어
+        // ODsay에 다른 형태로 전달됨 — 그 회귀 차단.
+        server.expect(requestTo(Matchers.allOf(
+                        Matchers.containsString("/loadLane"),
+                        // prefix는 raw — '0:0@'가 percent-encoded 안 됨
+                        Matchers.containsString("mapObject=0:0@"),
+                        // mapObj 변수는 strict — '908:1:1:16' → '908%3A1%3A1%3A16'
+                        Matchers.containsString("908%3A1%3A1%3A16"),
+                        // apiKey도 strict
+                        Matchers.containsString("apiKey=test%2Bkey%2Fwith%3Dspecial"))))
+                .andExpect(method(HttpMethod.GET))
+                .andRespond(withSuccess("{\"result\":{\"lane\":[]}}", MediaType.APPLICATION_JSON));
+
+        String result = client.loadLane("908:1:1:16");
+
+        assertThat(result).contains("lane");
+        server.verify();
+    }
+
+    @Test
+    void loadLane_빈_응답_body면_SERVER_ERROR_cause_null() {
+        server.expect(requestTo(Matchers.any(String.class)))
+                .andRespond(withSuccess("", MediaType.APPLICATION_JSON));
+
+        ExternalApiException ex = catchThrowableOfType(
+                ExternalApiException.class, () -> client.loadLane("908:1:1:16"));
+
+        assertThat(ex).isNotNull();
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.SERVER_ERROR);
+        assertThat(ex.getSource()).isEqualTo(ExternalApiException.Source.ODSAY);
+        assertThat(ex.getCause()).isNull();
+    }
+
+    @Test
+    void loadLane_HTTP_401이면_CLIENT_ERROR와_httpStatus_보존_cause_null() {
+        // 운영자 alert: searchPubTransPathT와 동일 정책 — 401/403은 503 EXTERNAL_AUTH_MISCONFIGURED로 격상
+        server.expect(requestTo(Matchers.any(String.class)))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED).body("ApiKeyAuthFailed"));
+
+        ExternalApiException ex = catchThrowableOfType(
+                ExternalApiException.class, () -> client.loadLane("908:1:1:16"));
+
+        assertThat(ex).isNotNull();
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.CLIENT_ERROR);
+        assertThat(ex.getHttpStatus()).isEqualTo(401);
+        assertThat(ex.getCause()).isNull();
+        assertThat(ex.getMessage())
+                .doesNotContain("apiKey")
+                .doesNotContain("test+key")
+                .doesNotContain("https://");
+    }
+
+    @Test
+    void loadLane_HTTP_500이면_SERVER_ERROR와_httpStatus_보존() {
+        server.expect(requestTo(Matchers.any(String.class)))
+                .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));
+
+        ExternalApiException ex = catchThrowableOfType(
+                ExternalApiException.class, () -> client.loadLane("908:1:1:16"));
+
+        assertThat(ex).isNotNull();
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.SERVER_ERROR);
+        assertThat(ex.getHttpStatus()).isEqualTo(500);
+        assertThat(ex.getCause()).isNull();
+    }
 }

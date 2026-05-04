@@ -38,7 +38,7 @@ class OdsayResponseMapperTest {
     void 실제_ODsay_응답_매핑_명세_6_1_매핑표_전체_검증() throws IOException {
         String raw = Files.readString(Path.of(FIXTURE_PATH));
 
-        Route route = mapper.toRoute(raw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+        Route route = mapper.toRoute(raw, null, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
 
         // ── Route 필드 (§6.1 매핑표) ──
         assertThat(route.totalDurationMinutes()).isEqualTo(34);    // info.totalTime
@@ -53,7 +53,7 @@ class OdsayResponseMapperTest {
     void WALK_구간_매핑_origin과_destination_좌표로_path_보충() throws IOException {
         String raw = Files.readString(Path.of(FIXTURE_PATH));
 
-        Route route = mapper.toRoute(raw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+        Route route = mapper.toRoute(raw, null, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
 
         // [0] 첫 WALK: origin → 다음 transit(BUS) startX/Y
         RouteSegment seg0 = route.segments().get(0);
@@ -105,7 +105,7 @@ class OdsayResponseMapperTest {
                 }
                 """;
 
-        Route route = mapper.toRoute(raw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+        Route route = mapper.toRoute(raw, null, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
 
         assertThat(route.transferCount()).isZero();
         assertThat(route.payment()).isZero();
@@ -143,7 +143,7 @@ class OdsayResponseMapperTest {
                 }
                 """;
 
-        assertThatThrownBy(() -> mapper.toRoute(raw, 0, 0, 0, 0))
+        assertThatThrownBy(() -> mapper.toRoute(raw, null, 0, 0, 0, 0))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("좌표");
     }
@@ -172,7 +172,7 @@ class OdsayResponseMapperTest {
                 }
                 """;
 
-        assertThatThrownBy(() -> mapper.toRoute(raw, 0, 0, 0, 0))
+        assertThatThrownBy(() -> mapper.toRoute(raw, null, 0, 0, 0, 0))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("startX");
     }
@@ -181,7 +181,7 @@ class OdsayResponseMapperTest {
     void BUS_구간_매핑_busNo_busID_string_변환_passStopList_path() throws IOException {
         String raw = Files.readString(Path.of(FIXTURE_PATH));
 
-        Route route = mapper.toRoute(raw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+        Route route = mapper.toRoute(raw, null, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
 
         // [1] BUS 1711번
         RouteSegment seg = route.segments().get(1);
@@ -213,7 +213,7 @@ class OdsayResponseMapperTest {
     void path_배열이_비어있으면_IllegalStateException() {
         String raw = "{ \"result\": { \"path\": [] } }";
 
-        assertThatThrownBy(() -> mapper.toRoute(raw, 0, 0, 0, 0))
+        assertThatThrownBy(() -> mapper.toRoute(raw, null, 0, 0, 0, 0))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("path[0]");
     }
@@ -222,7 +222,7 @@ class OdsayResponseMapperTest {
     void 잘못된_JSON이면_IllegalStateException() {
         String raw = "this-is-not-json";
 
-        assertThatThrownBy(() -> mapper.toRoute(raw, 0, 0, 0, 0))
+        assertThatThrownBy(() -> mapper.toRoute(raw, null, 0, 0, 0, 0))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("파싱 실패");
     }
@@ -264,7 +264,7 @@ class OdsayResponseMapperTest {
                 }
                 """;
 
-        Route route = mapper.toRoute(raw, 127.014, 37.610, 126.977, 37.564);
+        Route route = mapper.toRoute(raw, null, 127.014, 37.610, 126.977, 37.564);
 
         assertThat(route.segments()).hasSize(1);
         RouteSegment seg = route.segments().get(0);
@@ -307,9 +307,199 @@ class OdsayResponseMapperTest {
                 }
                 """;
 
-        assertThatThrownBy(() -> mapper.toRoute(raw, 0, 0, 0, 0))
+        assertThatThrownBy(() -> mapper.toRoute(raw, null, 0, 0, 0, 0))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("info");
+    }
+
+    @Test
+    void loadLane_raw_제공시_transit_path가_graphPos로_교체() throws IOException {
+        // §6.1 v1.1.10 — loadLane.lane[i].section[].graphPos[] → transit segment i의 path
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        // fixture는 transit subPath 1개(BUS) → lane[0].section[]만 사용
+        String laneRaw = """
+                {
+                  "result": {
+                    "lane": [
+                      {
+                        "section": [
+                          {
+                            "graphPos": [
+                              {"x": 126.994769, "y": 37.61072},
+                              {"x": 126.992, "y": 37.605},
+                              {"x": 126.985, "y": 37.580},
+                              {"x": 126.980, "y": 37.572},
+                              {"x": 126.976851, "y": 37.565929}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        Route route = mapper.toRoute(pathRaw, laneRaw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        // BUS segment(index 1)의 path가 graphPos 5점으로 교체 — passStopList(18점) 아님
+        RouteSegment busSeg = route.segments().get(1);
+        assertThat(busSeg.mode()).isEqualTo(SegmentMode.BUS);
+        assertThat(busSeg.path()).hasSize(5);
+        assertThat(busSeg.path().get(0)).containsExactly(126.994769, 37.61072);
+        assertThat(busSeg.path().get(4)).containsExactly(126.976851, 37.565929);
+    }
+
+    @Test
+    void loadLane_raw_깨졌을때_passStopList_fallback() throws IOException {
+        // graceful — lane raw 형식 위반 시 transit path는 기존 passStopList 직선으로 fallback
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        Route route = mapper.toRoute(pathRaw, "this-is-not-json", ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+        assertThat(route.segments().get(1).path()).hasSize(18);
+    }
+
+    @Test
+    void loadLane_lane_배열_비었을때_passStopList_fallback() throws IOException {
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        Route route = mapper.toRoute(pathRaw, "{ \"result\": { \"lane\": [] } }",
+                ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+        assertThat(route.segments().get(1).path()).hasSize(18);
+    }
+
+    @Test
+    void loadLane_section_여러개면_graphPos_평탄화() {
+        // lane[0].section[0,1] 두 section의 graphPos를 합쳐 한 transit segment의 path로
+        String pathRaw = """
+                {
+                  "result": {
+                    "path": [{
+                      "info": {
+                        "totalTime": 30, "totalDistance": 5000, "totalWalk": 0,
+                        "subwayTransitCount": 0, "busTransitCount": 1, "payment": 1500
+                      },
+                      "subPath": [{
+                        "trafficType": 2,
+                        "sectionTime": 30, "distance": 5000,
+                        "startName": "A", "endName": "B", "stationCount": 0,
+                        "startX": 127.0, "startY": 37.6,
+                        "endX": 127.1, "endY": 37.5,
+                        "lane": [{"busNo": "100", "busID": 1}],
+                        "passStopList": {"stations": []}
+                      }]
+                    }]
+                  }
+                }
+                """;
+        String laneRaw = """
+                {
+                  "result": {
+                    "lane": [{
+                      "section": [
+                        {"graphPos": [{"x": 127.0, "y": 37.6}, {"x": 127.05, "y": 37.55}]},
+                        {"graphPos": [{"x": 127.05, "y": 37.55}, {"x": 127.1, "y": 37.5}]}
+                      ]
+                    }]
+                  }
+                }
+                """;
+
+        Route route = mapper.toRoute(pathRaw, laneRaw, 0, 0, 0, 0);
+
+        assertThat(route.segments().get(0).path()).hasSize(4);  // 2 + 2 평탄화
+    }
+
+    @Test
+    void loadLane_길이_불일치면_swap_위험_방지를_위해_전체_passStopList_fallback() throws IOException {
+        // fixture는 transit 1개(BUS). lane 0개 응답이 와도 부분 매핑 X (잘못된 segment에 매핑되어
+        // silent하게 다른 노선 곡선이 그려지면 visual 버그라 명세 §6.1 v1.1.10에서 전체 fallback 정책).
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        String laneRaw = "{ \"result\": { \"lane\": [] } }";  // size 0
+
+        Route route = mapper.toRoute(pathRaw, laneRaw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        // BUS path가 passStopList 18점 그대로 (size mismatch → graphPos 무시)
+        assertThat(route.segments().get(1).path()).hasSize(18);
+    }
+
+    @Test
+    void loadLane_graphPos_한국_좌표_범위_밖이면_passStopList_fallback() throws IOException {
+        // (0, 0) 같은 좌표가 섞이면 polyline 대서양 점프. silent 통과 차단.
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        String laneRaw = """
+                {
+                  "result": {
+                    "lane": [
+                      {
+                        "section": [
+                          {
+                            "graphPos": [
+                              {"x": 126.994769, "y": 37.61072},
+                              {"x": 0, "y": 0},
+                              {"x": 126.976851, "y": 37.565929}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        Route route = mapper.toRoute(pathRaw, laneRaw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        // 한국 범위 밖 좌표 발견 → 전체 lane drop → passStopList 18점
+        assertThat(route.segments().get(1).path()).hasSize(18);
+    }
+
+    @Test
+    void loadLane_graphPos_NaN이면_passStopList_fallback() throws IOException {
+        // ODsay 응답 손상으로 NaN/Infinity가 섞일 가능성 — silent 통과 X
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        // JSON에 NaN은 invalid라 string으로 시뮬레이션 (parseCoord가 NumberFormatException → IllegalStateException)
+        String laneRaw = """
+                {
+                  "result": {
+                    "lane": [
+                      {
+                        "section": [
+                          {
+                            "graphPos": [
+                              {"x": "NaN", "y": "37.61"},
+                              {"x": 126.99, "y": 37.61}
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        Route route = mapper.toRoute(pathRaw, laneRaw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        assertThat(route.segments().get(1).path()).hasSize(18);
+    }
+
+    @Test
+    void loadLane_lane의_graphPos가_2점_미만이면_fallback() throws IOException {
+        // polyline은 최소 2점 필요. lane[0]이 1점만 주면 visual 무의미 → fallback.
+        String pathRaw = Files.readString(Path.of(FIXTURE_PATH));
+        String laneRaw = """
+                {
+                  "result": {
+                    "lane": [
+                      {
+                        "section": [
+                          {"graphPos": [{"x": 126.994769, "y": 37.61072}]}
+                        ]
+                      }
+                    ]
+                  }
+                }
+                """;
+
+        Route route = mapper.toRoute(pathRaw, laneRaw, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        assertThat(route.segments().get(1).path()).hasSize(18);
     }
 
     @Test
@@ -330,7 +520,7 @@ class OdsayResponseMapperTest {
                 }
                 """;
 
-        assertThatThrownBy(() -> mapper.toRoute(raw, 0, 0, 0, 0))
+        assertThatThrownBy(() -> mapper.toRoute(raw, null, 0, 0, 0, 0))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("99");
     }
