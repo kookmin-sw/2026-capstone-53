@@ -49,7 +49,7 @@ public class PushSubscription {
     @Column(name = "member_id", nullable = false, updatable = false)
     private Long memberId;
 
-    @Column(name = "endpoint", nullable = false, updatable = false, unique = true, length = 500)
+    @Column(name = "endpoint", nullable = false, updatable = false, unique = true, length = 2048)
     private String endpoint;
 
     @Column(name = "p256dh_key", nullable = false, length = 255)

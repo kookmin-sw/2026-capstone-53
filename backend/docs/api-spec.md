@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.14-MVP
-> **최종 수정**: 2026-05-07 (이상진 — §9.1 payload `data.subscriptionId` 추가 + scan↔dispatch race 가드 명시. PR #24 외부 리뷰 (황찬우) Q1·Q2 흡수.)
+> **버전**: v1.1.15-MVP
+> **최종 수정**: 2026-05-07 (이상진 — §7.1 endpoint 길이 500 → 2048 + ASCII charset (V2 migration). 다양한 push provider endpoint 커버. PR #24 외부 리뷰 (황찬우) Q3 흡수.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -31,6 +31,7 @@
 | **v1.1.12** | **2026-05-07** | **§12.3 분담표 갱신 — `push` 도메인 황찬우→이상진 위임 (issue #9 본문 + 황찬우 직접 위임 발화 확정). `route` 완료 표시. Step 7 PR(`feat/backend-step7-push`)에 §7.1·§7.2·§9.1·§9.2 글루·#9 cascade 동반.** |
 | **v1.1.13** | **2026-05-07** | **§9.2 보강 — `userDepartureTime` delta shift 명시 (silent corruption 방지: routine advance 후 `departureAdvice` 정합). §12.5/§12.6 완료 표시. PR #24 셀프리뷰 후속 (이상진).** |
 | **v1.1.14** | **2026-05-07** | **§9.1 payload `data.subscriptionId` 추가 (멀티 디바이스 식별 — SW 가 어느 device 의 push 인지 분기 가능). 동작 흐름에 scan↔dispatch race 가드 명시 — PATCH 로 `reminder_at` 변경 시 dispatcher skip (중복 발송 방지). PR #24 외부 리뷰 (황찬우) Q1·Q2 흡수.** |
+| **v1.1.15** | **2026-05-07** | **§7.1 `endpoint` 길이 500 → 2048 + `CHARACTER SET ascii COLLATE ascii_bin` (V2 migration). FCM/Apple/Mozilla/Microsoft WNS 모든 push provider endpoint 안전 마진. utf8mb4 환경 InnoDB UNIQUE INDEX max key length (3072 byte) 회피 위해 ASCII charset (URL RFC 3986 정합). PR #24 외부 리뷰 (황찬우) Q3 흡수.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -928,9 +929,9 @@ Web Push 표준 PushSubscription 객체를 등록.
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| `endpoint` | string | Y | 브라우저 푸시 서버 URL |
-| `keys.p256dh` | string | Y | P-256 ECDH 공개키 |
-| `keys.auth` | string | Y | 인증 비밀 |
+| `endpoint` | string | Y | 브라우저 푸시 서버 URL. **max 2048 char** (v1.1.15 — FCM ~200 / Apple Web Push ~280 / Mozilla autopush ~400 / Microsoft WNS ~2048 모두 안전 마진). RFC 3986 ASCII. |
+| `keys.p256dh` | string | Y | P-256 ECDH 공개키. max 255 char. |
+| `keys.auth` | string | Y | 인증 비밀. max 255 char. |
 
 #### Response — `201 Created`
 
@@ -945,6 +946,7 @@ Web Push 표준 PushSubscription 객체를 등록.
 #### 비고
 - 동일 `endpoint`로 재구독 시 기존 row의 `revoked_at`을 `NULL`로 갱신 (재활성화)
 - `endpoint`는 unique key
+- `endpoint` 컬럼은 `VARCHAR(2048) CHARACTER SET ascii` (v1.1.15) — InnoDB UNIQUE INDEX max key length (utf8mb4 환경 3072 byte) 제약 + URL 표준 ASCII 정합. 비ASCII endpoint 는 spec 위반.
 
 #### 에러
 - `400 VALIDATION_ERROR`
