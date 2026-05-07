@@ -46,6 +46,8 @@ public class PushReminderDispatcher {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final DateTimeFormatter HHMM = DateTimeFormatter.ofPattern("H:mm");
+    /** 명세 §9.1 페이로드 예시 ("2026-04-21T08:25:00+09:00") 정합 — seconds=0 도 명시 출력. */
+    private static final DateTimeFormatter ISO_OFFSET_SECONDS = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
     private static final String FALLBACK_REASON_ODSAY = "EXTERNAL_ROUTE_API_FAILED";
     private static final String SCHEDULE_ID_PREFIX = "sch_";
     private static final String SCHEDULE_URL_PREFIX = "/schedules/";
@@ -132,7 +134,7 @@ public class PushReminderDispatcher {
         data.put("type", PUSH_TYPE_REMINDER);
         data.put("url", SCHEDULE_URL_PREFIX + externalScheduleId);
         if (s.getRecommendedDepartureTime() != null) {
-            data.put("recommendedDepartureTime", s.getRecommendedDepartureTime().toString());
+            data.put("recommendedDepartureTime", s.getRecommendedDepartureTime().format(ISO_OFFSET_SECONDS));
         }
         if (s.getEstimatedDurationMinutes() != null) {
             data.put("estimatedDurationMinutes", s.getEstimatedDurationMinutes());

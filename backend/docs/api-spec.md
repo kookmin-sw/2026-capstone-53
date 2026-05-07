@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.12-MVP
-> **최종 수정**: 2026-05-07 (이상진 — §12.3 분담표 갱신, `push` 도메인 황찬우→이상진 위임 반영)
+> **버전**: v1.1.13-MVP
+> **최종 수정**: 2026-05-07 (이상진 — §9.2 보강 (userDepartureTime delta shift + estimatedDurationMinutes 부재 fallback), §12.5/§12.6 완료 표시. PR #24 셀프리뷰 후속.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -29,6 +29,7 @@
 | **v1.1.10** | **2026-05-04** | **§6.1 transit path 출처 승격 (이상진) — `passStopList` 정류장 직선 → ODsay `loadLane` 도로 곡선 (`lane[i].section[].graphPos[]`) 정식 사용. `route_summary_json`을 `{"path":..., "lane":...}` wrapped 형식으로 저장 — 캐시 hit 시 재호출 없이 곡선 복원. loadLane 실패는 graceful — `passStopList` 직선 fallback. ODsay 호출 cache miss 1회당 1회 → 2회 (직렬, mapObj 의존).** |
 | **v1.1.11** | **2026-05-04** | **§6.1 응답 예시 WALK `from`/`to` 제거 — `RouteSegment` record invariant + `@JsonInclude(NON_NULL)` 정합 cleanup. 코드 동작 변경 X (record가 WALK에서 reject + Jackson이 null drop).** |
 | **v1.1.12** | **2026-05-07** | **§12.3 분담표 갱신 — `push` 도메인 황찬우→이상진 위임 (issue #9 본문 + 황찬우 직접 위임 발화 확정). `route` 완료 표시. Step 7 PR(`feat/backend-step7-push`)에 §7.1·§7.2·§9.1·§9.2 글루·#9 cascade 동반.** |
+| **v1.1.13** | **2026-05-07** | **§9.2 보강 — (1) `userDepartureTime` delta shift 명시 (silent corruption 방지: routine advance 후 `departureAdvice` 정합), (2) `estimatedDurationMinutes` 부재 시 `reminder_at = arrival_time - reminder_offset_minutes` fallback (routine silent disable 방지). §12.5/§12.6 완료 표시. PR #24 셀프리뷰 후속 (이상진).** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -1166,10 +1167,12 @@ WHERE s.reminder_at <= NOW()
 | `CUSTOM` | `arrival_time + routine_interval_days` |
 
 갱신 후:
+- `user_departure_time` 도 동일 delta(`new_arrival - old_arrival`)만큼 shift — 사용자가 입력한 출발 의도 시각이 다음 occurrence 기준으로 보존되어 `departure_advice` 가 정상 산출됨. (v1.1.13 보강)
 - `recommended_departure_time = arrival_time - estimated_duration_minutes`
   > **주의**: *다음 occurrence 계산 시점*에는 ODsay를 호출하지 않는다. 며칠 뒤 일정의 소요시간 예측은 부정확하므로 무의미한 호출. 마지막 호출의 `estimated_duration_minutes`를 그대로 사용해 `reminder_at`만 미리 박아둔다.
   > **실제 알람 발송 시점**에는 9.1에 따라 ODsay를 재호출하여 실시간 정보로 갱신한 뒤 발송한다. 사용자가 받는 알람은 항상 최신 정보 기반.
 - `reminder_at = recommended_departure_time - reminder_offset_minutes`
+- 🆕 v1.1.13 — **`estimated_duration_minutes` 부재 시 fallback**: 등록 시점 ODsay 호출이 graceful 실패하여 `estimated_duration_minutes` 가 NULL 인 routine 일정의 경우, `recommended_departure_time` 은 NULL 유지하되 `reminder_at = arrival_time - reminder_offset_minutes` 로 추정해 routine 이 silent disable 되지 않도록 보장. 다음 dispatch 의 ODsay 재호출이 성공하면 `recommended_departure_time` / `reminder_at` 모두 정확한 값으로 갱신된다.
 
 ---
 
@@ -1332,15 +1335,15 @@ WHERE s.reminder_at <= NOW()
 - [ ] graceful degradation: try-catch로 감싸 schedule 등록 자체는 성공
 
 ### 12.5 스케줄러
-- [ ] `@Scheduled(fixedDelay = 30000)` PushScheduler
-- [ ] 루틴 일정 다음 occurrence 계산 (`RoutineCalculator`)
-- [ ] 누락 방지: 5분 윈도우 내 미발송 알림 스캔
-- [ ] `push_log` 기록
+- [x] `@Scheduled(fixedDelay = 30000)` PushScheduler — Step 7 완료 (이상진)
+- [x] 루틴 일정 다음 occurrence 계산 (`RoutineCalculator`) — Step 5 schedule 도메인 (황찬우)
+- [x] 누락 방지: 5분 윈도우 내 미발송 알림 스캔 — Step 7 완료 (이상진)
+- [x] `push_log` 기록 — Step 7 완료 (이상진)
 
 ### 12.6 Web Push
 - [x] `nl.martijndwars:web-push` 의존성 — Step 1 완료
-- [ ] VAPID 키페어 application.yml에 환경변수로 주입
-- [ ] 발송 시 endpoint 만료(410 Gone) 처리 → 자동 `revoked_at` 갱신
+- [x] VAPID 키페어 application.yml에 환경변수로 주입 — Step 1 (선반영) + Step 7 PushSender 결선
+- [x] 발송 시 endpoint 만료(410 Gone) 처리 → 자동 `revoked_at` 갱신 — Step 7 완료 (이상진)
 
 ---
 

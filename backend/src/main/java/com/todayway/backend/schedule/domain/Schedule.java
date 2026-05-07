@@ -330,9 +330,12 @@ public class Schedule extends BaseEntity {
     }
 
     /**
-     * 명세 §9.1 — ONCE 일정의 알림 발송 직후 호출. {@code reminder_at = NULL} 로 재발송 방지. 멱등.
+     * 명세 §9.1 — ONCE 일정 발송 직후 호출. {@code reminder_at = NULL} 로 재발송 방지. 멱등.
      */
     public void clearReminderAt() {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_NOT_FOUND);
+        }
         this.reminderAt = null;
     }
 
@@ -340,24 +343,34 @@ public class Schedule extends BaseEntity {
      * 명세 §9.2 — 루틴 일정 다음 occurrence 로 갱신. ODsay 재호출 X
      * ({@code estimatedDurationMinutes} 마지막 호출값 그대로 사용).
      *
-     * <p>{@code arrival_time} 갱신 → {@code recommendedDepartureTime} = arrival - duration →
-     * {@code recalculateDepartureAdvice / recalculateReminderAt} 으로 파생값 동기화.
+     * <p>{@code userDepartureTime} delta shift (v1.1.13): {@code arrivalTime} 변화량과 동일하게
+     * 사용자 출발 의도 시각도 이동. 미동기화 시 {@code recalculateDepartureAdvice} 가 24h+ 차이로
+     * 항상 {@code EARLIER} 가 되어 silent corruption 발생 → §6.1/§5.4 응답이 무의미해진다.
      *
-     * <p>{@code userDepartureTime} 은 명세 silent — 본 메서드에서 변경 X (P1 보충 후보).
-     * 알림 페이로드는 {@code recommendedDepartureTime} 만 사용하므로 push 동작에 영향 없음.
+     * <p>{@code estimatedDurationMinutes} 부재 시 fallback (v1.1.13): 등록 시 ODsay graceful 실패로
+     * duration 이 NULL 인 routine 의 경우, {@code reminder_at = arrival - reminder_offset} 으로 직접
+     * 추정해 routine 이 silent disable 되지 않도록 보장. 다음 dispatch 의 ODsay 재호출이 성공하면
+     * 정확한 값으로 자동 갱신된다.
      */
     public void advanceToNextOccurrence(OffsetDateTime nextArrival) {
         if (deletedAt != null) {
             throw new BusinessException(ErrorCode.SCHEDULE_NOT_FOUND);
         }
-        this.arrivalTime = nextArrival;
-        if (estimatedDurationMinutes != null) {
-            this.recommendedDepartureTime = nextArrival.minusMinutes(estimatedDurationMinutes);
-        } else {
-            this.recommendedDepartureTime = null;
+        if (userDepartureTime != null && this.arrivalTime != null) {
+            Duration delta = Duration.between(this.arrivalTime, nextArrival);
+            this.userDepartureTime = this.userDepartureTime.plus(delta);
         }
+        this.arrivalTime = nextArrival;
+        this.recommendedDepartureTime = (estimatedDurationMinutes != null)
+                ? nextArrival.minusMinutes(estimatedDurationMinutes)
+                : null;
         recalculateDepartureAdvice();
         recalculateReminderAt();
+        // estimatedDurationMinutes == null 로 reminderAt 이 null 이 되는 경우 fallback —
+        // 다음 dispatch 의 ODsay 재호출이 estimatedDurationMinutes 를 채워 정상화될 기회 확보.
+        if (reminderAt == null && reminderOffsetMinutes != null) {
+            this.reminderAt = nextArrival.minusMinutes(reminderOffsetMinutes);
+        }
     }
 
     /** PATCH 부분 업데이트용 입력 DTO — 출/도착지 묶음. */
