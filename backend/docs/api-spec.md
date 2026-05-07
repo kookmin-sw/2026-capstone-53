@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.15-MVP
-> **최종 수정**: 2026-05-07 (이상진 — §7.1 endpoint 길이 500 → 2048 + ASCII charset (V2 migration). 다양한 push provider endpoint 커버. PR #24 외부 리뷰 (황찬우) Q3 흡수.)
+> **버전**: v1.1.16-MVP
+> **최종 수정**: 2026-05-07 (이상진 — §9.1 dispatcher 트랜잭션 분리 명시 (ODsay/Push provider IO 가 한 트랜잭션에 묶이지 않도록 read/write 두 짧은 트랜잭션 + IO 는 트랜잭션 밖). PR #24 외부 리뷰 (황찬우) B1 흡수.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -32,6 +32,7 @@
 | **v1.1.13** | **2026-05-07** | **§9.2 보강 — `userDepartureTime` delta shift 명시 (silent corruption 방지: routine advance 후 `departureAdvice` 정합). §12.5/§12.6 완료 표시. PR #24 셀프리뷰 후속 (이상진).** |
 | **v1.1.14** | **2026-05-07** | **§9.1 payload `data.subscriptionId` 추가 (멀티 디바이스 식별 — SW 가 어느 device 의 push 인지 분기 가능). 동작 흐름에 scan↔dispatch race 가드 명시 — PATCH 로 `reminder_at` 변경 시 dispatcher skip (중복 발송 방지). PR #24 외부 리뷰 (황찬우) Q1·Q2 흡수.** |
 | **v1.1.15** | **2026-05-07** | **§7.1 `endpoint` 길이 500 → 2048 + `CHARACTER SET ascii COLLATE ascii_bin` (V2 migration). FCM/Apple/Mozilla/Microsoft WNS 모든 push provider endpoint 안전 마진. utf8mb4 환경 InnoDB UNIQUE INDEX max key length (3072 byte) 회피 위해 ASCII charset (URL RFC 3986 정합). PR #24 외부 리뷰 (황찬우) Q3 흡수.** |
+| **v1.1.16** | **2026-05-07** | **§9.1 dispatcher 트랜잭션 분리 — 기존 단일 `@Transactional` 안에서 ODsay 재호출(최악 11초) + push provider IO 까지 묶여 30초 폴링 사이클 race 위험. 새 패턴: read tx (race 가드 + activeSubs fetch) → 트랜잭션 밖 ODsay → 트랜잭션 밖 push 발송 IO → write tx (schedule reload + race 재검증 + ODsay 결과 적용 + PushLog INSERT + 410 revoke + advance). PR #24 외부 리뷰 (황찬우) B1 흡수.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -1101,18 +1102,21 @@ WHERE s.reminder_at <= NOW()
   AND m.deleted_at IS NULL;
 ```
 
-#### 동작 흐름
+#### 동작 흐름 (v1.1.16 — 트랜잭션 분리 패턴)
 
-1. 매칭된 일정 조회 (위 쿼리). scan 결과의 `(schedule_id, reminder_at)` tuple 을 dispatcher 에 그대로 전달.
-2. **dispatcher 트랜잭션 진입 시 race 가드 (v1.1.14)** — `Schedule` 재 fetch 후 현재 `reminder_at` 이 scan 시점에 캡처한 값과 일치하는지 비교. 다르면 (사용자 PATCH 로 `arrival_time`/출발지/도착지 변경 → `reminder_at` 재계산) 본 사이클은 skip — 새 `reminder_at` 이 같은 폴링 윈도우 안이면 다음 폴링 사이클에 다시 잡혀 발송됨. soft-deleted 또는 `reminder_at = NULL` 도 같은 분기로 skip.
-3. **각 일정에 대해 ODsay 재호출** (실시간 경로/소요시간 확보)
-   - 재시도 정책: 최대 2회 시도, 1초 간격
-   - 성공 시: `route_summary_json`, `estimated_duration_minutes`, `recommended_departure_time`, `departure_advice`, `route_calculated_at` 갱신
-   - 실패 시 (2회 모두 실패): **폴백** — 기존 `route_summary_json` 사용 (등록/마지막 갱신 시점 스냅샷). DB 컬럼은 갱신하지 않음.
-4. 회원의 `push_subscription` 중 `revoked_at IS NULL`인 모든 구독에 대해 **sub 단위로 페이로드 빌드 + 발송** — `data.subscriptionId` 가 sub 마다 다르므로 sub 별 빌드. 한 sub 의 410 EXPIRED 가 다른 sub 의 발송에 전파되지 않는다 (`for` 루프 sub 별 독립 처리).
-5. 발송 결과를 `push_log`에 기록 (`status`, `http_status`, `payload_json`, `schedule_id`, `subscription_id`). 폴백 여부는 `payload_json.fallback: true`로 표시.
-6. 루틴 일정인 경우, 다음 occurrence로 `arrival_time`, `recommended_departure_time`, `reminder_at` 갱신 (다음 발생일 계산 시점에는 ODsay 재호출 X — 9.2 참조)
-7. 단발성 일정 (`routine_type = 'ONCE'` 또는 NULL)은 `reminder_at = NULL`로 설정 (재발송 방지)
+dispatcher 의 한 schedule 처리 사이클은 **read 트랜잭션 → 트랜잭션 밖 IO → write 트랜잭션** 세 단계로 나뉜다. ODsay(최악 11초) + push provider IO 가 한 트랜잭션에 묶여 30초 폴링 사이클을 못 따라잡는 race 차단이 목적.
+
+1. **scan** (PushScheduler, 트랜잭션 X) — 위 쿼리로 due 목록 조회. `(schedule_id, reminder_at)` tuple 을 dispatcher 에 그대로 전달.
+2. **read tx** (`PushReminderTransactional.loadContext`) — `Schedule` 재 fetch + race 가드. 현재 `reminder_at` 이 scan 시점 값과 일치 안 하면 (사용자 PATCH 로 `arrival_time`/출발지/도착지 변경) 본 사이클 skip — 새 `reminder_at` 이 같은 윈도우 안이면 다음 폴링 사이클에 다시 잡혀 발송. soft-deleted / `reminder_at = NULL` 도 동일 분기. 통과 시 회원의 활성 구독 목록을 같이 fetch 해 detached 상태로 반환.
+3. **트랜잭션 밖 — ODsay 재호출** (최대 2회 시도, 1초 간격)
+   - 성공 시: 결과를 in-memory snapshot 으로 캡처 (`route_summary_json`, `estimated_duration_minutes`, `recommended_departure_time`, `route_calculated_at`).
+   - 실패 시 (2회 모두 실패): **폴백** — payload 의 `data.fallback=true`. DB 컬럼은 단계 5에서도 갱신 X (마지막 성공 스냅샷 보존).
+4. **트랜잭션 밖 — sub 별 페이로드 빌드 + 발송** — 회원의 `push_subscription` 중 `revoked_at IS NULL` 인 모든 구독에 대해 **sub 단위 빌드** (`data.subscriptionId` 가 sub 마다 다름, v1.1.14). 한 sub 의 410 EXPIRED 가 다른 sub 의 발송에 전파되지 않는다 (`for` 루프 sub 별 독립 처리).
+5. **write tx** (`PushReminderTransactional.persistAndAdvance`) — schedule reload + race 재검증 + 갱신 적용:
+   - race 재검증 통과 시: ODsay snapshot 으로 `update_route_info` 호출 (DB 컬럼 갱신) + 발송 결과 `push_log` INSERT (`status`, `http_status`, `payload_json`, `schedule_id`, `subscription_id`) + 410 EXPIRED 시 해당 구독 `revoked_at` 채움 + advance/clear (단계 6/7).
+   - race 재검증 실패 시 (ODsay 호출 ~ persist 사이 PATCH/DELETE): 모든 mutate skip. 이미 발송된 push 의 `push_log` 는 누락되지만 advance 가 옛 schedule 기준으로 `reminder_at` 을 덮어쓰는 silent corruption 차단이 우선 (관측성 trade-off).
+6. 루틴 일정 (`routine_type ≠ ONCE/NULL`): 다음 occurrence 로 `arrival_time`, `recommended_departure_time`, `reminder_at` 갱신. ODsay 재호출 X (9.2 참조).
+7. 단발성 일정 (`routine_type = 'ONCE'` 또는 NULL): `reminder_at = NULL` (재발송 방지).
 
 > **설계 원칙**: 사용자가 받는 알람은 항상 *최신 ODsay 정보*로 발송하는 것이 원칙. 외부 API 장애 시에도 알람을 누락시키지 않기 위해 폴백 전략을 둔다 ("구버전 정보라도 보내는 게 안 보내는 것보다 사용자에게 유용").
 
