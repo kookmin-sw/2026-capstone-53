@@ -515,6 +515,82 @@ export const mockSettings = {
 };
 
 
+// ── 10. 알림 내역 (Notifications) ─────────────
+// 실제 API에는 없지만 프론트 알림 센터 UI 에 사용
+export const mockNotifications = [
+  {
+    id: 'notif_01',
+    type: 'DEPARTURE_REMINDER',
+    scheduleTitle: '국민대 등교',
+    destination: '국민대학교',
+    departureTime: '08:18',
+    arrivalTime: '09:00',
+    read: false,
+    createdAt: '2026-05-04T08:18:00+09:00',
+  },
+  {
+    id: 'notif_02',
+    type: 'DEPARTURE_REMINDER',
+    scheduleTitle: '헬스장',
+    destination: '쌍문동 피트니스센터',
+    departureTime: '06:40',
+    arrivalTime: '07:00',
+    read: true,
+    createdAt: '2026-05-04T06:40:00+09:00',
+  },
+  {
+    id: 'notif_03',
+    type: 'DEPARTURE_REMINDER',
+    scheduleTitle: '국민대 등교',
+    destination: '국민대학교',
+    departureTime: '08:18',
+    arrivalTime: '09:00',
+    read: true,
+    createdAt: '2026-05-03T08:18:00+09:00',
+  },
+  {
+    id: 'notif_04',
+    type: 'DEPARTURE_REMINDER',
+    scheduleTitle: '스터디',
+    destination: '혜화역 스터디카페',
+    departureTime: '17:25',
+    arrivalTime: '18:00',
+    read: true,
+    createdAt: '2026-05-02T17:25:00+09:00',
+  },
+  {
+    id: 'notif_05',
+    type: 'DEPARTURE_REMINDER',
+    scheduleTitle: '국민대 등교',
+    destination: '국민대학교',
+    departureTime: '08:18',
+    arrivalTime: '09:00',
+    read: true,
+    createdAt: '2026-05-02T08:18:00+09:00',
+  },
+  {
+    id: 'notif_06',
+    type: 'DEPARTURE_REMINDER',
+    scheduleTitle: '헬스장',
+    destination: '쌍문동 피트니스센터',
+    departureTime: '06:40',
+    arrivalTime: '07:00',
+    read: true,
+    createdAt: '2026-05-02T06:40:00+09:00',
+  },
+  {
+    id: 'notif_07',
+    type: 'DEPARTURE_REMINDER',
+    scheduleTitle: '동아리 모임',
+    destination: '홍대입구역 카페',
+    departureTime: '18:12',
+    arrivalTime: '19:00',
+    read: true,
+    createdAt: '2026-04-30T18:12:00+09:00',
+  },
+];
+
+
 // ── 헬퍼: 시간 포매터 ──────────────────────────
 
 // ISO 8601 시간을 "08:30" 형태로 변환

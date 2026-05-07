@@ -9,7 +9,7 @@
   background: #1a1917;
 }
 
-/* 상단 바 */
+/* ── 상단 바 ── */
 .notif__topbar {
   display: flex;
   align-items: center;
@@ -18,6 +18,9 @@
   height: 56px;
   border-bottom: 1px solid rgba(0,0,0,0.06);
   background: #F0E9E0;
+  position: sticky;
+  top: 0;
+  z-index: 10;
 }
 
 [data-theme="dark"] .notif__topbar {
@@ -46,6 +49,7 @@
 }
 
 .notif__title {
+  flex: 1;
   font-size: 17px;
   font-weight: 700;
   color: #1C1C1E;
@@ -55,7 +59,172 @@
   color: #e8e4dc;
 }
 
-/* 빈 상태 */
+.notif__mark-all {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-point);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ── 목록 ── */
+.notif__list {
+  flex: 1;
+  padding: 8px 0 40px;
+}
+
+/* ── 날짜 그룹 ── */
+.notif__group {
+  margin-bottom: 4px;
+}
+
+.notif__group-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #B0A99F;
+  letter-spacing: 0.03em;
+  padding: 14px 20px 6px;
+  text-transform: uppercase;
+}
+
+[data-theme="dark"] .notif__group-label {
+  color: #555;
+}
+
+/* ── 알림 아이템 ── */
+.ni {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 20px;
+  cursor: default;
+  transition: background 0.12s ease;
+}
+
+.ni--unread {
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+
+.ni--unread:active {
+  background: rgba(255, 255, 255, 0.8);
+}
+
+[data-theme="dark"] .ni--unread {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+[data-theme="dark"] .ni--unread:active {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* 아이콘 + 점 */
+.ni__dot-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.ni__icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: #EDE8E1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #9E9A93;
+}
+
+.ni--unread .ni__icon {
+  background: var(--color-point-bg);
+  color: var(--color-point);
+}
+
+[data-theme="dark"] .ni__icon {
+  background: #2a2825;
+  color: #666;
+}
+
+[data-theme="dark"] .ni--unread .ni__icon {
+  background: var(--color-point-bg);
+  color: var(--color-point);
+}
+
+.ni__unread-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-point);
+  border: 1.5px solid #F0E9E0;
+}
+
+[data-theme="dark"] .ni__unread-dot {
+  border-color: #1a1917;
+}
+
+/* 본문 */
+.ni__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ni__row1 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.ni__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1C1C1E;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ni--unread .ni__title {
+  font-weight: 700;
+}
+
+[data-theme="dark"] .ni__title {
+  color: #e8e4dc;
+}
+
+.ni__time-badge {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-point);
+  background: var(--color-point-bg);
+  padding: 3px 9px;
+  border-radius: 20px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ni__row2 {
+  margin-top: 3px;
+}
+
+.ni__dest {
+  font-size: 13px;
+  color: #9E9A93;
+  font-weight: 400;
+}
+
+[data-theme="dark"] .ni__dest {
+  color: #666;
+}
+
+/* ── 빈 상태 ── */
 .notif__empty {
   flex: 1;
   display: flex;

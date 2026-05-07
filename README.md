@@ -1,77 +1,80 @@
-[![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/Lvs6kcL8)
-# Welcome to GitHub
+# 오늘어디 — Frontend
 
-캡스톤 팀 생성을 축하합니다.
+## 기술 스택
+- React
+- 카카오맵 JavaScript SDK
+- PWA (Progressive Web App)
 
-## 팀소개 및 페이지를 꾸며주세요.
+## 실행 방법
+```bash
+cd todayway-frontend
+npm install
+npm start
+```
+localhost:3000에서 확인 가능
 
-- 프로젝트 소개
-  - 프로젝트 설치방법 및 데모, 사용방법, 프리뷰등을 readme.md에 작성.
-  - Api나 사용방법등 내용이 많을경우 wiki에 꾸미고 링크 추가.
-
-- 팀페이지 꾸미기
-  - 프로젝트 소개 및 팀원 소개
-  - index.md 예시보고 수정.
-
-- GitHub Pages 리파지토리 Settings > Options > GitHub Pages 
-  - Source를 marster branch
-  - Theme Chooser에서 태마선택
-  - 수정후 팀페이지 확인하여 점검.
-
-**팀페이지 주소** -> https://kookmin-sw.github.io/ '{{자신의 리파지토리 아이디}}'
-
-**예시)** 2023년 0조  https://kookmin-sw.github.io/capstone-2023-00/
-
-
-## 내용에 아래와 같은 내용들을 추가하세요.
-
-### 1. 프로잭트 소개
-
-프로젝트
-
-### 2. 소개 영상
-
-프로젝트 소개하는 영상을 추가하세요
-
-### 3. 팀 소개
-
-팀을 소개하세요.
-
-팀원정보 및 담당이나 사진 및 SNS를 이용하여 소개하세요.
-
-### 4. 사용법
-
-소스코드제출시 설치법이나 사용법을 작성하세요.
-
-### 5. 기타
-
-추가적인 내용은 자유롭게 작성하세요.
-
-
-## Markdown을 사용하여 내용꾸미기
-
-Markdown은 작문을 스타일링하기위한 가볍고 사용하기 쉬운 구문입니다. 여기에는 다음을위한 규칙이 포함됩니다.
-
-```markdown
-Syntax highlighted code block
-
-# Header 1
-## Header 2
-### Header 3
-
-- Bulleted
-- List
-
-1. Numbered
-2. List
-
-**Bold** and _Italic_ and `Code` text
-
-[Link](url) and ![Image](src)
+## 환경변수 (.env)
+```
+REACT_APP_KAKAO_MAP_KEY=카카오맵 API 키
+REACT_APP_API_URL=백엔드 API 주소 (미설정 시 mock 데이터 사용)
 ```
 
-자세한 내용은 [GitHub Flavored Markdown](https://guides.github.com/features/mastering-markdown/).
+## 폴더 구조
 
-### Support or Contact
+```
+src/
+├── api/
+│   └── client.js            API 연동 모듈 (mock/실제 전환)
+├── archive/                 이전 디자인 버전 (v2~v5, 참고용)
+│   ├── HomeV2~V5.jsx
+│   ├── CalendarV2~V5B.jsx
+│   └── RouteMapV3.jsx
+├── components/
+│   ├── BottomNav.js         하단 탭 바
+│   ├── KakaoMap.js          카카오맵 래퍼
+│   ├── RecommendationCard.js 추천 카드
+│   ├── RouteCard.js         벤토 그리드 경로 카드
+│   ├── ScheduleCard.js      일정 카드
+│   ├── StateUI.jsx          로딩/빈 상태/에러 공통 UI
+│   └── TopNav.js            상단 내비게이션 바
+├── contexts/
+│   ├── SettingsContext.js   앱 설정 전역 상태
+│   └── ThemeContext.js      다크모드 전역 상태
+├── data/
+│   └── mockData.js          mock 데이터
+├── pages/
+│   ├── HomeV2Route.jsx      홈 (벤토 그리드 + 경로 지도)
+│   ├── Calendar.js          캘린더 + 일정 목록
+│   ├── Settings.js          설정
+│   ├── MapPage.jsx          경로 지도 (풀스크린)
+│   ├── LoginPage.jsx        로그인
+│   ├── SignupPage.jsx        회원가입
+│   └── NotificationPage.jsx 알림 내역
+├── styles/
+│   └── dark.css             다크모드 오버라이드
+├── App.js                   라우팅
+└── index.css                글로벌 CSS 변수 및 베이스 스타일
+```
 
-readme 파일 생성에 추가적인 도움이 필요하면 [도움말](https://help.github.com/articles/about-readmes/) 이나 [contact support](https://github.com/contact) 을 이용하세요.
+## 페이지 구성
+| 경로 | 화면 | 설명 |
+|------|------|------|
+| `/` | 홈 | 벤토 그리드 + 경로 지도 |
+| `/calendar` | 캘린더 | 달력 + 카드 스택 |
+| `/settings` | 설정 | 프로필 + 알림 |
+| `/map` | 경로 지도 | 풀스크린 지도 |
+| `/login` | 로그인 | |
+| `/signup` | 회원가입 | |
+| `/notifications` | 알림 | 알림 내역 |
+
+## 백엔드 연동
+`.env`에 `REACT_APP_API_URL` 을 설정하면 mock → 실제 API로 자동 전환됩니다.  
+미설정 시 `src/data/mockData.js`의 mock 데이터를 사용합니다.  
+API 명세: `backend/docs/api-spec.md` 참고
+
+## 디자인 버전 이력
+- v1 (확정): 벤토 그리드 + 경로 지도
+- v2: AI 대화형 → archive
+- v3: 감성 미니멀 → archive
+- v4: 다크 카드 스택 → archive
+- v5: 풀맵 → archive
