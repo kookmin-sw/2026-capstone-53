@@ -64,9 +64,16 @@ public class PushService {
                                     req.keys().p256dh(), req.keys().auth(), userAgent)));
         } catch (DataIntegrityViolationException e) {
             // race: 동시 INSERT 충돌 — 두 번째 요청이 unique 위반. 재조회 후 reactivate.
-            log.info("Push subscribe UPSERT race — retrying via findByEndpoint");
+            // cause 클래스명 함께 로깅 — endpoint 이외 제약(member_id FK 등) 위반 시 진단 가능.
+            log.info("Push subscribe UPSERT race — retrying via findByEndpoint, cause={}",
+                    e.getMostSpecificCause().getClass().getSimpleName());
             PushSubscription existing = subscriptionRepository.findByEndpoint(req.endpoint())
-                    .orElseThrow(() -> new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR));
+                    .orElseThrow(() -> {
+                        // unique 위반 났는데 endpoint 가 안 나오면 다른 제약 위반 — 원인 보존 후 500.
+                        log.error("Push subscribe UPSERT inconsistency — DataIntegrityViolation but endpoint not found",
+                                e);
+                        return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+                    });
             return reactivateOwned(existing, memberId, req, userAgent);
         }
     }

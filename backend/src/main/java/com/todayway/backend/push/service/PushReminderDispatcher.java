@@ -67,13 +67,21 @@ public class PushReminderDispatcher {
      *
      * <p>{@link Schedule} 은 다시 fetch — {@link PushScheduler} 가 트랜잭션 밖에서 ID만 추출했기 때문.
      * fetch 시 {@code @SQLRestriction("deleted_at IS NULL")} 로 soft-deleted 자동 제외.
-     * race window (다른 인스턴스가 이미 처리/취소) 방어로 fetch 후 {@code reminderAt} 재확인.
+     * fetch 와 트랜잭션 시작 사이에 일정이 삭제·갱신되었을 수 있어 {@code reminderAt} 재확인.
      */
     @Transactional
     public void process(Long scheduleId) {
         Schedule s = scheduleRepository.findById(scheduleId).orElse(null);
-        if (s == null || s.getReminderAt() == null) {
-            log.debug("Push reminder skip — already processed or deleted: scheduleId={}", scheduleId);
+        if (s == null) {
+            // soft-delete 만 사용하는 codebase 에서 row 가 사라지는 것은 비정상 — 명시적 WARN.
+            log.warn("Push reminder skip — Schedule disappeared between scan and dispatch: scheduleId={}",
+                    scheduleId);
+            return;
+        }
+        if (s.getReminderAt() == null) {
+            // 동시 PATCH/dispatch 또는 직전 advance 로 reminderAt 이 이미 정리됨 — 정상 race.
+            log.debug("Push reminder skip — reminderAt cleared (race or already processed): scheduleId={}",
+                    scheduleId);
             return;
         }
 
@@ -91,6 +99,10 @@ public class PushReminderDispatcher {
                     sub.getId(), s.getId(), PushType.REMINDER,
                     result.status(), result.httpStatus(), payloadJson));
             if (result.isExpired()) {
+                // 410 Gone 자동 cleanup — 운영 관측성을 위해 dispatcher 레벨에서도 INFO 로깅
+                // (PushSender 에서 같은 이벤트를 INFO 로 남기지만 cause 가 다른 호출자 추적에 유용).
+                log.info("Push subscription auto-revoked due to 410 Gone: subscriptionUid={}",
+                        sub.getSubscriptionUid());
                 sub.revoke();
             }
         }
@@ -117,10 +129,10 @@ public class PushReminderDispatcher {
                 log.debug("ODsay refresh returned false: scheduleId={}, attempt={}/{}",
                         s.getId(), attempt, max);
             } catch (Exception e) {
-                // RouteService 자체는 graceful 설계지만 방어적 catch — 한 일정 ODsay 실패가
-                // 다른 일정 처리를 막지 않게 한다.
-                log.warn("ODsay refresh threw exception: scheduleId={}, attempt={}/{}, cause={}",
-                        s.getId(), attempt, max, e.getClass().getSimpleName());
+                // RouteService 가 unchecked 던져도 폴백 페이로드로 발송이 진행되도록 흡수.
+                // scheduleId 만 입력이라 stack trace 노출 안전.
+                log.warn("ODsay refresh threw exception: scheduleId={}, attempt={}/{}",
+                        s.getId(), attempt, max, e);
             }
         }
         return false;

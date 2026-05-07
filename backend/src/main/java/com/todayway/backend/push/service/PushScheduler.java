@@ -52,9 +52,10 @@ public class PushScheduler {
             try {
                 dispatcher.process(id);
             } catch (Exception e) {
-                // dispatcher 트랜잭션 rollback 후 다음 일정 처리 계속.
-                log.warn("Push reminder dispatch failed: scheduleId={}, cause={}",
-                        id, e.getClass().getSimpleName());
+                // dispatcher 트랜잭션 rollback 후 다음 일정 처리 계속. 입력은 internal scheduleId 뿐이라
+                // payload/endpoint leak 우려 없음 → e 를 last vararg 로 넘겨 stack trace 출력
+                // (OdsayRouteService 패턴 미러 — 운영 root-cause analysis 가능).
+                log.warn("Push reminder dispatch failed: scheduleId={}", id, e);
             }
         }
     }

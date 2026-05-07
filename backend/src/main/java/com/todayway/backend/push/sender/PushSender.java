@@ -19,11 +19,11 @@ import java.security.Security;
  * <ul>
  *   <li>BouncyCastle Provider 1회 등록 (클래스 로드 시 static init — Spring lifecycle 이전)</li>
  *   <li>{@link VapidProperties} 기반 {@code PushService} lazy 초기화 (publicKey/privateKey 미설정 시 {@link IllegalStateException})</li>
- *   <li>HTTP 응답 코드 → {@link PushSendResult} 매핑 (200/201/202 = SENT, 410 = EXPIRED, 그 외 + 예외 = FAILED)</li>
+ *   <li>HTTP 응답 코드 → {@link PushSendResult} 매핑 (2xx = SENT, 410 = EXPIRED, 그 외 + 예외 = FAILED)</li>
  *   <li>checked exception 다수 래핑 (라이브러리가 IOException/GeneralSecurityException/JoseException/InterruptedException 등 던짐)</li>
  * </ul>
  *
- * <p>410 Gone 처리는 호출자({@link com.todayway.backend.push.service.PushScheduler}) 책임 —
+ * <p>410 Gone 처리는 호출자({@link com.todayway.backend.push.service.PushReminderDispatcher}) 책임 —
  * 결과의 {@link PushSendResult#isExpired()} 보고 {@link PushSubscription#revoke()} 호출.
  * 본 클래스는 IO만 담당하고 도메인 상태 변경 X.
  */

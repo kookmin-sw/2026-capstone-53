@@ -57,11 +57,7 @@ public class MemberService {
 
     @Transactional
     public void softDelete(String memberUid) {
-        // 의사결정 4 (가-1) cascade — Step 5 + Step 7 진입으로 모두 충족 (Issue #8 + #9):
-        //   ✅ Member.deleted_at (자체)
-        //   ✅ refresh_token.revoked_at 일괄
-        //   ✅ schedule.deleted_at 일괄 (β PR + Step 5 — closes #8)
-        //   ✅ push_subscription.revoked_at 일괄 (이상진 Step 7 — closes #9)
+        // soft-delete cascade 는 코드 레벨에서만 보장 — DB FK CASCADE 는 hard-delete 시에만 동작.
         Member m = memberRepository.findByMemberUid(memberUid)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
         m.softDelete();
