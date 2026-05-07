@@ -354,12 +354,16 @@ public class Schedule extends BaseEntity {
             this.userDepartureTime = this.userDepartureTime.plus(delta);
         }
         this.arrivalTime = nextArrival;
-        // estimatedDurationMinutes 는 OdsayRouteService.applyToSchedule 가 항상 non-null 로 호출하므로
-        // reminderAt 이 박힌 dispatch 가능 schedule 은 항상 estimatedDurationMinutes 도 non-null. 다만 NPE
-        // 방어 차원에서 가드만 둔다 (defensive).
-        if (estimatedDurationMinutes != null) {
-            this.recommendedDepartureTime = nextArrival.minusMinutes(estimatedDurationMinutes);
+        // estimatedDurationMinutes 는 OdsayRouteService.applyToSchedule 가 항상 non-null 로 채우지만,
+        // null 인 채로 본 메서드가 호출되면 recommendedDepartureTime 이 옛 occurrence 값으로 잔존하고
+        // recalculateReminderAt 이 그 옛 값을 재사용 → reminder_at 이 과거 시각으로 박혀 다음 폴링에
+        // 다시 잡혀 무한 dispatch 가능. fail-loud 대신 명시적 정리 — reminderAt 비우고 종결.
+        if (estimatedDurationMinutes == null) {
+            this.recommendedDepartureTime = null;
+            this.reminderAt = null;
+            return;
         }
+        this.recommendedDepartureTime = nextArrival.minusMinutes(estimatedDurationMinutes);
         recalculateDepartureAdvice();
         recalculateReminderAt();
     }

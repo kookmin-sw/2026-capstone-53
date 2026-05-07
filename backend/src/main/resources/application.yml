@@ -57,12 +57,14 @@ kakao-local:
 vapid:
   public-key: ${VAPID_PUBLIC_KEY:}
   private-key: ${VAPID_PRIVATE_KEY:}
-  subject: mailto:contact@todayway.example
+  # RFC 8292 §2.1 — 일부 push provider 가 placeholder mailto 일 때 401 반환.
+  # 운영 EC2 는 반드시 실 메일로 override (.env / app.env 의 VAPID_SUBJECT 참고).
+  subject: ${VAPID_SUBJECT:mailto:contact@todayway.example}
 
 push:
   scheduler:
-    enabled: ${PUSH_SCHEDULER_ENABLED:true}   # 테스트/dev에서 false 로 끔
-    fixed-delay-ms: 30000                      # 명세 §9.1 — 30초 주기
-    window-minutes: 5                          # 명세 §9.1 — 누락 방지 윈도우
-    odsay-max-attempts: 2                      # 명세 §9.1 — 최대 2회 시도
-    odsay-retry-interval-ms: 1000              # 명세 §9.1 — 1초 간격
+    enabled: ${PUSH_SCHEDULER_ENABLED:true}                                 # 테스트/dev에서 false 로 끔
+    fixed-delay-ms: ${PUSH_SCHEDULER_FIXED_DELAY_MS:30000}                  # 명세 §9.1 — 30초 주기
+    window-minutes: ${PUSH_SCHEDULER_WINDOW_MINUTES:5}                      # 명세 §9.1 — 누락 방지 윈도우
+    odsay-max-attempts: ${PUSH_SCHEDULER_ODSAY_MAX_ATTEMPTS:2}              # 명세 §9.1 — 최대 2회 시도
+    odsay-retry-interval-ms: ${PUSH_SCHEDULER_ODSAY_RETRY_INTERVAL_MS:1000} # 명세 §9.1 — 1초 간격

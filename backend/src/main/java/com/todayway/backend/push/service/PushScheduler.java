@@ -44,6 +44,7 @@ public class PushScheduler {
                 .toList();
 
         if (scheduleIds.isEmpty()) {
+            log.trace("Push reminder scan — no due");
             return;
         }
         log.info("Push reminder due: count={}", scheduleIds.size());

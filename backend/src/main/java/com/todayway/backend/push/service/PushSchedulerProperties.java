@@ -9,20 +9,17 @@ import org.springframework.validation.annotation.Validated;
 /**
  * {@link PushScheduler} 운영 튜닝값. {@code application.yml} {@code push.scheduler.*}.
  *
- * <p>기본값은 명세 §9.1 정확히 정합 — 운영 환경에서만 환경변수로 override (명세 동작 변경 X).
+ * <p>운영 채널 일원화: {@code enabled} 는 {@link PushSchedulingConfig} 의 {@code @ConditionalOnProperty}
+ * 가, {@code fixed-delay-ms} 는 {@link PushScheduler} 의 {@code @Scheduled(fixedDelayString=…)} SpEL
+ * 가 직접 읽어 본 클래스에 binding 하지 않는다 — 두 layer 가 같은 값을 토글하는 것처럼 보이는 혼란 차단.
+ *
+ * <p>본 클래스는 dispatcher 동작 파라미터 (window / ODsay 재시도) 만 담는다.
  */
 @Getter
 @Setter
 @Validated
 @ConfigurationProperties(prefix = "push.scheduler")
 public class PushSchedulerProperties {
-
-    /** 스케줄러 자체 on/off. 테스트/dev 환경에서 끄기 위한 토글. */
-    private boolean enabled = true;
-
-    /** 명세 §9.1 — fixedDelay 30초 (밀리초). */
-    @Min(1000)
-    private long fixedDelayMs = 30_000;
 
     /** 명세 §9.1 — 누락 방지 윈도우 5분. {@code reminder_at > NOW() - INTERVAL window MINUTE}. */
     @Min(1)

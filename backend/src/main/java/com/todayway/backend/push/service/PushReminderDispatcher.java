@@ -73,8 +73,9 @@ public class PushReminderDispatcher {
     public void process(Long scheduleId) {
         Schedule s = scheduleRepository.findById(scheduleId).orElse(null);
         if (s == null) {
-            // soft-delete 만 사용하는 codebase 에서 row 가 사라지는 것은 비정상 — 명시적 WARN.
-            log.warn("Push reminder skip — Schedule disappeared between scan and dispatch: scheduleId={}",
+            // findById 에 @SQLRestriction("deleted_at IS NULL") 자동 적용 — soft-deleted 도 null 반환.
+            // scan↔dispatch 사이의 PATCH/DELETE race 로 정상 흡수되는 케이스라 INFO 수준이 적정.
+            log.info("Push reminder skip — Schedule not visible (soft-deleted between scan and dispatch?): scheduleId={}",
                     scheduleId);
             return;
         }

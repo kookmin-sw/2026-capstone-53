@@ -48,16 +48,15 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
      * 명세 §9.1 — PushScheduler 알림 시각 도래 일정 조회. {@code reminder_at > NOW()-5min AND <= NOW()}
      * 누락 방지 윈도우 + soft-delete 필터.
      *
-     * <p>{@code MemberService.softDelete} cascade 가 schedule 도 일괄 soft-delete 하므로 회원 deleted
-     * 시 자동으로 본 쿼리에서 제외되지만, 명세 §9.1 SQL 본문이 {@code m.deleted_at IS NULL} 도 명시하므로
-     * defense-in-depth 로 Member subquery 추가 (cascade 부분 실패 / 데이터 마이그레이션 시 안전망).
+     * <p>회원 soft-delete 는 {@code MemberService.softDelete} cascade 가 schedule 도 일괄
+     * {@code deleted_at} 채우므로 위 {@code s.deletedAt IS NULL} 조건에서 자동 배제 — Member 서브쿼리
+     * 중복 제거. cascade 회귀는 {@code MemberSoftDeleteCascadeTest} 가 가드.
      */
     @Query("""
             SELECT s FROM Schedule s
             WHERE s.reminderAt > :windowStart
               AND s.reminderAt <= :now
               AND s.deletedAt IS NULL
-              AND s.memberId IN (SELECT m.id FROM Member m WHERE m.deletedAt IS NULL)
             """)
     List<Schedule> findDueReminders(@Param("now") OffsetDateTime now,
                                     @Param("windowStart") OffsetDateTime windowStart);
