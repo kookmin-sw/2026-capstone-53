@@ -217,10 +217,9 @@ public class Schedule extends BaseEntity {
     }
 
     /**
-     * 부분 업데이트. 출/도착지 또는 arrivalTime 변경 시 true 반환 (ODsay 재호출 분기 trigger).
-     * 명세 §5.4 정합. D8: deleted invariant 가드.
+     * 명세 §5.4 부분 업데이트. {@code deletedAt != null} 시 SCHEDULE_NOT_FOUND — 유령 변경 차단.
      *
-     * @return placeOrArrivalChanged — 출/도착지 또는 arrivalTime 변경 여부
+     * @return placeOrArrivalChanged — 출/도착지 또는 arrivalTime 변경 시 true (ODsay 재호출 trigger)
      */
     public boolean applyUpdate(String title,
                                PlaceUpdate origin,
@@ -278,9 +277,8 @@ public class Schedule extends BaseEntity {
     }
 
     /**
-     * RouteService가 ODsay 호출 후 결과 반영. departureAdvice / reminderAt 자동 재계산.
-     * Step 6 OdsayRouteService와의 ON_TIME_WINDOW_MINUTES silent drift 차단
-     * (claude.ai PR #10 P2 — invariant 통합으로 컴파일 강제 일관성).
+     * RouteService 가 ODsay 호출 후 결과 반영. departureAdvice / reminderAt 자동 재계산.
+     * {@code ON_TIME_WINDOW_MINUTES} 를 본 클래스 단독 소유 — 외부에서 임계값 재정의 시 silent drift.
      */
     public void updateRouteInfo(Integer estimatedDurationMinutes,
                                 OffsetDateTime recommendedDepartureTime,

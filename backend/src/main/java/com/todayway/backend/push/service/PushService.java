@@ -25,8 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
  * </ul>
  *
  * <p>다른 회원이 동일 endpoint 재구독 시도: 명세 미정의 영역이라 안전하게 {@code 403 FORBIDDEN_RESOURCE}
- * reject. push provider 가 endpoint 를 device-bound 로 발급하므로 실제 발생 빈도 매우 낮으며,
- * "디바이스 소유자 이전" 정책은 P1 보류.
+ * reject. push provider 가 endpoint 를 device-bound 로 발급하므로 실제 발생 빈도 매우 낮음.
  */
 @Service
 @RequiredArgsConstructor

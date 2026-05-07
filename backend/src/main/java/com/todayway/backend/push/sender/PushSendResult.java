@@ -11,6 +11,18 @@ import com.todayway.backend.push.domain.PushStatus;
  */
 public record PushSendResult(PushStatus status, Integer httpStatus) {
 
+    public PushSendResult {
+        if (status == null) {
+            throw new IllegalArgumentException("status must not be null");
+        }
+        if (status == PushStatus.SENT && (httpStatus == null || httpStatus < 200 || httpStatus >= 300)) {
+            throw new IllegalArgumentException("SENT requires 2xx httpStatus, got " + httpStatus);
+        }
+        if (status == PushStatus.EXPIRED && (httpStatus == null || httpStatus != 410)) {
+            throw new IllegalArgumentException("EXPIRED requires 410 httpStatus, got " + httpStatus);
+        }
+    }
+
     public static PushSendResult sent(int httpStatus) {
         return new PushSendResult(PushStatus.SENT, httpStatus);
     }

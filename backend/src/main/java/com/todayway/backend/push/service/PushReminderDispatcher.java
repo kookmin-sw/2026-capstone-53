@@ -2,6 +2,7 @@ package com.todayway.backend.push.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.todayway.backend.common.web.IdPrefixes;
 import com.todayway.backend.push.domain.PushLog;
 import com.todayway.backend.push.domain.PushSubscription;
 import com.todayway.backend.push.domain.PushType;
@@ -16,7 +17,7 @@ import com.todayway.backend.schedule.domain.Schedule;
 import com.todayway.backend.schedule.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
@@ -39,7 +40,7 @@ import java.util.Map;
  * <p>{@link PushScheduler} 가 per-iteration {@code try/catch} 로 본 메서드를 감싸서 한 일정 실패가
  * 다른 일정 처리에 전파되지 않게 한다. 트랜잭션 boundary는 본 클래스 — {@link PushScheduler} 는 X.
  */
-@Component
+@Service
 @RequiredArgsConstructor
 @Slf4j
 public class PushReminderDispatcher {
@@ -49,7 +50,6 @@ public class PushReminderDispatcher {
     /** 명세 §9.1 페이로드 예시 ("2026-04-21T08:25:00+09:00") 정합 — seconds=0 도 명시 출력. */
     private static final DateTimeFormatter ISO_OFFSET_SECONDS = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssXXX");
     private static final String FALLBACK_REASON_ODSAY = "EXTERNAL_ROUTE_API_FAILED";
-    private static final String SCHEDULE_ID_PREFIX = "sch_";
     private static final String SCHEDULE_URL_PREFIX = "/schedules/";
     private static final String PUSH_TYPE_REMINDER = "REMINDER";
 
@@ -139,7 +139,7 @@ public class PushReminderDispatcher {
     }
 
     private String buildPayloadJson(Schedule s, boolean refreshOk) {
-        String externalScheduleId = SCHEDULE_ID_PREFIX + s.getScheduleUid();
+        String externalScheduleId = IdPrefixes.SCHEDULE + s.getScheduleUid();
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("scheduleId", externalScheduleId);

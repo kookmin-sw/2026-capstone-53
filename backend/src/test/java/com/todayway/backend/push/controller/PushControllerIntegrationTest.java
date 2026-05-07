@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * <p>회귀 가드: 인증/인가/sub_ prefix/UPSERT(reactivate)/타인 endpoint 403/없는 sub 404/
  * validation(@NotBlank endpoint, keys.p256dh, keys.auth).
  *
- * <p>{@code push.scheduler.enabled=false} — 통합 테스트 중 30초 cycle 자동 발사 차단.
+ * <p>{@code push.scheduler.enabled=false} — 통합 테스트 중 스케줄러 자동 트리거 차단.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
