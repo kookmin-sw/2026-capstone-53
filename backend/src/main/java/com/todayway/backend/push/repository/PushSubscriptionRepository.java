@@ -26,9 +26,8 @@ public interface PushSubscriptionRepository extends JpaRepository<PushSubscripti
     List<PushSubscription> findActiveByMemberId(@Param("memberId") Long memberId);
 
     /**
-     * 회원 탈퇴 cascade — issue #9. 활성 구독 일괄 soft-revoke.
-     * 영속성 컨텍스트와의 일관성을 위해 {@code clearAutomatically/flushAutomatically} 활성화
-     * (다른 cascade 메서드와 동일 패턴, ScheduleRepository.softDeleteByMemberId 참조).
+     * 회원 탈퇴 cascade — 활성 구독 일괄 soft-revoke. {@code clearAutomatically/flushAutomatically}
+     * 활성화로 영속성 컨텍스트 일관성 보장 (cascade 메서드 공통 패턴).
      *
      * @return 영향받은 활성 구독 수
      */

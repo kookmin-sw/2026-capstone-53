@@ -10,7 +10,8 @@ import com.todayway.backend.geocode.domain.GeocodeCache;
  * 박혀있으니 그대로 노출.
  *
  * <p>{@code provider} 는 명세 §8.1 v1.1.4 변환표대로 {@code "KAKAO_LOCAL"} 그대로 노출 —
- * schedule 저장 시 {@code "KAKAO"} 변환은 명세 §8.1 v1.1.4 변환표 책임이며 본 응답 단계의 책임 X.
+ * schedule 저장 payload 는 {@code "KAKAO"} 로 들어와야 한다는 invariant (명세 §8.1 v1.1.4 변환표).
+ * 본 응답 단계는 변환 책임 X.
  */
 public record GeocodeResponse(
         boolean matched,

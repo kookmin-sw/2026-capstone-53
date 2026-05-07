@@ -218,6 +218,20 @@ class GeocodeControllerIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
+    @Test
+    void query_길이_256자_400_VALIDATION_ERROR() throws Exception {
+        // @Size(max=255) — query_text VARCHAR(255) SQL truncation 회피용 1차 가드.
+        String token = signupAndGetToken("geosize", "길이검증");
+        String tooLong = "a".repeat(256);
+
+        mockMvc.perform(post("/api/v1/geocode")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"query\": \"" + tooLong + "\" }"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
     // ───── helpers ─────
 
     private String signupAndGetToken(String loginId, String nickname) throws Exception {

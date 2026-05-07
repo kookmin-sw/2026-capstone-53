@@ -164,6 +164,44 @@ class MapControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.nearestSchedule.recommendedDepartureTime").exists());
     }
 
+    @Test
+    void main_lat_범위_초과_400_VALIDATION_ERROR() throws Exception {
+        mockMvc.perform(get("/api/v1/main?lat=999&lng=127"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void main_lng_범위_초과_400_VALIDATION_ERROR() throws Exception {
+        mockMvc.perform(get("/api/v1/main?lat=37&lng=999"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void main_lat_NaN_400_VALIDATION_ERROR() throws Exception {
+        // @DecimalMin/@DecimalMax 가 NaN 통과시킬 위험을 controller 의 isFinite 가드가 차단.
+        mockMvc.perform(get("/api/v1/main?lat=NaN&lng=127"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void main_lat_Infinity_400_VALIDATION_ERROR() throws Exception {
+        mockMvc.perform(get("/api/v1/main?lat=Infinity&lng=127"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void main_nearestSchedule_null_시_value_null_명시() throws Exception {
+        // 명세 §4.1 응답 예시는 nearestSchedule=null 을 명시 직렬화. JsonPath value(nullValue()) 는
+        // path 가 존재하지 않으면 ParseException 으로 fail — 즉 "키 존재 + null 값" 둘 다 검증.
+        mockMvc.perform(get("/api/v1/main"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.nearestSchedule").value(nullValue()));
+    }
+
     // ─────────── helpers ───────────
 
     private String signupAndGetToken(String loginId, String nickname) throws Exception {

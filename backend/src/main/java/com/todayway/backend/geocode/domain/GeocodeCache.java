@@ -21,8 +21,8 @@ import java.time.ZoneId;
  * 명세 §8.1 — Kakao/NAVER Geocoding 결과 캐시 (TTL 30일). V1__init.sql {@code geocode_cache} 정합.
  *
  * <p>row identity = {@code (query_hash, provider)} UNIQUE. 동일 쿼리·동일 provider 결과는 단일 row 로
- * 보존되며, TTL 만료 후 재호출 시 {@link #refresh} 로 갱신 (UPSERT 시 unique 위반 catch + retry 로
- * race-safe).
+ * 보존되며, TTL 만료 후 재호출 시 {@link #refreshAsMatch} / {@link #refreshAsMiss} 로 갱신 (UPSERT
+ * 시 unique 위반 catch + retry 로 race-safe).
  *
  * <p>matched=false (Kakao documents 빈 배열) 도 캐시 — 같은 미스 query 의 반복 호출이 외부 API
  * quota 를 소모하지 않게 한다. 서비스 흐름은 {@link #isMatched} 가 false 면 404 GEOCODE_NO_MATCH.

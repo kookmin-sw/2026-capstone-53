@@ -6,8 +6,8 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 /**
- * 명세 §9.1 — 푸시 발송 이력. append-only.
- * 별도 도메인 쿼리는 P1 (재시도 정책/관측성). MVP는 INSERT + 통합 테스트 필터링용 조회만.
+ * 명세 §9.1 — 푸시 발송 이력. append-only. 현재는 INSERT + 통합 테스트용 단건 조회만.
+ * 재시도/관측성 도메인 쿼리는 도입 시 추가.
  */
 public interface PushLogRepository extends JpaRepository<PushLog, Long> {
 
