@@ -344,11 +344,6 @@ public class Schedule extends BaseEntity {
      * <p>{@code userDepartureTime} delta shift (v1.1.13): {@code arrivalTime} 변화량과 동일하게
      * 사용자 출발 의도 시각도 이동. 미동기화 시 {@code recalculateDepartureAdvice} 가 24h+ 차이로
      * 항상 {@code EARLIER} 가 되어 silent corruption 발생 → §6.1/§5.4 응답이 무의미해진다.
-     *
-     * <p>{@code estimatedDurationMinutes} 부재 시 fallback (v1.1.13): 등록 시 ODsay graceful 실패로
-     * duration 이 NULL 인 routine 의 경우, {@code reminder_at = arrival - reminder_offset} 으로 직접
-     * 추정해 routine 이 silent disable 되지 않도록 보장. 다음 dispatch 의 ODsay 재호출이 성공하면
-     * 정확한 값으로 자동 갱신된다.
      */
     public void advanceToNextOccurrence(OffsetDateTime nextArrival) {
         if (deletedAt != null) {
@@ -359,16 +354,14 @@ public class Schedule extends BaseEntity {
             this.userDepartureTime = this.userDepartureTime.plus(delta);
         }
         this.arrivalTime = nextArrival;
-        this.recommendedDepartureTime = (estimatedDurationMinutes != null)
-                ? nextArrival.minusMinutes(estimatedDurationMinutes)
-                : null;
+        // estimatedDurationMinutes 는 OdsayRouteService.applyToSchedule 가 항상 non-null 로 호출하므로
+        // reminderAt 이 박힌 dispatch 가능 schedule 은 항상 estimatedDurationMinutes 도 non-null. 다만 NPE
+        // 방어 차원에서 가드만 둔다 (defensive).
+        if (estimatedDurationMinutes != null) {
+            this.recommendedDepartureTime = nextArrival.minusMinutes(estimatedDurationMinutes);
+        }
         recalculateDepartureAdvice();
         recalculateReminderAt();
-        // estimatedDurationMinutes == null 로 reminderAt 이 null 이 되는 경우 fallback —
-        // 다음 dispatch 의 ODsay 재호출이 estimatedDurationMinutes 를 채워 정상화될 기회 확보.
-        if (reminderAt == null && reminderOffsetMinutes != null) {
-            this.reminderAt = nextArrival.minusMinutes(reminderOffsetMinutes);
-        }
     }
 
     /** PATCH 부분 업데이트용 입력 DTO — 출/도착지 묶음. */

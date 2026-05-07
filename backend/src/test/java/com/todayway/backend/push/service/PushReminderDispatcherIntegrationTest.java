@@ -177,7 +177,14 @@ class PushReminderDispatcherIntegrationTest {
         OffsetDateTime origArrival = OffsetDateTime.now(KST).plusMinutes(60);
         String externalScheduleId = createDailySchedule(token, origArrival);
 
+        // 명세 v1.1.13 — userDepartureTime delta shift 검증을 위해 advance 전 값 캡처.
+        // baseline 은 DB fetch 값으로 통일 — test variable origArrival 은 ns precision 이지만
+        // DB DATETIME(3) ms 절단되어 1 초 차이가 생길 수 있음.
         Long scheduleDbId = schId(externalScheduleId);
+        Schedule before = scheduleRepository.findById(scheduleDbId).orElseThrow();
+        OffsetDateTime origArrivalFromDb = before.getArrivalTime();
+        OffsetDateTime origUserDepart = before.getUserDepartureTime();
+
         dispatcher.process(scheduleDbId);
 
         Schedule s = scheduleRepository.findById(scheduleDbId).orElseThrow();
@@ -186,6 +193,14 @@ class PushReminderDispatcherIntegrationTest {
         assertNotNull(s.getReminderAt(), "advance 후 reminderAt 재계산 (NULL 아님)");
         assertTrue(s.getReminderAt().isAfter(OffsetDateTime.now(KST)),
                 "advance 후 reminderAt 은 미래 시각");
+
+        // 명세 v1.1.13 — userDepartureTime 도 동일 delta 만큼 shift 되어야 departureAdvice 정합 유지.
+        assertTrue(s.getUserDepartureTime().isAfter(origUserDepart),
+                "userDepartureTime 도 advance 시 shift 되어야 함 (v1.1.13 §9.2 보강)");
+        long arrivalDeltaSec = java.time.Duration.between(origArrivalFromDb, s.getArrivalTime()).getSeconds();
+        long userDepartDeltaSec = java.time.Duration.between(origUserDepart, s.getUserDepartureTime()).getSeconds();
+        assertEquals(arrivalDeltaSec, userDepartDeltaSec,
+                "userDepartureTime delta == arrivalTime delta — silent corruption 방지 (v1.1.13)");
     }
 
     // ───── helpers ─────

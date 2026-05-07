@@ -30,7 +30,7 @@ import java.util.Map;
 /**
  * 한 일정의 알림 발송 처리 (트랜잭션 boundary). 명세 §9.1 흐름 정합:
  * <ol>
- *   <li>ODsay 재호출 — {@link PushSchedulerProperties#getOdsayMaxAttempts()} 회 시도, 실패 시 폴백 모드.</li>
+ *   <li>ODsay 재조회 — 총 {@link PushSchedulerProperties#getOdsayMaxAttempts()} 회 시도 (첫 호출 포함), 실패 시 폴백 모드.</li>
  *   <li>페이로드 빌드 — 명세 §9.1 형식. 폴백 시 {@code data.fallback=true} + {@code fallbackReason}.</li>
  *   <li>회원 활성 구독 모두에 발송 + {@link PushLog} 기록. 410 Gone → {@link PushSubscription#revoke()}.</li>
  *   <li>다음 occurrence — ONCE/null → {@link Schedule#clearReminderAt()},

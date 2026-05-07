@@ -68,13 +68,18 @@ public class PushSubscription {
     private OffsetDateTime revokedAt;
 
     private PushSubscription(Long memberId, String endpoint, String p256dhKey, String authKey, String userAgent) {
-        this.memberId = Objects.requireNonNull(memberId, "memberId");
-        this.endpoint = requireNonBlank(endpoint, "endpoint");
-        this.p256dhKey = requireNonBlank(p256dhKey, "p256dhKey");
-        this.authKey = requireNonBlank(authKey, "authKey");
+        this.memberId = memberId;
+        this.endpoint = endpoint;
+        this.p256dhKey = p256dhKey;
+        this.authKey = authKey;
         this.userAgent = userAgent;
     }
 
+    /**
+     * 입력 검증은 호출자(DTO {@code @NotBlank} / Service)의 책임. 본 entity 는 검증 X —
+     * IllegalArgumentException 으로 entity 검증을 추가하면 GlobalExceptionHandler 에 해당 핸들러가
+     * 없어 silent 500 으로 떨어진다. 컬럼 제약(NOT NULL / UNIQUE / VARCHAR length) 으로 DB 레벨 가드.
+     */
     public static PushSubscription create(Long memberId, String endpoint, String p256dhKey, String authKey,
                                           String userAgent) {
         return new PushSubscription(memberId, endpoint, p256dhKey, authKey, userAgent);
@@ -100,10 +105,11 @@ public class PushSubscription {
 
     /**
      * 명세 §7.1 — 브라우저가 키 회전한 케이스 반영 (재구독 시 키/UA 갱신, {@code revoked_at} 해제).
+     * 입력 검증은 호출자 책임 (DTO {@code @NotBlank}).
      */
     public void reactivate(String p256dhKey, String authKey, String userAgent) {
-        this.p256dhKey = requireNonBlank(p256dhKey, "p256dhKey");
-        this.authKey = requireNonBlank(authKey, "authKey");
+        this.p256dhKey = p256dhKey;
+        this.authKey = authKey;
         this.userAgent = userAgent;
         this.revokedAt = null;
     }
@@ -115,12 +121,5 @@ public class PushSubscription {
         if (revokedAt == null) {
             revokedAt = OffsetDateTime.now(KST);
         }
-    }
-
-    private static String requireNonBlank(String value, String name) {
-        if (value == null || value.isBlank()) {
-            throw new IllegalArgumentException(name + " must not be blank");
-        }
-        return value;
     }
 }
