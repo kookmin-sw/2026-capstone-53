@@ -46,10 +46,14 @@ public class GlobalExceptionHandler {
      *   <li>{@link MissingServletRequestParameterException} — 필수 query 누락.</li>
      *   <li>{@link MethodArgumentTypeMismatchException} — query 타입 불일치 (예: {@code lat=foo}).</li>
      * </ul>
-     * 도메인 {@link IllegalArgumentException} (예: {@code RouteSegment} record invariant, {@code SegmentMode}
-     * 매핑 실패, {@code PushSendResult} 상태 invariant) 은 본 handler 가 catch 하지 않는다 — 사용자 입력
-     * 오류가 아닌 server-side bug 시그널이라 {@link #handleUnknown} 의 500 + ERROR 로깅으로 떨어져야
-     * 운영 관측성이 보존된다.
+     *
+     * <p>Service-layer 의 {@link IllegalArgumentException} (service 가 직접 throw — 예: ODsay 응답
+     * 매핑 실패) 은 본 handler 가 catch 하지 않아 {@link #handleUnknown} 의 500 + ERROR 로깅으로
+     * 떨어진다. 그러나 Jackson deserialization 도중 record compact ctor 의 IAE (예: {@code Coordinate}
+     * 의 NaN 가드, {@code RouteSegment} invariant) 가 발생하면 Jackson 이 {@link HttpMessageNotReadableException}
+     * 으로 wrap 해 본 handler 의 첫 분기에 잡힌다 — 사용자 입력 오류 ({@code 400}) 와 server-side
+     * invariant 위반이 같은 path 로 도착하는 셈. root cause 가 IAE 인 후자는 별도 WARN 으로 로깅해
+     * 운영 관측성을 보존하면서 응답은 동일하게 400 으로 유지.
      */
     @ExceptionHandler({
             HandlerMethodValidationException.class,
@@ -59,6 +63,14 @@ public class GlobalExceptionHandler {
             MethodArgumentTypeMismatchException.class
     })
     public ResponseEntity<ErrorResponse> handleBadRequest(Exception e) {
+        if (e instanceof HttpMessageNotReadableException hmnr) {
+            Throwable root = hmnr.getMostSpecificCause();
+            if (root instanceof IllegalArgumentException) {
+                // record compact ctor invariant 위반이 deserialization 도중 발생 — 사용자 입력 오류와
+                // 구분 안 되는 응답이라도 운영 모니터링용 stack trace 는 남긴다 (server-side bug 시그널).
+                log.warn("Deserialization invariant violation — rootCause={}", root.getClass().getSimpleName(), root);
+            }
+        }
         ErrorCode code = ErrorCode.VALIDATION_ERROR;
         return ResponseEntity.status(code.getStatus())
                 .body(ErrorResponse.of(code.name(), code.getMessage()));

@@ -33,6 +33,8 @@ class JwtAuthenticationFilterTest {
     @Test
     void 헤더에_Authorization이_없으면_SecurityContext가_비어있고_체인이_그대로_진행된다() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/main");
+        // PermitAllPaths 가 servletPath 비교 (PR #27 review P1) — MockHttpServletRequest 는 default 가 빈 문자열.
+        request.setServletPath("/api/v1/main");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
 
@@ -47,6 +49,7 @@ class JwtAuthenticationFilterTest {
     void 유효한_토큰이면_SecurityContext에_memberUid가_저장되고_체인이_진행된다() throws Exception {
         String token = jwtProvider.issueAccessToken(MEMBER_UID);
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/schedules");
+        request.setServletPath("/api/v1/schedules");
         request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + token);
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
@@ -66,6 +69,7 @@ class JwtAuthenticationFilterTest {
         Thread.sleep(50);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/schedules");
+        request.setServletPath("/api/v1/schedules");
         request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken);
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
@@ -81,6 +85,7 @@ class JwtAuthenticationFilterTest {
     @Test
     void 위조된_토큰이면_SecurityContext만_비우고_체인은_진행한다_401은_EntryPoint가_담당() throws Exception {
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/schedules");
+        request.setServletPath("/api/v1/schedules");
         request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer this.is.not.a.valid.jwt");
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);
@@ -100,6 +105,7 @@ class JwtAuthenticationFilterTest {
         Thread.sleep(50);
 
         MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/main");
+        request.setServletPath("/api/v1/main");
         request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken);
         MockHttpServletResponse response = new MockHttpServletResponse();
         FilterChain chain = mock(FilterChain.class);

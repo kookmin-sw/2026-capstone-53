@@ -78,8 +78,10 @@ public class GeocodeService {
 
         KakaoLocalSearchResponse.Document doc = raw.documents().get(0);
         if (doc.x() == null || doc.y() == null) {
-            log.warn("Kakao Local 응답 좌표 누락 query={}, x={}, y={}, id={}",
-                    trimmed, doc.x(), doc.y(), doc.id());
+            // 보안: query 는 사용자 검색어 (PII 위험 — 주소/장소 평문) → hash 로 대체. 같은 query
+            // 의 반복 패턴은 hash 매칭으로 추적 가능. doc.id 는 Kakao 내부 식별자라 노출 안전.
+            log.warn("Kakao Local 응답 좌표 누락 hash={}, x={}, y={}, kakaoDocId={}",
+                    hash, doc.x(), doc.y(), doc.id());
             throw new BusinessException(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
         }
         MatchedFields m;
@@ -87,9 +89,9 @@ public class GeocodeService {
             m = KakaoLocalToGeocodeMapper.toMatchedFields(doc);
         } catch (NumberFormatException e) {
             // Kakao 가 x/y 를 non-numeric 으로 반환 — 외부 응답 형식 위반 → 명세 §8.1 매핑표 502.
-            // raw 값을 함께 로깅해 ops 가 "Kakao 일시 corruption" vs "DTO drift" 구분 가능.
-            log.warn("Kakao Local 응답 매핑 실패 — x/y non-numeric query={}, x={}, y={}",
-                    trimmed, doc.x(), doc.y(), e);
+            // 보안: query 평문 노출 차단 (PII), hash 로 추적 식별. raw x/y 값은 비ASCII 가능성 0이라 안전.
+            log.warn("Kakao Local 응답 매핑 실패 — x/y non-numeric hash={}, x={}, y={}",
+                    hash, doc.x(), doc.y(), e);
             throw new BusinessException(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
         }
         GeocodeCache saved = upsertWithRetry(
