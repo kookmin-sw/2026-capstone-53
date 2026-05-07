@@ -6,6 +6,7 @@ import com.todayway.backend.common.pagination.CursorRequest;
 import com.todayway.backend.common.pagination.CursorResponse;
 import com.todayway.backend.member.domain.Member;
 import com.todayway.backend.member.repository.MemberRepository;
+import com.todayway.backend.route.RouteResponse;
 import com.todayway.backend.route.RouteService;
 import com.todayway.backend.schedule.domain.Schedule;
 import com.todayway.backend.schedule.dto.CreateScheduleRequest;
@@ -69,6 +70,23 @@ public class ScheduleService {
         Long memberId = resolveMemberId(memberUid);
         Schedule s = findOwned(memberId, scheduleUid);
         return ScheduleResponse.from(s);
+    }
+
+    /**
+     * 명세 §6.1 — 일정 경로 조회. 소유자 검증 + ODsay 캐시/호출 위임.
+     * <p>{@code @Transactional} (rw) — cache miss 시 {@code RouteService.getRoute}가
+     * {@code Schedule.updateRouteInfo}로 entity 갱신. 같은 트랜잭션 안에서 fetch +
+     * getRoute 호출이라 dirty checking 정상 동작.
+     *
+     * @throws com.todayway.backend.common.exception.BusinessException
+     *         {@code SCHEDULE_NOT_FOUND}(404), {@code FORBIDDEN_RESOURCE}(403),
+     *         {@code EXTERNAL_*}(502/503/504, RouteService에서 매핑)
+     */
+    @Transactional
+    public RouteResponse getRouteForOwned(String memberUid, String scheduleUid, boolean forceRefresh) {
+        Long memberId = resolveMemberId(memberUid);
+        Schedule s = findOwned(memberId, scheduleUid);
+        return routeService.getRoute(s, forceRefresh);
     }
 
     public CursorResponse<ScheduleListItem> list(String memberUid,

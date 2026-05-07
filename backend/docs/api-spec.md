@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.10-MVP
-> **최종 수정**: 2026-05-04 (이상진 — §6.1 transit path 출처를 ODsay `loadLane` 도로 곡선으로 승격, `route_summary_json` wrapped 형식 도입)
+> **버전**: v1.1.11-MVP
+> **최종 수정**: 2026-05-04 (이상진 — §6.1 응답 예시 WALK `from`/`to` 제거, `RouteSegment` record invariant 정합)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -27,6 +27,7 @@
 | **v1.1.8** | **2026-04-30** | **§5.4 PATCH 검증 정정 — `arrivalTime`의 NOW() 검사는 `arrivalTime`이 요청에 포함된 경우에만 적용. 지난 일정의 `title` 등 메모 편집 허용. (Step 5 PR #10 claude.ai 리뷰 P1 흡수)** |
 | **v1.1.9** | **2026-04-30** | **§6.1 WALK 구간 path 보충 알고리즘 명시 (Step 6 이상진) — ODsay WALK subPath에 좌표 키가 없어 `origin`/`destination`/이전 transit 끝점으로 합성. 매핑표의 `path` 행에 WALK 분기 추가.** |
 | **v1.1.10** | **2026-05-04** | **§6.1 transit path 출처 승격 (이상진) — `passStopList` 정류장 직선 → ODsay `loadLane` 도로 곡선 (`lane[i].section[].graphPos[]`) 정식 사용. `route_summary_json`을 `{"path":..., "lane":...}` wrapped 형식으로 저장 — 캐시 hit 시 재호출 없이 곡선 복원. loadLane 실패는 graceful — `passStopList` 직선 fallback. ODsay 호출 cache miss 1회당 1회 → 2회 (직렬, mapObj 의존).** |
+| **v1.1.11** | **2026-05-04** | **§6.1 응답 예시 WALK `from`/`to` 제거 — `RouteSegment` record invariant + `@JsonInclude(NON_NULL)` 정합 cleanup. 코드 동작 변경 X (record가 WALK에서 reject + Jackson이 null drop).** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -774,8 +775,6 @@ LIMIT ?
           "mode": "WALK",
           "durationMinutes": 5,
           "distanceMeters": 350,
-          "from": "우이동 집",
-          "to": "우이동역",
           "path": [[127.012, 37.661], [127.013, 37.662]]
         },
         {
@@ -795,8 +794,6 @@ LIMIT ?
           "mode": "WALK",
           "durationMinutes": 5,
           "distanceMeters": 350,
-          "from": "성신여대입구역",
-          "to": "국민대학교",
           "path": [[127.015, 37.662], [127.001, 37.610]]
         }
       ]
