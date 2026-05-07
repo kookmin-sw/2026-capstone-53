@@ -1276,7 +1276,7 @@
 .cal-stack {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
 }
 
 /* 카드 기본 */
