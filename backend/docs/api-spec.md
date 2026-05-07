@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.16-MVP
-> **최종 수정**: 2026-05-07 (이상진 — §9.1 dispatcher 트랜잭션 분리 명시 (ODsay/Push provider IO 가 한 트랜잭션에 묶이지 않도록 read/write 두 짧은 트랜잭션 + IO 는 트랜잭션 밖). PR #24 외부 리뷰 (황찬우) B1 흡수.)
+> **버전**: v1.1.17-MVP
+> **최종 수정**: 2026-05-07 (이상진 — §8.1 query_hash canonical 강화 (squash + NFC + lowercase). PR #27 외부 리뷰 (황찬우) G1 흡수.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -33,6 +33,7 @@
 | **v1.1.14** | **2026-05-07** | **§9.1 payload `data.subscriptionId` 추가 (멀티 디바이스 식별 — SW 가 어느 device 의 push 인지 분기 가능). 동작 흐름에 scan↔dispatch race 가드 명시 — PATCH 로 `reminder_at` 변경 시 dispatcher skip (중복 발송 방지). PR #24 외부 리뷰 (황찬우) Q1·Q2 흡수.** |
 | **v1.1.15** | **2026-05-07** | **§7.1 `endpoint` 길이 500 → 2048 + `CHARACTER SET ascii COLLATE ascii_bin` (V2 migration). FCM/Apple/Mozilla/Microsoft WNS 모든 push provider endpoint 안전 마진. utf8mb4 환경 InnoDB UNIQUE INDEX max key length (3072 byte) 회피 위해 ASCII charset (URL RFC 3986 정합). PR #24 외부 리뷰 (황찬우) Q3 흡수.** |
 | **v1.1.16** | **2026-05-07** | **§9.1 dispatcher 트랜잭션 분리 — 기존 단일 `@Transactional` 안에서 ODsay 재호출(최악 11초) + push provider IO 까지 묶여 30초 폴링 사이클 race 위험. 새 패턴: read tx (race 가드 + activeSubs fetch) → 트랜잭션 밖 ODsay → 트랜잭션 밖 push 발송 IO → write tx (schedule reload + race 재검증 + ODsay 결과 적용 + PushLog INSERT + 410 revoke + advance). PR #24 외부 리뷰 (황찬우) B1 흡수.** |
+| **v1.1.17** | **2026-05-07** | **§8.1 `query_hash` canonical 강화 — `trim` 만 적용하던 v1.1.4 룰을 `lowercase(NFC(squash(trim(query))))` 로 확장. squash (`\s+`→` `) / NFC / `Locale.ROOT` lowercase 추가로 cache hit ratio 향상 + 외부 API quota 보호. 기존 캐시 row 는 TTL 30일 후 자연 만료 (별도 마이그레이션 불필요). PR #27 외부 리뷰 (황찬우) G1 흡수.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -1050,17 +1051,24 @@ public static String toPlaceProvider(String geocodeProvider) {
 
 **이유**: `Place.provider`는 도메인 추상화 ENUM (`NAVER/KAKAO/ODSAY/MANUAL`). `KAKAO_LOCAL`은 Kakao 내부 API 세분 구분이라 도메인 모델에 노출 불필요. 반면 `geocode_cache`는 캐시 키 구분용이라 세분 구분 필요.
 
-#### 🆕 v1.1.4 — `query_hash` 정규화 룰
+#### 🆕 v1.1.17 — `query_hash` 정규화 룰
 
-캐시 미스 방지를 위해 hash 계산 전 정규화:
+캐시 미스 방지를 위해 hash 계산 전 canonical 정규화:
 
 ```
-query_hash = SHA-256(query.trim())
+canonical  = lowercase(NFC(squash(trim(query))))
+query_hash = SHA-256(canonical)
 ```
 
-- **trim 필수**: `"국민대학교"`와 `"국민대학교 "`(trailing space)는 동일 캐시 hit 되어야 함
-- **대소문자 정규화는 안 함**: 한글은 영향 X. 영문 주소 (`"Seoul Station"`/`"seoul station"`)는 P1 보류
-- 연속 공백 정규화 등 추가 규칙은 P1 보류
+| 단계 | 규칙 | 효과 |
+|---|---|---|
+| trim | 양 끝 whitespace 제거 | `"국민대학교"` / `"국민대학교 "` 동일 |
+| squash | `\s+` → 단일 SPACE | `"강남 역"` / `"강남  역"` 동일 |
+| NFC | 한글 자모 분리·합치기 동등화 | NFD 형태 입력이 들어와도 NFC 캐시와 hit |
+| lowercase | `Locale.ROOT` 영문 대소문자 동등화 (Turkish I 회피) | `"Seoul Station"` / `"seoul station"` 동일 |
+
+- Kakao 호출에는 **trim 만 적용한 사용자 원본** 을 보낸다 (검색 서버 자체 normalize 보유). canonical 은 cache hash 에만 사용.
+- v1.1.4 에서는 `trim` 만 정의되었음. v1.1.17 에서 squash/NFC/lowercase 추가 — **기존 캐시 row 의 query_hash 가 새 canonical 과 다른 경우 cache miss 후 새 hash 로 INSERT (TTL 30일 후 자연 만료, 별도 마이그레이션 불필요)**.
 
 #### 에러
 - `404 GEOCODE_NO_MATCH`
@@ -1069,10 +1077,11 @@ query_hash = SHA-256(query.trim())
 - `504 EXTERNAL_TIMEOUT` — Kakao 타임아웃
 
 #### DB 매핑
-- 캐시 조회:
+- 캐시 조회 (v1.1.17 canonical 적용):
 ```sql
+-- application 단에서 canonical = lowercase(NFC(squash(trim(?)))) 후 hash 계산
 SELECT * FROM geocode_cache
-WHERE query_hash = SHA2(TRIM(?), 256)
+WHERE query_hash = ?     -- application 측에서 canonical hash 전달
   AND provider = ?
   AND cached_at > NOW() - INTERVAL 30 DAY
 ```

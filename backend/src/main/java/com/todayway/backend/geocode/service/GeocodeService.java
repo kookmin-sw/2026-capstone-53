@@ -21,9 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.text.Normalizer;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.HexFormat;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -56,7 +58,10 @@ public class GeocodeService {
 
     public GeocodeResponse geocode(GeocodeRequest req) {
         String trimmed = req.query().trim();
-        String hash = sha256Hex(trimmed);
+        // Kakao 외부 호출에는 사용자 원본 trim 만 한 query 를 보낸다 — 검색 서버가 자체 normalize 보유.
+        // hash 는 cache hit ratio 를 위해 추가 정규화 (G1, v1.1.17): squash → NFC → lowercase.
+        String canonical = canonicalize(trimmed);
+        String hash = sha256Hex(canonical);
         OffsetDateTime cutoff = OffsetDateTime.now(KST).minusDays(CACHE_TTL_DAYS);
 
         Optional<GeocodeCache> fresh = cacheRepository
@@ -137,7 +142,25 @@ public class GeocodeService {
         }
     }
 
-    /** 명세 §8.1 v1.1.4 — query_hash = SHA-256(query.trim()). hex 64자 (CHAR(64) 정합). */
+    /**
+     * 명세 §8.1 v1.1.17 — cache hit ratio 보강을 위한 query canonicalization.
+     * <ol>
+     *   <li>trim (caller 측에서 이미 적용됨, 본 메서드에서도 보호적으로 다시 적용)</li>
+     *   <li>whitespace squash — 연속 whitespace 를 단일 SPACE 로 (`강남 역` / `강남  역` 같음)</li>
+     *   <li>NFC 정규화 — 한글 자모 분리/합치기 입력 동등화 (예: `한국` 의 NFD vs NFC 충돌 차단)</li>
+     *   <li>{@link Locale#ROOT} lowercase — 영문 대소문자 동등화 (`GANGNAM` / `gangnam` 같음).
+     *       Locale.ROOT 로 Turkish I 문제 회피.</li>
+     * </ol>
+     * Kakao 호출에는 trim 만 한 사용자 원본을 보내고, 본 canonical 은 cache hash 에만 사용 — 외부
+     * 검색 서버가 자체 normalize 를 갖고 있으므로 결과 동등성은 보장.
+     */
+    private static String canonicalize(String trimmed) {
+        String squashed = trimmed.trim().replaceAll("\\s+", " ");
+        String nfc = Normalizer.normalize(squashed, Normalizer.Form.NFC);
+        return nfc.toLowerCase(Locale.ROOT);
+    }
+
+    /** 명세 §8.1 v1.1.17 — query_hash = SHA-256(canonicalize(query)). hex 64자 (CHAR(64) 정합). */
     private static String sha256Hex(String input) {
         try {
             byte[] hash = MessageDigest.getInstance("SHA-256")
