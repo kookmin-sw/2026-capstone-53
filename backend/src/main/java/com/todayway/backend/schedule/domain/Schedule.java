@@ -329,6 +329,37 @@ public class Schedule extends BaseEntity {
         }
     }
 
+    /**
+     * 명세 §9.1 — ONCE 일정의 알림 발송 직후 호출. {@code reminder_at = NULL} 로 재발송 방지. 멱등.
+     */
+    public void clearReminderAt() {
+        this.reminderAt = null;
+    }
+
+    /**
+     * 명세 §9.2 — 루틴 일정 다음 occurrence 로 갱신. ODsay 재호출 X
+     * ({@code estimatedDurationMinutes} 마지막 호출값 그대로 사용).
+     *
+     * <p>{@code arrival_time} 갱신 → {@code recommendedDepartureTime} = arrival - duration →
+     * {@code recalculateDepartureAdvice / recalculateReminderAt} 으로 파생값 동기화.
+     *
+     * <p>{@code userDepartureTime} 은 명세 silent — 본 메서드에서 변경 X (P1 보충 후보).
+     * 알림 페이로드는 {@code recommendedDepartureTime} 만 사용하므로 push 동작에 영향 없음.
+     */
+    public void advanceToNextOccurrence(OffsetDateTime nextArrival) {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_NOT_FOUND);
+        }
+        this.arrivalTime = nextArrival;
+        if (estimatedDurationMinutes != null) {
+            this.recommendedDepartureTime = nextArrival.minusMinutes(estimatedDurationMinutes);
+        } else {
+            this.recommendedDepartureTime = null;
+        }
+        recalculateDepartureAdvice();
+        recalculateReminderAt();
+    }
+
     /** PATCH 부분 업데이트용 입력 DTO — 출/도착지 묶음. */
     public record PlaceUpdate(
             String name,
