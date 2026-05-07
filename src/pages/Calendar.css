@@ -1361,31 +1361,6 @@
   margin: 0;
 }
 
-/* ── 새 일정 추가 카드 ── */
-.sac--add {
-  background: transparent;
-  border: 1.5px dashed #ddd;
-  border-radius: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 18px;
-  cursor: pointer;
-  width: 100%;
-  font-family: inherit;
-  -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.sac--add:active {
-  background: var(--color-point-bg);
-  border-color: var(--color-point);
-}
-
-.sac-add__label {
-  font-size: 14px;
-  color: #aaa;
-}
 
 /* ── 다크모드 ── */
 [data-theme="dark"] .sac              { background: #2A2825; box-shadow: none; }
@@ -1400,4 +1375,3 @@
 [data-theme="dark"] .sac-depart__sub  { color: #666; }
 [data-theme="dark"] .sac-divider      { background: #3a3835; }
 [data-theme="dark"] .sac-btn--edit    { background: #333; color: #e8e4dc; }
-[data-theme="dark"] .sac--add         { border-color: #333; }

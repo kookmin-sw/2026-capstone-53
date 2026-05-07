@@ -591,14 +591,6 @@ function EmptyDayCard() {
   );
 }
 
-/* ── 새 일정 추가 카드 ── */
-function AddScheduleCard({ onClick }) {
-  return (
-    <button className="sac sac--add" onClick={onClick}>
-      <span className="sac-add__label">새 일정 추가</span>
-    </button>
-  );
-}
 
 /* ================================================================
    CalendarPage — 메인
@@ -833,7 +825,6 @@ function CalendarPage() {
                 todayDow={todayDow}
               />
             ))}
-            <AddScheduleCard onClick={openAdd} />
           </div>
 
           {/* 오늘 선택 시 타임라인 뷰 */}
