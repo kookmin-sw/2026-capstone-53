@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { mockSchedules, mockRouteInfo } from '../data/mockData';
+import { mockSchedules, mockRouteInfo, mockGeocodeResults } from '../data/mockData';
 import { CalendarSkeletons, ErrorState } from '../components/StateUI';
 import './Calendar.css';
 
@@ -46,57 +46,103 @@ function hasSchedule(schedules, year, month, day) {
 function padTwo(n) { return String(n).padStart(2, '0'); }
 
 /* ================================================================
-   PlaceSearchOverlay — 카카오 장소 검색
+   PlaceSearchOverlay — 장소 검색 (mock geocode / 실제 API 교체 가능)
    ================================================================ */
+
+function searchMockGeocode(query) {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const matched = [];
+  for (const [key, data] of Object.entries(mockGeocodeResults)) {
+    if (
+      key.toLowerCase().includes(q) ||
+      q.includes(key.toLowerCase()) ||
+      data.name.toLowerCase().includes(q) ||
+      data.address.toLowerCase().includes(q)
+    ) {
+      matched.push(data);
+    }
+  }
+  return matched;
+}
 
 function PlaceSearchOverlay({ field, onSelect, onClose }) {
   const [query, setQuery]     = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
   const timerRef  = useRef(null);
   const inputRef  = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  const search = (q) => {
+  const runSearch = useCallback((q) => {
+    if (!q.trim()) {
+      setResults([]);
+      setLoading(false);
+      setSearched(false);
+      return;
+    }
+    setLoading(true);
+    // TODO: 실제 API 연동 시 아래를 geocode(q) 호출로 교체
+    timerRef.current = setTimeout(() => {
+      setResults(searchMockGeocode(q));
+      setLoading(false);
+      setSearched(true);
+    }, 500);
+  }, []);
+
+  const handleChange = (e) => {
+    const q = e.target.value;
     setQuery(q);
     clearTimeout(timerRef.current);
-    if (!q.trim()) { setResults([]); setLoading(false); return; }
-    setLoading(true);
-    timerRef.current = setTimeout(() => {
-      const kakao = window.kakao;
-      if (!kakao?.maps?.services) { setLoading(false); return; }
-      new kakao.maps.services.Places().keywordSearch(q, (data, status) => {
-        setLoading(false);
-        setResults(status === kakao.maps.services.Status.OK ? data.slice(0, 7) : []);
-      });
-    }, 380);
+    runSearch(q);
   };
+
+  const clearQuery = () => {
+    setQuery('');
+    setResults([]);
+    setSearched(false);
+    inputRef.current?.focus();
+  };
+
+  const title = field === 'origin' ? '출발지 검색' : '도착지 검색';
 
   return (
     <div className="place-overlay">
       <div className="place-overlay__bar">
-        <button className="place-overlay__back" onClick={onClose}>
+        <button className="place-overlay__back" onClick={onClose} aria-label="닫기">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-            <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="#1C1C1E" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" strokeWidth="2"
+              strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
         </button>
-        <input
-          ref={inputRef}
-          className="place-overlay__input"
-          type="text"
-          placeholder={field === 'origin' ? '출발지를 검색하세요' : '도착지를 검색하세요'}
-          value={query}
-          onChange={e => search(e.target.value)}
-        />
-        {query && (
-          <button className="place-overlay__clear" onClick={() => { setQuery(''); setResults([]); inputRef.current?.focus(); }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="9" fill="#C0BAB4"/>
-              <path d="M9 9l6 6M15 9l-6 6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-            </svg>
-          </button>
-        )}
+        <span className="place-overlay__title">{title}</span>
+      </div>
+
+      <div className="place-overlay__search-row">
+        <div className="place-overlay__search-wrap">
+          <svg className="place-overlay__search-icon" width="16" height="16" viewBox="0 0 24 24" fill="none">
+            <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
+            <path d="M21 21l-4-4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+          </svg>
+          <input
+            ref={inputRef}
+            className="place-overlay__input"
+            type="text"
+            placeholder="장소 또는 주소 검색"
+            value={query}
+            onChange={handleChange}
+          />
+          {query && (
+            <button className="place-overlay__clear" onClick={clearQuery} aria-label="지우기">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="9" fill="#C0BAB4"/>
+                <path d="M9 9l6 6M15 9l-6 6" stroke="white" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="place-overlay__results">
@@ -106,16 +152,16 @@ function PlaceSearchOverlay({ field, onSelect, onClose }) {
             검색 중...
           </div>
         )}
-        {!loading && query && results.length === 0 && (
+        {!loading && searched && results.length === 0 && (
           <div className="place-overlay__status">검색 결과가 없어요</div>
         )}
         {!loading && !query && (
           <div className="place-overlay__hint">장소명, 주소, 건물명으로 검색하세요</div>
         )}
-        {results.map(place => (
-          <button key={place.id} className="place-result" onClick={() => onSelect(place)}>
-            <div className="place-result__name">{place.place_name}</div>
-            <div className="place-result__addr">{place.road_address_name || place.address_name}</div>
+        {!loading && results.map(place => (
+          <button key={place.placeId} className="place-result" onClick={() => onSelect(place)}>
+            <div className="place-result__name">{place.name}</div>
+            <div className="place-result__addr">{place.address}</div>
           </button>
         ))}
       </div>
@@ -129,8 +175,10 @@ function PlaceSearchOverlay({ field, onSelect, onClose }) {
 
 const EMPTY_FORM = {
   title: '',
-  originName: '', originCoordinates: null,
-  destinationName: '', destinationCoordinates: null,
+  originName: '',
+  originPlace: null,        // { name, lat, lng, address, placeId, provider }
+  destinationName: '',
+  destinationPlace: null,   // same
   arrivalTime: '09:00',
   repeatDays: [],
 };
@@ -143,13 +191,13 @@ function BottomSheet({ editingSchedule, onClose, onSave }) {
   useEffect(() => {
     if (editingSchedule) {
       setForm({
-        title:                editingSchedule.title            || '',
-        originName:           editingSchedule.originName       || '',
-        originCoordinates:    editingSchedule.originCoordinates || null,
-        destinationName:      editingSchedule.destinationName  || '',
-        destinationCoordinates: editingSchedule.destinationCoordinates || null,
-        arrivalTime:          editingSchedule.arrivalTime      || '09:00',
-        repeatDays:           [...(editingSchedule.repeatDays || [])],
+        title:           editingSchedule.title           || '',
+        originName:      editingSchedule.originName      || '',
+        originPlace:     editingSchedule.originPlace     || null,
+        destinationName: editingSchedule.destinationName || '',
+        destinationPlace:editingSchedule.destinationPlace|| null,
+        arrivalTime:     editingSchedule.arrivalTime     || '09:00',
+        repeatDays:      [...(editingSchedule.repeatDays || [])],
       });
     } else {
       setForm(EMPTY_FORM);
@@ -175,20 +223,25 @@ function BottomSheet({ editingSchedule, onClose, onSave }) {
   const fillCurrentLocation = (field) => {
     if (!navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(({ coords }) => {
-      const nameKey  = field === 'origin' ? 'originName'        : 'destinationName';
-      const coordKey = field === 'origin' ? 'originCoordinates' : 'destinationCoordinates';
-      setForm(f => ({ ...f, [nameKey]: '현재 위치', [coordKey]: { lat: coords.latitude, lng: coords.longitude } }));
+      const nameKey  = field === 'origin' ? 'originName'   : 'destinationName';
+      const placeKey = field === 'origin' ? 'originPlace'  : 'destinationPlace';
+      const place = {
+        name: '현재 위치',
+        lat:  coords.latitude,
+        lng:  coords.longitude,
+        address: '',
+        placeId: null,
+        provider: 'GPS',
+      };
+      setForm(f => ({ ...f, [nameKey]: place.name, [placeKey]: place }));
     });
   };
 
   const handlePlaceSelect = (place) => {
-    const nameKey  = placeField === 'origin' ? 'originName'        : 'destinationName';
-    const coordKey = placeField === 'origin' ? 'originCoordinates' : 'destinationCoordinates';
-    setForm(f => ({
-      ...f,
-      [nameKey]:  place.place_name,
-      [coordKey]: { lat: parseFloat(place.y), lng: parseFloat(place.x) },
-    }));
+    // place: { name, lat, lng, address, placeId, provider }
+    const nameKey  = placeField === 'origin' ? 'originName'  : 'destinationName';
+    const placeKey = placeField === 'origin' ? 'originPlace' : 'destinationPlace';
+    setForm(f => ({ ...f, [nameKey]: place.name, [placeKey]: place }));
     setPlaceField(null);
   };
 
@@ -620,14 +673,20 @@ function CalendarPage() {
     const apiRequest = {
       title: form.title,
       origin: {
-        name: form.originName,
-        lat:  form.originCoordinates?.lat ?? null,
-        lng:  form.originCoordinates?.lng ?? null,
+        name:     form.originPlace?.name     ?? form.originName,
+        lat:      form.originPlace?.lat      ?? null,
+        lng:      form.originPlace?.lng      ?? null,
+        address:  form.originPlace?.address  ?? null,
+        placeId:  form.originPlace?.placeId  ?? null,
+        provider: form.originPlace?.provider ?? 'KAKAO',
       },
       destination: {
-        name: form.destinationName,
-        lat:  form.destinationCoordinates?.lat ?? null,
-        lng:  form.destinationCoordinates?.lng ?? null,
+        name:     form.destinationPlace?.name     ?? form.destinationName,
+        lat:      form.destinationPlace?.lat      ?? null,
+        lng:      form.destinationPlace?.lng      ?? null,
+        address:  form.destinationPlace?.address  ?? null,
+        placeId:  form.destinationPlace?.placeId  ?? null,
+        provider: form.destinationPlace?.provider ?? 'KAKAO',
       },
       arrivalTime: `${year}-${padTwo(month + 1)}-${padTwo(selDay)}T${form.arrivalTime}:00+09:00`,
       reminderOffsetMinutes: 30,
@@ -642,19 +701,19 @@ function CalendarPage() {
     const scheduleId = editingSch?.scheduleId ?? `sch-${Date.now()}`;
     const calEntry = {
       scheduleId,
-      title:                  apiRequest.title,
-      originName:             apiRequest.origin.name,
-      originCoordinates:      { lat: apiRequest.origin.lat, lng: apiRequest.origin.lng },
-      destinationName:        apiRequest.destination.name,
-      destinationCoordinates: { lat: apiRequest.destination.lat, lng: apiRequest.destination.lng },
-      arrivalTime:            form.arrivalTime,          // "09:00" 표시용
-      departureTime:          null,                      // 서버 계산 (reminderAt)
-      repeatDays:             apiRequest.routineRule?.daysOfWeek ?? [],
-      routineRule:            apiRequest.routineRule,
-      startDate:              `${year}-${padTwo(month + 1)}-${padTwo(selDay)}`,
-      endDate:                null,
-      status:                 'ACTIVE',
-      averageDurationMinutes: null,                      // 서버 계산
+      title:           apiRequest.title,
+      originName:      apiRequest.origin.name,
+      originPlace:     form.originPlace,
+      destinationName: apiRequest.destination.name,
+      destinationPlace:form.destinationPlace,
+      arrivalTime:     form.arrivalTime,       // "09:00" 표시용
+      departureTime:   null,                   // 서버 계산 (reminderAt)
+      repeatDays:      apiRequest.routineRule?.daysOfWeek ?? [],
+      routineRule:     apiRequest.routineRule,
+      startDate:       `${year}-${padTwo(month + 1)}-${padTwo(selDay)}`,
+      endDate:         null,
+      status:          'ACTIVE',
+      averageDurationMinutes: null,            // 서버 계산
     };
 
     if (editingSch) {

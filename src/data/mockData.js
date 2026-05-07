@@ -515,7 +515,70 @@ export const mockSettings = {
 };
 
 
-// ── 10. 알림 내역 (Notifications) ─────────────
+// ── 10. 장소 검색 mock (Geocode) ───────────────
+// POST /geocode 연동 전 임시. 검색어가 키에 포함되면 반환.
+// 실제 API 연동 시 src/api/client.js의 geocode() 함수만 교체하면 됨.
+export const mockGeocodeResults = {
+  '국민대': {
+    name: '국민대학교',
+    address: '서울 성북구 정릉로 77',
+    lat: 37.6103,
+    lng: 126.9969,
+    placeId: '1234567',
+    provider: 'KAKAO',
+  },
+  '우이동': {
+    name: '우이동',
+    address: '서울 강북구 우이동',
+    lat: 37.6600,
+    lng: 127.0100,
+    placeId: '2345678',
+    provider: 'KAKAO',
+  },
+  '강남역': {
+    name: '강남역',
+    address: '서울 강남구 강남대로 396',
+    lat: 37.4980,
+    lng: 127.0276,
+    placeId: '3456789',
+    provider: 'KAKAO',
+  },
+  '혜화역': {
+    name: '혜화역',
+    address: '서울 종로구 창경궁로 지하185',
+    lat: 37.5822,
+    lng: 127.0020,
+    placeId: '4567890',
+    provider: 'KAKAO',
+  },
+  '홍대': {
+    name: '홍대입구역',
+    address: '서울 마포구 양화로 지하160',
+    lat: 37.5573,
+    lng: 126.9248,
+    placeId: '5678901',
+    provider: 'KAKAO',
+  },
+  '수유역': {
+    name: '수유역',
+    address: '서울 강북구 도봉로 지하 327',
+    lat: 37.6384,
+    lng: 127.0253,
+    placeId: '6789012',
+    provider: 'KAKAO',
+  },
+  '길음역': {
+    name: '길음역',
+    address: '서울 성북구 도봉로 지하 271',
+    lat: 37.6030,
+    lng: 127.0259,
+    placeId: '7890123',
+    provider: 'KAKAO',
+  },
+};
+
+
+// ── 11. 알림 내역 (Notifications) ─────────────
 // 실제 API에는 없지만 프론트 알림 센터 UI 에 사용
 export const mockNotifications = [
   {
