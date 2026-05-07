@@ -11,6 +11,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Optional;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 /**
  * 명세 §8.1 cache UPSERT 의 race-safe 처리. 외부({@link GeocodeService})의 transaction 과 분리된
@@ -34,21 +36,29 @@ public class GeocodeCacheUpserter {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public GeocodeCache upsertMatch(String queryHash, String queryText, GeocodeCacheProvider provider,
                                     MatchedFields fields) {
-        Optional<GeocodeCache> existing = repository.findByQueryHashAndProvider(queryHash, provider);
-        if (existing.isPresent()) {
-            existing.get().refreshAsMatch(queryText, fields);
-            return existing.get();
-        }
-        return repository.saveAndFlush(GeocodeCache.match(queryHash, queryText, provider, fields));
+        return upsert(queryHash, provider,
+                existing -> existing.refreshAsMatch(queryText, fields),
+                () -> GeocodeCache.match(queryHash, queryText, provider, fields));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public GeocodeCache upsertMiss(String queryHash, String queryText, GeocodeCacheProvider provider) {
+        return upsert(queryHash, provider,
+                existing -> existing.refreshAsMiss(queryText),
+                () -> GeocodeCache.miss(queryHash, queryText, provider));
+    }
+
+    /**
+     * find-or-create 공통 분기. {@code refresh} / {@code create} 두 람다로 match/miss 의 차이만
+     * 표현 — 둘 다 본 트랜잭션 안에서 호출되므로 inner tx 격리 invariant 동일.
+     */
+    private GeocodeCache upsert(String queryHash, GeocodeCacheProvider provider,
+                                Consumer<GeocodeCache> refresh, Supplier<GeocodeCache> create) {
         Optional<GeocodeCache> existing = repository.findByQueryHashAndProvider(queryHash, provider);
         if (existing.isPresent()) {
-            existing.get().refreshAsMiss(queryText);
+            refresh.accept(existing.get());
             return existing.get();
         }
-        return repository.saveAndFlush(GeocodeCache.miss(queryHash, queryText, provider));
+        return repository.saveAndFlush(create.get());
     }
 }
