@@ -66,3 +66,11 @@ push:
     window-minutes: 5                          # 명세 §9.1 — 누락 방지 윈도우
     odsay-max-attempts: 2                      # 명세 §9.1 — 최대 2회 시도
     odsay-retry-interval-ms: 1000              # 명세 §9.1 — 1초 간격
+
+map:                                            # 명세 §4.2 GET /map/config 정적 응답
+  provider: ${MAP_PROVIDER:NAVER}
+  default-zoom: ${MAP_DEFAULT_ZOOM:15}
+  default-center:
+    lat: ${MAP_DEFAULT_CENTER_LAT:37.5665}     # 서울시청 (명세 예시 디폴트)
+    lng: ${MAP_DEFAULT_CENTER_LNG:126.9780}
+  tile-style: ${MAP_TILE_STYLE:basic}
