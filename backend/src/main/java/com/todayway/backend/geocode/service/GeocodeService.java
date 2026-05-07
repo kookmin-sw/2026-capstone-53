@@ -54,7 +54,15 @@ public class GeocodeService {
     private final GeocodeCacheRepository cacheRepository;
     private final KakaoLocalClient kakaoLocalClient;
 
-    @Transactional
+    /**
+     * {@code noRollbackFor = BusinessException.class} — 의도된 응답 흐름(404 GEOCODE_NO_MATCH /
+     * 502/503/504 외부 API 매핑) 에서도 cache INSERT/refresh 부수효과를 보존하기 위함.
+     * miss 캐시는 명세 §8.1 의 의도 (반복 미스 query 의 외부 API 호출 차단). default rollback 이면
+     * GEOCODE_NO_MATCH 던지는 순간 miss row 가 함께 롤백되어 다음 호출 때 또 Kakao 를 부른다.
+     * 진짜 inconsistency 는 BusinessException 외 RuntimeException (DataAccessException 등) 으로 던져
+     * 자동 롤백.
+     */
+    @Transactional(noRollbackFor = BusinessException.class)
     public GeocodeResponse geocode(GeocodeRequest req) {
         String trimmed = req.query().trim();
         String hash = sha256Hex(trimmed);
