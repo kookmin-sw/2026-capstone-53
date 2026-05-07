@@ -1,5 +1,6 @@
 package com.todayway.backend.common.jwt;
 
+import com.todayway.backend.common.security.PermitAllPaths;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -44,6 +45,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(auth);
         } catch (ExpiredJwtException e) {
             SecurityContextHolder.clearContext();
+            // permitAll endpoint (예: 명세 §4.1 GET /main 게스트 허용) 호출자가 만료 토큰을 보내도
+            // 401 차단하지 않고 게스트 흐름으로 진행 — 명세 §4.1 "게스트 허용 (인증 시 추가 정보)" 정합.
+            // 인증 필요 endpoint 는 종전대로 401 TOKEN_EXPIRED 명시 응답.
+            if (PermitAllPaths.matches(request)) {
+                chain.doFilter(request, response);
+                return;
+            }
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
             response.setContentType(MediaType.APPLICATION_JSON_VALUE);
             response.setCharacterEncoding("UTF-8");

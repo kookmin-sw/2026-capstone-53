@@ -91,4 +91,23 @@ class JwtAuthenticationFilterTest {
         assertThat(response.getStatus()).isEqualTo(200);
         verify(chain, times(1)).doFilter(request, response);
     }
+
+    @Test
+    void 만료된_토큰이지만_permitAll_path_GET_main이면_401_차단_X_체인_진행_명세_4_1_게스트_허용() throws Exception {
+        // Step 8 self-review F-F — 만료 토큰 + permitAll endpoint = 게스트 흐름. 인증 필요 endpoint 만 401.
+        JwtProvider expiredProvider = new JwtProvider(new JwtProperties(TEST_SECRET, 0, 0, ISSUER));
+        String expiredToken = expiredProvider.issueAccessToken(MEMBER_UID);
+        Thread.sleep(50);
+
+        MockHttpServletRequest request = new MockHttpServletRequest("GET", "/api/v1/main");
+        request.addHeader(HttpHeaders.AUTHORIZATION, "Bearer " + expiredToken);
+        MockHttpServletResponse response = new MockHttpServletResponse();
+        FilterChain chain = mock(FilterChain.class);
+
+        filter.doFilter(request, response, chain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+        verify(chain, times(1)).doFilter(request, response);
+    }
 }
