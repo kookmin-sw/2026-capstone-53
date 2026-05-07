@@ -3,6 +3,7 @@ package com.todayway.backend.common.web;
 import com.todayway.backend.common.exception.BusinessException;
 import com.todayway.backend.common.exception.ErrorCode;
 import org.springframework.core.MethodParameter;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -34,8 +35,15 @@ public class CurrentMemberArgumentResolver implements HandlerMethodArgumentResol
                                   NativeWebRequest webRequest,
                                   WebDataBinderFactory binderFactory) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof String memberUid && !memberUid.isBlank()) {
-            return memberUid;
+        // Spring Security 의 AnonymousAuthenticationFilter 가 미인증 요청에 principal="anonymousUser"
+        // String 토큰을 박는다. 단순 `instanceof String` 검사만으로는 그 문자열이 valid memberUid
+        // 처럼 통과하므로 AnonymousAuthenticationToken 을 명시적으로 제외해야 게스트 흐름이 발화한다.
+        boolean authenticated = auth != null
+                && !(auth instanceof AnonymousAuthenticationToken)
+                && auth.getPrincipal() instanceof String memberUid
+                && !memberUid.isBlank();
+        if (authenticated) {
+            return ((String) auth.getPrincipal());
         }
         CurrentMember annotation = parameter.getParameterAnnotation(CurrentMember.class);
         if (annotation != null && !annotation.required()) {

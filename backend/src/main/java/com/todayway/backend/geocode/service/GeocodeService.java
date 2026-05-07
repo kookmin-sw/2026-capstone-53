@@ -85,8 +85,17 @@ public class GeocodeService {
             throw new BusinessException(ErrorCode.GEOCODE_NO_MATCH);
         }
 
-        KakaoLocalToGeocodeMapper.MatchedFields m =
-                KakaoLocalToGeocodeMapper.toMatchedFields(raw.documents().get(0));
+        KakaoLocalToGeocodeMapper.MatchedFields m;
+        try {
+            m = KakaoLocalToGeocodeMapper.toMatchedFields(raw.documents().get(0));
+        } catch (NumberFormatException | NullPointerException e) {
+            // Kakao 가 x/y 를 빈 문자열/null/non-numeric 으로 반환 — 명세 §8.1 "외부 API 응답 이상"
+            // 분류로 502 매핑 (catch-all 500 으로 떨어지지 않게). miss 캐시는 안 함 — 일시적
+            // Kakao 응답 손상 가능성이라 다음 호출에서 정상 응답을 받을 기회 보존.
+            log.warn("Kakao Local 응답 매핑 실패 — x/y 비정상 query={}, cause={}",
+                    trimmed, e.getClass().getSimpleName(), e);
+            throw new BusinessException(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
+        }
         GeocodeCache saved = upsertMatch(hash, trimmed, m);
         return GeocodeResponse.from(saved);
     }

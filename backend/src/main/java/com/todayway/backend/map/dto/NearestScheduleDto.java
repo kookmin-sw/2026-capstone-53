@@ -23,6 +23,11 @@ public record NearestScheduleDto(
 ) {
 
     public static NearestScheduleDto from(Schedule s) {
+        // V1 schema 는 origin/destination lat/lng 를 NOT NULL 로 강제하지만 JPA field 는 BigDecimal
+        // (JVM-nullable). DB 마이그레이션 / 직접 SQL 우회 등으로 null 이 흘러들어오면 NPE → 500 generic
+        // 으로 떨어지므로 명시 가드 + scheduleUid 를 메시지에 박아 운영 진단 가능하게 한다.
+        requireCoord(s.getOriginLat(), s.getOriginLng(), "origin", s.getScheduleUid());
+        requireCoord(s.getDestinationLat(), s.getDestinationLng(), "destination", s.getScheduleUid());
         return new NearestScheduleDto(
                 IdPrefixes.SCHEDULE + s.getScheduleUid(),
                 s.getTitle(),
@@ -35,5 +40,13 @@ public record NearestScheduleDto(
                 s.getRecommendedDepartureTime(),
                 s.getReminderAt()
         );
+    }
+
+    private static void requireCoord(java.math.BigDecimal lat, java.math.BigDecimal lng,
+                                     String label, String scheduleUid) {
+        if (lat == null || lng == null) {
+            throw new IllegalStateException(
+                    "Schedule " + scheduleUid + " has null " + label + " coordinate (data corruption)");
+        }
     }
 }
