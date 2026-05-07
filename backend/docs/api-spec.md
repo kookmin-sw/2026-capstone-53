@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.17-MVP
-> **최종 수정**: 2026-05-07 (이상진 — §8.1 query_hash canonical 강화 (squash + NFC + lowercase). PR #27 외부 리뷰 (황찬우) G1 흡수.)
+> **버전**: v1.1.18-MVP
+> **최종 수정**: 2026-05-07 (이상진 — §8.1 GeocodeCacheCleanupScheduler 추가 (매일 04:00 KST TTL eviction). PR #27 외부 리뷰 (황찬우) G3 흡수.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -34,6 +34,7 @@
 | **v1.1.15** | **2026-05-07** | **§7.1 `endpoint` 길이 500 → 2048 + `CHARACTER SET ascii COLLATE ascii_bin` (V2 migration). FCM/Apple/Mozilla/Microsoft WNS 모든 push provider endpoint 안전 마진. utf8mb4 환경 InnoDB UNIQUE INDEX max key length (3072 byte) 회피 위해 ASCII charset (URL RFC 3986 정합). PR #24 외부 리뷰 (황찬우) Q3 흡수.** |
 | **v1.1.16** | **2026-05-07** | **§9.1 dispatcher 트랜잭션 분리 — 기존 단일 `@Transactional` 안에서 ODsay 재호출(최악 11초) + push provider IO 까지 묶여 30초 폴링 사이클 race 위험. 새 패턴: read tx (race 가드 + activeSubs fetch) → 트랜잭션 밖 ODsay → 트랜잭션 밖 push 발송 IO → write tx (schedule reload + race 재검증 + ODsay 결과 적용 + PushLog INSERT + 410 revoke + advance). PR #24 외부 리뷰 (황찬우) B1 흡수.** |
 | **v1.1.17** | **2026-05-07** | **§8.1 `query_hash` canonical 강화 — `trim` 만 적용하던 v1.1.4 룰을 `lowercase(NFC(squash(trim(query))))` 로 확장. squash (`\s+`→` `) / NFC / `Locale.ROOT` lowercase 추가로 cache hit ratio 향상 + 외부 API quota 보호. 기존 캐시 row 는 TTL 30일 후 자연 만료 (별도 마이그레이션 불필요). PR #27 외부 리뷰 (황찬우) G1 흡수.** |
+| **v1.1.18** | **2026-05-07** | **§8.1 `GeocodeCacheCleanupScheduler` 추가 — 매일 04:00 KST `@Scheduled` 로 `cached_at < NOW() - INTERVAL 30 DAY` row 삭제. read filter TTL 과 같은 cutoff. 운영 1년+ 누적 시 row/UNIQUE 인덱스 비대화 차단. `geocode.cleanup.{enabled,cron}` 환경변수 외부화. PR #27 외부 리뷰 (황찬우) G3 흡수.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -1088,6 +1089,18 @@ WHERE query_hash = ?     -- application 측에서 canonical hash 전달
 - 캐시 miss 시 KAKAO Local 또는 NAVER 호출 → `geocode_cache` INSERT
 - `provider` 컬럼은 `'KAKAO_LOCAL'` 저장
 - schedule에 좌표 저장 시엔 `'KAKAO'`로 변환 (위 매핑 규칙 적용)
+
+#### 🆕 v1.1.18 — TTL eviction (`GeocodeCacheCleanupScheduler`)
+
+- 매일 **04:00 KST** (`@Scheduled(cron = "0 0 4 * * *", zone = "Asia/Seoul")`) 에 `cached_at < NOW() - INTERVAL 30 DAY` row 삭제.
+- read filter (TTL 30일) 와 같은 cutoff — 만료된 row 만 제거하고 hit 가능 row 는 보존.
+- 운영 1년+ 누적 시 row 비대화 + UNIQUE INDEX `(query_hash, provider)` 비대화 차단 + read filter 의 `cached_at >` 조건 인덱스 효율 보존.
+- `geocode.cleanup.enabled` (default `true`), `geocode.cleanup.cron` 환경변수 외부화.
+
+```sql
+DELETE FROM geocode_cache
+WHERE cached_at < NOW() - INTERVAL 30 DAY
+```
 
 ---
 

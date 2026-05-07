@@ -76,3 +76,8 @@ map:                                            # 명세 §4.2 GET /map/config �
     lat: ${MAP_DEFAULT_CENTER_LAT:37.5665}     # 서울시청 (명세 예시 디폴트)
     lng: ${MAP_DEFAULT_CENTER_LNG:126.9780}
   tile-style: ${MAP_TILE_STYLE:basic}
+
+geocode:
+  cleanup:
+    enabled: ${GEOCODE_CLEANUP_ENABLED:true}
+    cron: ${GEOCODE_CLEANUP_CRON:0 0 4 * * *}  # 명세 §8.1 v1.1.18 — 매일 04:00 KST TTL eviction
