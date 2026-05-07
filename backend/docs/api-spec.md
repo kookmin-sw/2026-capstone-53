@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.11-MVP
-> **최종 수정**: 2026-05-04 (이상진 — §6.1 응답 예시 WALK `from`/`to` 제거, `RouteSegment` record invariant 정합)
+> **버전**: v1.1.12-MVP
+> **최종 수정**: 2026-05-07 (이상진 — §12.3 분담표 갱신, `push` 도메인 황찬우→이상진 위임 반영)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -28,6 +28,7 @@
 | **v1.1.9** | **2026-04-30** | **§6.1 WALK 구간 path 보충 알고리즘 명시 (Step 6 이상진) — ODsay WALK subPath에 좌표 키가 없어 `origin`/`destination`/이전 transit 끝점으로 합성. 매핑표의 `path` 행에 WALK 분기 추가.** |
 | **v1.1.10** | **2026-05-04** | **§6.1 transit path 출처 승격 (이상진) — `passStopList` 정류장 직선 → ODsay `loadLane` 도로 곡선 (`lane[i].section[].graphPos[]`) 정식 사용. `route_summary_json`을 `{"path":..., "lane":...}` wrapped 형식으로 저장 — 캐시 hit 시 재호출 없이 곡선 복원. loadLane 실패는 graceful — `passStopList` 직선 fallback. ODsay 호출 cache miss 1회당 1회 → 2회 (직렬, mapObj 의존).** |
 | **v1.1.11** | **2026-05-04** | **§6.1 응답 예시 WALK `from`/`to` 제거 — `RouteSegment` record invariant + `@JsonInclude(NON_NULL)` 정합 cleanup. 코드 동작 변경 X (record가 WALK에서 reject + Jackson이 null drop).** |
+| **v1.1.12** | **2026-05-07** | **§12.3 분담표 갱신 — `push` 도메인 황찬우→이상진 위임 (issue #9 본문 + 황찬우 직접 위임 발화 확정). `route` 완료 표시. Step 7 PR(`feat/backend-step7-push`)에 §7.1·§7.2·§9.1·§9.2 글루·#9 cascade 동반.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -1317,10 +1318,12 @@ WHERE s.reminder_at <= NOW()
 - [ ] `BaseEntity` (createdAt, updatedAt)
 - [ ] ULID 생성 유틸
 
-### 12.3 도메인 분담 (재협의 필요)
-- [ ] `auth`, `member`, `schedule`, `push`: 황찬우
-- [ ] `map` (`/main`, `/map/config`), `geocode`: 이상진
-- [ ] **`route` 도메인 분담은 회의 후 재결정** (이상진이 ODsay 연동까지 가져갈 가능성 권장)
+### 12.3 도메인 분담 (v1.1.12 확정)
+- [ ] `auth`, `member`, `schedule`: 황찬우
+- [x] `route` (§6 + §9.1 ODsay 재호출 글루): 이상진 — Step 6 완료 (PR #11/#13/#14)
+- [ ] `push` (§7 + §9.1 + §9.2 글루): 이상진 — Step 7 (황찬우 위임, issue #9 cascade 동반)
+- [ ] `map` (§4 `/main`, `/map/config`): 이상진
+- [ ] `geocode` (§8): 이상진
 
 ### 12.4 ODsay 연동
 - [x] `OdsayClient.searchPubTransPathT(SX, SY, EX, EY)` — 외부 API 클라이언트 골격 PR 진행 중 (이상진)
