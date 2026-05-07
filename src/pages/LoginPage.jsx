@@ -19,16 +19,15 @@ export default function LoginPage() {
 
   return (
     <div className="auth">
-      <div className="auth__inner">
+      <div className="auth__glow" />
 
+      <div className="auth__card">
         {/* 로고 */}
-        <div className="auth__logo">
-          <p className="auth__app-name">오늘어디</p>
-          <p className="auth__tagline">루틴을 등록하면 매일 알아서 안내해드려요</p>
-        </div>
+        <p className="auth__app-name">오늘어디</p>
+        <p className="auth__tagline">매일 함께하는 경로 알리미, 「오늘어디」</p>
 
-        {/* 입력 필드 */}
-        <div className="auth__field">
+        {/* 입력 */}
+        <div className="auth__fields">
           <input
             className="auth__input"
             type="text"
@@ -38,9 +37,6 @@ export default function LoginPage() {
             onKeyDown={handleKeyDown}
             autoComplete="username"
           />
-        </div>
-
-        <div className="auth__field">
           <input
             className="auth__input"
             type="password"
@@ -64,8 +60,9 @@ export default function LoginPage() {
             회원가입
           </button>
         </p>
-
       </div>
+
+      <p className="auth__copyright">© 2026 오늘어디</p>
     </div>
   );
 }

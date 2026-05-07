@@ -1,64 +1,89 @@
 /* ================================================================
-   Auth Pages — 로그인 / 회원가입 공통
+   Auth Pages — 로그인 / 회원가입 공통 (카드형)
    ================================================================ */
 
 .auth {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
-  background: #F7F2EB;
-  padding: 0 24px 48px;
+  background: #F0E9E0;
+  padding: 24px 16px 48px;
+  position: relative;
+  overflow: hidden;
 }
 
-[data-theme="dark"] .auth {
-  background: #1a1917;
+/* 상단 포인트색 블러 원 */
+.auth__glow {
+  position: absolute;
+  top: -120px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  border-radius: 50%;
+  background: var(--color-point);
+  opacity: 0.08;
+  filter: blur(120px);
+  pointer-events: none;
 }
 
-.auth__inner {
-  width: 100%;
-  max-width: 480px;
-  margin: 0 auto;
+/* ── 카드 ── */
+.auth__card {
+  width: calc(100% - 32px);
+  max-width: 360px;
+  background: white;
+  border-radius: 24px;
+  padding: 36px 28px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.08);
+  position: relative;
+  z-index: 1;
+  animation: auth-card-in 0.5s ease-out;
 }
 
-/* ── 헤더 ── */
-.auth__logo {
-  text-align: center;
-  margin-bottom: 40px;
+@keyframes auth-card-in {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
+/* ── 로고 / 앱 이름 ── */
 .auth__app-name {
-  font-size: 22px;
-  font-weight: 600;
+  font-size: 24px;
+  font-weight: 700;
   color: var(--color-point);
   margin: 0 0 8px;
-  letter-spacing: -0.3px;
+  letter-spacing: -0.4px;
+  text-align: center;
 }
 
 .auth__tagline {
   font-size: 13px;
   color: #888;
-  margin: 0;
+  margin: 0 0 32px;
   font-weight: 400;
+  text-align: center;
+  line-height: 1.4;
 }
 
-[data-theme="dark"] .auth__tagline {
-  color: #666;
-}
-
-/* ── 뒤로가기 헤더 (회원가입) ── */
+/* ── 회원가입 상단 ── */
 .auth__topbar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  margin-bottom: 32px;
+  margin-bottom: 8px;
 }
 
 .auth__back-btn {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 14px;
+  gap: 3px;
+  font-size: 13px;
   color: #888;
   background: none;
   border: none;
@@ -68,31 +93,27 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-[data-theme="dark"] .auth__back-btn {
-  color: #666;
-}
+.auth__back-btn:active { opacity: 0.6; }
 
 .auth__page-title {
   font-size: 20px;
   font-weight: 600;
   color: #1a1a1a;
-  margin: 0;
+  margin: 0 0 24px;
   letter-spacing: -0.3px;
 }
 
-[data-theme="dark"] .auth__page-title {
-  color: #e8e4dc;
+/* ── 입력 필드 그룹 ── */
+.auth__fields {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
-/* ── 입력 필드 ── */
 .auth__field {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
-
-.auth__field + .auth__field {
-  margin-top: 10px;
 }
 
 .auth__input {
@@ -100,42 +121,25 @@
   padding: 14px 16px;
   font-size: 14px;
   font-family: inherit;
-  border: 1.5px solid #e0e0e0;
+  border: 1.5px solid transparent;
   border-radius: 12px;
-  background: #fff;
+  background: #f5f2ee;
   color: #1a1a1a;
   outline: none;
-  transition: border-color 0.15s;
+  transition: border-color 0.2s, background 0.2s;
   box-sizing: border-box;
 }
 
 .auth__input::placeholder {
-  color: #b0b0b0;
+  color: #b0aaa2;
 }
 
 .auth__input:focus {
   border-color: var(--color-point);
+  background: white;
 }
 
 .auth__input--error {
-  border-color: #ef4444;
-}
-
-[data-theme="dark"] .auth__input {
-  background: #2A2825;
-  border-color: #3a3835;
-  color: #e8e4dc;
-}
-
-[data-theme="dark"] .auth__input::placeholder {
-  color: #5a5855;
-}
-
-[data-theme="dark"] .auth__input:focus {
-  border-color: var(--color-point);
-}
-
-[data-theme="dark"] .auth__input--error {
   border-color: #ef4444;
 }
 
@@ -161,6 +165,7 @@
   margin-top: 20px;
   transition: opacity 0.15s, transform 0.1s;
   letter-spacing: -0.2px;
+  box-shadow: 0 4px 12px rgba(var(--color-point-rgb, 0, 122, 255), 0.3);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -172,27 +177,15 @@
 .auth__btn--disabled {
   background: #ccc;
   cursor: not-allowed;
-}
-
-[data-theme="dark"] .auth__btn--disabled {
-  background: #3a3835;
-  color: #666;
-}
-
-.auth__btn-signup {
-  margin-top: 24px;
+  box-shadow: none;
 }
 
 /* ── 하단 링크 ── */
 .auth__footer {
-  margin-top: 16px;
+  margin-top: 20px;
   text-align: center;
   font-size: 13px;
   color: #888;
-}
-
-[data-theme="dark"] .auth__footer {
-  color: #666;
 }
 
 .auth__link {
@@ -205,6 +198,18 @@
   font-family: inherit;
   padding: 0;
   -webkit-tap-highlight-color: transparent;
+}
+
+.auth__link:active { opacity: 0.7; }
+
+/* ── 카드 바깥 저작권 ── */
+.auth__copyright {
+  margin-top: 24px;
+  font-size: 11px;
+  color: #ccc;
+  text-align: center;
+  position: relative;
+  z-index: 1;
 }
 
 /* ── 토스트 ── */
@@ -224,12 +229,74 @@
   z-index: 9999;
 }
 
-[data-theme="dark"] .auth__toast {
-  background: #e8e4dc;
-  color: #1a1917;
-}
-
 @keyframes auth-toast-in {
   from { opacity: 0; transform: translateX(-50%) translateY(8px); }
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* ================================================================
+   다크모드
+   ================================================================ */
+
+[data-theme="dark"] .auth {
+  background: #1a1917;
+}
+
+[data-theme="dark"] .auth__glow {
+  opacity: 0.05;
+}
+
+[data-theme="dark"] .auth__card {
+  background: #252320;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+[data-theme="dark"] .auth__tagline {
+  color: #5a5248;
+}
+
+[data-theme="dark"] .auth__back-btn {
+  color: #666;
+}
+
+[data-theme="dark"] .auth__page-title {
+  color: #e8e4dc;
+}
+
+[data-theme="dark"] .auth__input {
+  background: #2e2a25;
+  border-color: transparent;
+  color: #e8e4dc;
+}
+
+[data-theme="dark"] .auth__input::placeholder {
+  color: #5a5248;
+}
+
+[data-theme="dark"] .auth__input:focus {
+  border-color: var(--color-point);
+  background: #332e28;
+}
+
+[data-theme="dark"] .auth__input--error {
+  border-color: #ef4444;
+}
+
+[data-theme="dark"] .auth__btn--disabled {
+  background: #3a3530;
+  color: #5a5248;
+  box-shadow: none;
+}
+
+[data-theme="dark"] .auth__footer {
+  color: #5a5248;
+}
+
+[data-theme="dark"] .auth__copyright {
+  color: #3a3530;
+}
+
+[data-theme="dark"] .auth__toast {
+  background: #e8e4dc;
+  color: #1a1917;
 }

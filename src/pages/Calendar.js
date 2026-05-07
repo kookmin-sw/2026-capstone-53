@@ -71,10 +71,20 @@ function PlaceSearchOverlay({ field, onSelect, onClose }) {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [closing, setClosing]   = useState(false);
   const timerRef  = useRef(null);
   const inputRef  = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
+
+  // 닫힘 애니메이션 후 콜백 실행
+  const dismiss = useCallback((cb) => {
+    setClosing(true);
+    setTimeout(cb, 200);
+  }, []);
+
+  const handleClose  = () => dismiss(onClose);
+  const handleSelect = (place) => dismiss(() => onSelect(place));
 
   const runSearch = useCallback((q) => {
     if (!q.trim()) {
@@ -109,9 +119,9 @@ function PlaceSearchOverlay({ field, onSelect, onClose }) {
   const title = field === 'origin' ? '출발지 검색' : '도착지 검색';
 
   return (
-    <div className="place-overlay">
+    <div className={`place-overlay${closing ? ' place-overlay--closing' : ''}`}>
       <div className="place-overlay__bar">
-        <button className="place-overlay__back" onClick={onClose} aria-label="닫기">
+        <button className="place-overlay__back" onClick={handleClose} aria-label="닫기">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M19 12H5M5 12L12 19M5 12L12 5" stroke="currentColor" strokeWidth="2"
               strokeLinecap="round" strokeLinejoin="round"/>
@@ -159,12 +169,84 @@ function PlaceSearchOverlay({ field, onSelect, onClose }) {
           <div className="place-overlay__hint">장소명, 주소, 건물명으로 검색하세요</div>
         )}
         {!loading && results.map(place => (
-          <button key={place.placeId} className="place-result" onClick={() => onSelect(place)}>
+          <button key={place.placeId} className="place-result" onClick={() => handleSelect(place)}>
             <div className="place-result__name">{place.name}</div>
             <div className="place-result__addr">{place.address}</div>
           </button>
         ))}
       </div>
+    </div>
+  );
+}
+
+/* ================================================================
+   iOS-style Wheel Picker
+   ================================================================ */
+
+const TPW_H    = 32;  // 항목 높이
+const TPW_PAD  = 68;  // 미사용 (하위 호환)
+const ITPW_PAD = 34;  // 인라인 피커 패딩 — (100 - 32) / 2 = 34, 가운데 정렬용
+
+function TimeWheelCol({ count, selected, onSelect, colRef, padHeight = TPW_PAD }) {
+  const pad   = n => String(n).padStart(2, '0');
+  const timer = useRef(null);
+
+  useEffect(() => {
+    if (colRef.current) colRef.current.scrollTop = selected * TPW_H;
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleScroll = () => {
+    clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      if (!colRef.current) return;
+      const idx = Math.round(colRef.current.scrollTop / TPW_H);
+      onSelect(Math.max(0, Math.min(count - 1, idx)));
+    }, 60);
+  };
+
+  const scrollTo = idx => {
+    onSelect(idx);
+    colRef.current?.scrollTo({ top: idx * TPW_H, behavior: 'smooth' });
+  };
+
+  return (
+    <div className="tpw__col" ref={colRef} onScroll={handleScroll}>
+      <div style={{ height: padHeight, flexShrink: 0 }} />
+      {Array.from({ length: count }, (_, i) => (
+        <div
+          key={i}
+          className={`tpw__item${i === selected ? ' tpw__item--sel' : ''}`}
+          onClick={() => scrollTo(i)}
+        >
+          {pad(i)}
+        </div>
+      ))}
+      <div style={{ height: padHeight, flexShrink: 0 }} />
+    </div>
+  );
+}
+
+/* 인라인 휠 피커 — 입력란 바로 아래 펼쳐지는 형식 */
+function InlineTimePicker({ value, onChange }) {
+  const pad   = n => String(n).padStart(2, '0');
+  const initH = value ? parseInt(value.split(':')[0], 10) : 9;
+  const initM = value ? parseInt(value.split(':')[1], 10) : 0;
+  const [selH, setSelH] = useState(initH);
+  const [selM, setSelM] = useState(initM);
+  const hourRef = useRef(null);
+  const minRef  = useRef(null);
+
+  const handleH = h => { setSelH(h); onChange(`${pad(h)}:${pad(selM)}`); };
+  const handleM = m => { setSelM(m); onChange(`${pad(selH)}:${pad(m)}`); };
+
+  return (
+    <div className="itpw">
+      <div className="itpw__highlight" />
+      <div className="itpw__fade itpw__fade--top" />
+      <div className="itpw__fade itpw__fade--bot" />
+      <TimeWheelCol count={24} selected={selH} onSelect={handleH} colRef={hourRef} padHeight={ITPW_PAD} />
+      <div className="itpw__sep">:</div>
+      <TimeWheelCol count={60} selected={selM} onSelect={handleM} colRef={minRef} padHeight={ITPW_PAD} />
     </div>
   );
 }
@@ -180,24 +262,27 @@ const EMPTY_FORM = {
   destinationName: '',
   destinationPlace: null,   // same
   arrivalTime: '09:00',
+  usualDepartureTime: '07:30',
   repeatDays: [],
 };
 
 function BottomSheet({ editingSchedule, onClose, onSave }) {
-  const [form, setForm]           = useState(EMPTY_FORM);
-  const [placeField, setPlaceField] = useState(null); // 'origin' | 'destination' | null
+  const [form, setForm]             = useState(EMPTY_FORM);
+  const [placeField, setPlaceField] = useState(null);    // 'origin' | 'destination' | null
+  const [activePicker, setActivePicker] = useState(null); // 'usualDepartureTime' | 'arrivalTime' | null
   const sheetRef = useRef(null);
 
   useEffect(() => {
     if (editingSchedule) {
       setForm({
-        title:           editingSchedule.title           || '',
-        originName:      editingSchedule.originName      || '',
-        originPlace:     editingSchedule.originPlace     || null,
-        destinationName: editingSchedule.destinationName || '',
-        destinationPlace:editingSchedule.destinationPlace|| null,
-        arrivalTime:     editingSchedule.arrivalTime     || '09:00',
-        repeatDays:      [...(editingSchedule.repeatDays || [])],
+        title:              editingSchedule.title              || '',
+        originName:         editingSchedule.originName         || '',
+        originPlace:        editingSchedule.originPlace        || null,
+        destinationName:    editingSchedule.destinationName    || '',
+        destinationPlace:   editingSchedule.destinationPlace   || null,
+        arrivalTime:        editingSchedule.arrivalTime        || '09:00',
+        usualDepartureTime: editingSchedule.usualDepartureTime || '',
+        repeatDays:         [...(editingSchedule.repeatDays    || [])],
       });
     } else {
       setForm(EMPTY_FORM);
@@ -316,16 +401,65 @@ function BottomSheet({ editingSchedule, onClose, onSave }) {
             </button>
           </div>
 
-          {/* 도착 희망 시간 */}
-          <div className="sf">
-            <label className="sf__label">도착 희망 시간</label>
-            <input
-              className="sf__input sf__input--time"
-              type="time"
-              value={form.arrivalTime}
-              onChange={e => set('arrivalTime', e.target.value)}
-            />
-            <p className="sf__hint">출발 시간이 아닌 도착 시간입니다</p>
+          {/* 시간 입력 — 2열 나란히 */}
+          <div className="sf sf--time-row">
+            {/* 평소 출발 시간 */}
+            <div className="sf__time-col">
+              <label className="sf__label">평소 출발 시간</label>
+              <div
+                className="sf__time-wrap"
+                onClick={() => setActivePicker(p => p === 'usualDepartureTime' ? null : 'usualDepartureTime')}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span className={`sf__time-val${form.usualDepartureTime ? ' sf__time-val--set' : ''}`}>
+                  {form.usualDepartureTime || '시간 선택'}
+                </span>
+                <svg
+                  className={`sf__time-chevron${activePicker === 'usualDepartureTime' ? ' sf__time-chevron--open' : ''}`}
+                  width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <div className={`sf__picker-wrap${activePicker === 'usualDepartureTime' ? ' sf__picker-wrap--open' : ''}`}>
+                <InlineTimePicker
+                  value={form.usualDepartureTime}
+                  onChange={val => set('usualDepartureTime', val)}
+                />
+              </div>
+            </div>
+
+            {/* 도착 희망 시간 */}
+            <div className="sf__time-col">
+              <label className="sf__label">도착 희망 시간</label>
+              <div
+                className="sf__time-wrap"
+                onClick={() => setActivePicker(p => p === 'arrivalTime' ? null : 'arrivalTime')}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M12 7v5l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span className={`sf__time-val${form.arrivalTime ? ' sf__time-val--set' : ''}`}>
+                  {form.arrivalTime || '시간 선택'}
+                </span>
+                <svg
+                  className={`sf__time-chevron${activePicker === 'arrivalTime' ? ' sf__time-chevron--open' : ''}`}
+                  width="12" height="12" viewBox="0 0 24 24" fill="none">
+                  <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <div className={`sf__picker-wrap${activePicker === 'arrivalTime' ? ' sf__picker-wrap--open' : ''}`}>
+                <InlineTimePicker
+                  value={form.arrivalTime}
+                  onChange={val => set('arrivalTime', val)}
+                />
+              </div>
+            </div>
           </div>
 
           {/* 반복 요일 */}

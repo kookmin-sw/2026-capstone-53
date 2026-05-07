@@ -500,10 +500,71 @@
   outline-offset: -2px;
 }
 
-.sf__input--time {
-  width: fit-content;
-  min-width: 140px;
+.sf__time-wrap {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--color-point-bg);
+  color: var(--color-point);
+  border-radius: 10px;
+  padding: 10px 12px;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 0.12s;
+}
+
+.sf__time-wrap:active { opacity: 0.75; }
+
+.sf__time-val {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: #C0BAB4;
+  letter-spacing: -0.2px;
+}
+
+.sf__time-val--set {
+  color: var(--color-point);
+}
+
+.sf__time-chevron {
+  flex-shrink: 0;
+  transition: transform 0.25s ease;
+}
+
+.sf__time-chevron--open {
+  transform: rotate(180deg);
+}
+
+[data-theme="dark"] .sf__time-val         { color: #555; }
+[data-theme="dark"] .sf__time-val--set    { color: #e8e4dc; }
+
+/* 시간 2열 레이아웃 */
+.sf--time-row {
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.sf__time-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+/* 인라인 피커 펼침/접힘 래퍼 */
+.sf__picker-wrap {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+}
+
+.sf__picker-wrap--open {
+  max-height: 120px;
+  opacity: 1;
 }
 
 .sf__hint {
@@ -632,12 +693,21 @@
   flex-direction: column;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
     "Noto Sans KR", "Apple SD Gothic Neo", "Helvetica Neue", sans-serif;
-  animation: fade-in 0.18s ease;
+  animation: place-slide-up 0.3s cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-@keyframes fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+.place-overlay--closing {
+  animation: place-slide-down 0.2s ease forwards;
+}
+
+@keyframes place-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes place-slide-down {
+  from { transform: translateY(0); }
+  to   { transform: translateY(100%); }
 }
 
 /* 상단 타이틀 바 */
@@ -1166,9 +1236,24 @@
   background: #252527;
 }
 
-[data-theme="dark"] .sheet {
-  background: #252527;
-}
+[data-theme="dark"] .sheet                  { background: #252320; }
+[data-theme="dark"] .sheet__handle          { background: #3a3530; }
+[data-theme="dark"] .sheet__title           { color: #e8e4dc; }
+[data-theme="dark"] .sheet__footer          { border-top-color: #3a3530; }
+[data-theme="dark"] .sheet__btn--cancel     { background: #2e2a25; color: #9e9a93; }
+
+[data-theme="dark"] .sf__time-wrap          { background: var(--color-point-bg); }
+[data-theme="dark"] .sf__label              { color: #7a7268; }
+[data-theme="dark"] .sf__hint               { color: #5a5248; }
+[data-theme="dark"] .sf__input              { background: #2e2a25; color: #e8e4dc; }
+[data-theme="dark"] .sf__input::placeholder { color: #5a5248; }
+[data-theme="dark"] .sf__place-row          { background: #2e2a25; }
+[data-theme="dark"] .sf__place-row svg path { stroke: #5a5248; }
+[data-theme="dark"] .sf__place-val          { color: #e8e4dc; }
+[data-theme="dark"] .sf__place-placeholder  { color: #5a5248; }
+[data-theme="dark"] .sf__quick              { background: #2e2a25; color: #9e9a93; }
+[data-theme="dark"] .sf__day-btn            { background: #2e2a25; color: #5a5248; }
+[data-theme="dark"] .sf__day-btn--on        { background: var(--color-point); color: white; }
 [data-theme="dark"] .cal-route-sheet__header { border-bottom-color: #3A3A3C; }
 [data-theme="dark"] .cal-route-sheet__title  { color: #F5F5F7; }
 [data-theme="dark"] .cal-route-sheet__close  { background: #313134; }
@@ -1370,8 +1455,122 @@
 [data-theme="dark"] .sac-times__num    { color: #e8e4dc; }
 [data-theme="dark"] .sac-times__label  { color: #666; }
 [data-theme="dark"] .sac-times__arrow  { color: #444; }
-[data-theme="dark"] .sac-day          { color: #444; }
+[data-theme="dark"] .sac-day           { color: #4a4a4a; }
+[data-theme="dark"] .sac-day--on      { color: var(--color-point); }
+[data-theme="dark"] .sac-day--today   { color: var(--color-point); }
 [data-theme="dark"] .sac-expand__route { color: #d0ccc6; }
 [data-theme="dark"] .sac-depart__sub  { color: #666; }
 [data-theme="dark"] .sac-divider      { background: #3a3835; }
 [data-theme="dark"] .sac-btn--edit    { background: #333; color: #e8e4dc; }
+
+/* ================================================================
+   iOS-style Inline Time Wheel Picker
+   ================================================================ */
+
+/* ── 인라인 컨테이너 (100px = 3항목 × 32px + 여유) ── */
+.itpw {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: white;
+  border-radius: 14px;
+  padding: 0 14px;
+  height: 100px;
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+/* 선택 하이라이트 바 */
+.itpw__highlight {
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 32px;
+  background: var(--color-point-bg);
+  border-radius: 10px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 드럼롤 페이드 */
+.itpw__fade {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 34px;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.itpw__fade--top {
+  top: 0;
+  background: linear-gradient(to bottom, white 0%, rgba(255,255,255,0.5) 70%, transparent 100%);
+  border-radius: 16px 16px 0 0;
+}
+
+.itpw__fade--bot {
+  bottom: 0;
+  background: linear-gradient(to top, white 0%, rgba(255,255,255,0.5) 70%, transparent 100%);
+  border-radius: 0 0 16px 16px;
+}
+
+/* ── 스크롤 열 (공유 클래스) ── */
+.tpw__col {
+  flex: 1;
+  height: 100%;
+  overflow-y: scroll;
+  scroll-snap-type: y mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  position: relative;
+  z-index: 3;
+}
+
+.tpw__col::-webkit-scrollbar { display: none; }
+
+/* 항목 */
+.tpw__item {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 400;
+  color: #C0BAB4;
+  scroll-snap-align: center;
+  cursor: pointer;
+  user-select: none;
+  letter-spacing: -0.2px;
+}
+
+.tpw__item--sel {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-point);
+}
+
+/* 구분자 ":" */
+.itpw__sep {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-point);
+  flex-shrink: 0;
+  padding: 0 2px;
+  z-index: 3;
+}
+
+/* ── 다크모드 ── */
+[data-theme="dark"] .itpw            { background: #2a2825; }
+[data-theme="dark"] .itpw__highlight { background: var(--color-point-bg); }
+
+[data-theme="dark"] .itpw__fade--top {
+  background: linear-gradient(to bottom, #2a2825 0%, rgba(42,40,37,0.5) 70%, transparent 100%);
+}
+[data-theme="dark"] .itpw__fade--bot {
+  background: linear-gradient(to top, #2a2825 0%, rgba(42,40,37,0.5) 70%, transparent 100%);
+}
+
+[data-theme="dark"] .tpw__item       { color: #4a4a4a; }
+[data-theme="dark"] .tpw__item--sel  { color: var(--color-point); }

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mockMember } from '../data/mockData';
 import { useTheme } from '../contexts/ThemeContext';
@@ -25,6 +25,108 @@ function LogoutDialog({ onConfirm, onCancel }) {
         <div className="st-dialog__btns">
           <button className="st-dialog__btn st-dialog__btn--cancel" onClick={onCancel}>취소</button>
           <button className="st-dialog__btn st-dialog__btn--confirm" onClick={onConfirm}>로그아웃</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+/* ================================================================
+   회원정보 수정 바텀시트
+   ================================================================ */
+function ProfileEditSheet({ member, onClose, onSaved, onPasswordChanged }) {
+  const [nickname, setNickname]     = useState(member.nickname || '');
+  const [curPw, setCurPw]           = useState('');
+  const [newPw, setNewPw]           = useState('');
+  const [newPwConfirm, setNewPwConfirm] = useState('');
+  const [touched, setTouched]       = useState({});
+
+  const pwFilled    = newPw.length > 0 || newPwConfirm.length > 0;
+  const pwTooShort  = touched.newPw && newPw.length > 0 && newPw.length < 8;
+  const pwMismatch  = touched.newPwConfirm && newPwConfirm.length > 0 && newPw !== newPwConfirm;
+
+  const blur = (f) => setTouched(p => ({ ...p, [f]: true }));
+
+  const canSave =
+    nickname.trim().length > 0 &&
+    (!pwFilled || (newPw.length >= 8 && newPw === newPwConfirm && curPw.length > 0));
+
+  const handleSave = () => {
+    if (!canSave) return;
+    // TODO: await api.updateMe({ nickname, ...(pwFilled && { password: newPw }) })
+    if (pwFilled) {
+      onPasswordChanged();
+    } else {
+      onSaved();
+    }
+  };
+
+  return (
+    <>
+      <div className="st-dialog-backdrop" onClick={onClose} />
+      <div className="st-edit-sheet">
+        <div className="st-edit-sheet__handle" />
+        <h3 className="st-edit-sheet__title">회원정보 수정</h3>
+
+        <div className="st-edit-sheet__body">
+          {/* 닉네임 */}
+          <div className="st-edit-field">
+            <label className="st-edit-field__label">닉네임</label>
+            <input
+              className="st-edit-field__input"
+              type="text"
+              value={nickname}
+              onChange={e => setNickname(e.target.value)}
+              placeholder="닉네임"
+            />
+          </div>
+
+          {/* 비밀번호 */}
+          <div className="st-edit-field st-edit-field--mt">
+            <label className="st-edit-field__label">비밀번호 변경</label>
+            <p className="st-edit-field__hint">변경하지 않으려면 비워두세요</p>
+            <div className="st-edit-field__inputs">
+              <input
+                className="st-edit-field__input"
+                type="password"
+                placeholder="현재 비밀번호"
+                value={curPw}
+                onChange={e => setCurPw(e.target.value)}
+                autoComplete="current-password"
+              />
+              <input
+                className={`st-edit-field__input${pwTooShort ? ' st-edit-field__input--error' : ''}`}
+                type="password"
+                placeholder="새 비밀번호 (8자 이상)"
+                value={newPw}
+                onChange={e => setNewPw(e.target.value)}
+                onBlur={() => blur('newPw')}
+                autoComplete="new-password"
+              />
+              {pwTooShort && <span className="st-edit-field__error">8자 이상 입력해주세요</span>}
+              <input
+                className={`st-edit-field__input${pwMismatch ? ' st-edit-field__input--error' : ''}`}
+                type="password"
+                placeholder="새 비밀번호 확인"
+                value={newPwConfirm}
+                onChange={e => setNewPwConfirm(e.target.value)}
+                onBlur={() => blur('newPwConfirm')}
+                autoComplete="new-password"
+              />
+              {pwMismatch && <span className="st-edit-field__error">비밀번호가 일치하지 않아요</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="st-edit-sheet__footer">
+          <button className="st-edit-sheet__btn st-edit-sheet__btn--cancel" onClick={onClose}>취소</button>
+          <button
+            className={`st-edit-sheet__btn st-edit-sheet__btn--save${!canSave ? ' st-edit-sheet__btn--disabled' : ''}`}
+            onClick={handleSave}
+            disabled={!canSave}
+          >
+            저장
+          </button>
         </div>
       </div>
     </>
@@ -87,8 +189,11 @@ function Divider() {
 function Settings() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const [showLogout, setShowLogout] = React.useState(false);
-  const [uiState, setUiState] = React.useState('loading');
+  const [showLogout, setShowLogout]   = React.useState(false);
+  const [showDelete, setShowDelete]   = React.useState(false);
+  const [showProfile, setShowProfile] = React.useState(false);
+  const [toast, setToast]             = React.useState('');
+  const [uiState, setUiState]         = React.useState('loading');
   const { theme, toggleTheme } = useTheme();
   const { settings: cfg, updateSetting: update } = useSettings();
   const { permission: notifPermission } = usePushNotification();
@@ -118,12 +223,31 @@ function Settings() {
 
   const BUFFERS = [5, 10, 20, 30];
 
-  const sendTestNotification = () => {
-    if (!('Notification' in window) || Notification.permission !== 'granted') return;
-    new Notification('오늘어디', {
-      body: '08:18에 출발하세요 (국민대 등교, 예상 42분)',
-      icon: '/logo192.png',
-    });
+  const sendTestNotification = async () => {
+    alert('1. 버튼 클릭됨');
+
+    if (!('Notification' in window)) {
+      alert('이 브라우저는 알림을 지원하지 않아요');
+      return;
+    }
+
+    let permission = Notification.permission;
+    alert('2. 권한 상태: ' + permission);
+
+    if (permission === 'default') {
+      permission = await Notification.requestPermission();
+      alert('3. 요청 결과: ' + permission);
+    }
+
+    if (permission === 'granted') {
+      new Notification('오늘어디', {
+        body: '08:18에 출발하세요 (국민대 등교, 예상 42분)',
+        icon: '/logo192.png',
+      });
+      alert('4. 알림 발송 완료');
+    } else {
+      alert('알림이 차단되어 있어요. 브라우저 설정에서 허용해주세요.');
+    }
   };
 
   return (
@@ -137,16 +261,16 @@ function Settings() {
           <h1 className="st-page-title">설정</h1>
 
           {/* ── 프로필 섹션 ── */}
-          <div className="st-profile">
+          <div className="st-profile" onClick={() => setShowProfile(true)}>
             <div className="st-profile__info">
               <span className="st-profile__nickname">{mockMember.data.nickname}</span>
               <span className="st-profile__loginid">{mockMember.data.loginId}</span>
             </div>
             <div className="st-profile__actions">
-              <button className="st-profile__action-btn" onClick={() => alert('비밀번호 변경')}>
-                비밀번호 변경
+              <button className="st-profile__action-btn" onClick={e => { e.stopPropagation(); setShowProfile(true); }}>
+                수정
               </button>
-              <button className="st-profile__action-btn st-profile__action-btn--danger" onClick={handleLogout}>
+              <button className="st-profile__action-btn st-profile__action-btn--danger" onClick={e => { e.stopPropagation(); handleLogout(); }}>
                 로그아웃
               </button>
             </div>
@@ -199,22 +323,18 @@ function Settings() {
             </div>
 
             {/* 테스트 알림 */}
-            {notifPermission === 'granted' && (
-              <>
-                <Divider />
-                <SettingRow
-                  label="테스트 알림 보내기"
-                  desc="알림이 잘 오는지 확인해보세요"
-                  onClick={sendTestNotification}
-                  right={
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
-                      <path d="M9 18l6-6-6-6" stroke="#C5BFB8" strokeWidth="2.2"
-                        strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  }
-                />
-              </>
-            )}
+            <Divider />
+            <SettingRow
+              label="테스트 알림 보내기"
+              desc="알림이 잘 오는지 확인해보세요"
+              onClick={sendTestNotification}
+              right={
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                  <path d="M9 18l6-6-6-6" stroke="#C5BFB8" strokeWidth="2.2"
+                    strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              }
+            />
 
           </Section>
 
@@ -226,6 +346,14 @@ function Settings() {
               right={<Toggle on={theme === 'dark'} onChange={() => toggleTheme()} />}
             />
           </Section>
+
+          {/* ── 회원 탈퇴 ── */}
+          <button
+            className="st-withdraw"
+            onClick={() => setShowDelete(true)}
+          >
+            회원 탈퇴
+          </button>
         </>)}
 
       </div>
@@ -235,6 +363,58 @@ function Settings() {
           onConfirm={handleLogoutConfirm}
           onCancel={() => setShowLogout(false)}
         />
+      )}
+
+      {showProfile && (
+        <ProfileEditSheet
+          member={mockMember.data}
+          onClose={() => setShowProfile(false)}
+          onSaved={() => {
+            setShowProfile(false);
+            setToast('수정 완료');
+            setTimeout(() => setToast(''), 2000);
+          }}
+          onPasswordChanged={() => {
+            setShowProfile(false);
+            alert('비밀번호가 변경되어 다시 로그인해주세요');
+            localStorage.clear();
+            navigate('/login');
+          }}
+        />
+      )}
+
+      {toast && <div className="st-toast">{toast}</div>}
+
+      {showDelete && (
+        <>
+          <div className="st-dialog-backdrop" onClick={() => setShowDelete(false)} />
+          <div className="st-dialog">
+            <div className="st-dialog__icon st-dialog__icon--danger">
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+                <path d="M12 9v4M12 17h.01M3 12a9 9 0 1118 0 9 9 0 01-18 0z"
+                  stroke="#EF4444" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <h3 className="st-dialog__title">회원 탈퇴</h3>
+            <p className="st-dialog__desc">
+              탈퇴하면 모든 일정과 데이터가 삭제되며<br/>복구할 수 없습니다. 정말 탈퇴하시겠습니까?
+            </p>
+            <div className="st-dialog__btns">
+              <button className="st-dialog__btn st-dialog__btn--cancel" onClick={() => setShowDelete(false)}>취소</button>
+              <button
+                className="st-dialog__btn st-dialog__btn--confirm"
+                onClick={() => {
+                  setShowDelete(false);
+                  // TODO: await api.deleteMe()
+                  localStorage.clear();
+                  navigate('/login');
+                }}
+              >
+                탈퇴하기
+              </button>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );
