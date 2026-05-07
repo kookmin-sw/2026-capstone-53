@@ -98,7 +98,7 @@ class PushReminderDispatcherIntegrationTest {
         assertNull(s.getReminderAt(), "ONCE 일정 발송 후 reminder_at 은 NULL (재발송 방지)");
         assertNotNull(s.getRouteCalculatedAt(), "ODsay 갱신 결과 반영");
 
-        List<PushLog> logs = pushLogRepository.findAll();
+        List<PushLog> logs = pushLogRepository.findBySubscriptionId(subId(externalSubId));
         assertEquals(1, logs.size());
         assertEquals(PushStatus.SENT, logs.get(0).getStatus());
         assertEquals(201, logs.get(0).getHttpStatus());
@@ -127,7 +127,7 @@ class PushReminderDispatcherIntegrationTest {
         // odsayMaxAttempts=2 — 폴백 진입 시 총 2회 호출됨 (등록 시 1회 + dispatch 시 추가 2회 = 3회 호출 누적)
         verify(routeService, times(3)).refreshRouteSync(any(Schedule.class));
 
-        List<PushLog> logs = pushLogRepository.findAll();
+        List<PushLog> logs = pushLogRepository.findBySubscriptionId(subId(externalSubId));
         assertEquals(1, logs.size());
         assertEquals(PushStatus.SENT, logs.get(0).getStatus());
 
@@ -155,7 +155,7 @@ class PushReminderDispatcherIntegrationTest {
         Long scheduleDbId = schId(externalScheduleId);
         dispatcher.process(scheduleDbId);
 
-        List<PushLog> logs = pushLogRepository.findAll();
+        List<PushLog> logs = pushLogRepository.findBySubscriptionId(subId(externalSubId));
         assertEquals(1, logs.size());
         assertEquals(PushStatus.EXPIRED, logs.get(0).getStatus());
         assertEquals(410, logs.get(0).getHttpStatus());
