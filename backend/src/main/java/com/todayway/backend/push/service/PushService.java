@@ -17,9 +17,11 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * 명세 §7 — Web Push 구독 도메인 서비스. UPSERT (by endpoint) + soft revoke.
  *
- * <p>UPSERT 의 race 처리는 {@link PushSubscriptionUpserter} 의 {@code REQUIRES_NEW} 트랜잭션이
- * 격리한다. 본 서비스의 outer transaction 은 read-only — inner 의 rollback-only 가 outer commit 에
- * 영향을 주지 않게 해 race 가 silent 500 으로 떨어지지 않게 한다.
+ * <p>{@code subscribe()} 의 outer 는 class-default read-only — DB 쓰기는 inner
+ * {@link PushSubscriptionUpserter} ({@code REQUIRES_NEW}) 만 수행. inner 의 unique 위반이 outer
+ * 의 commit-time {@code UnexpectedRollbackException} 으로 번지지 않는다.
+ * {@code unsubscribe()} 는 single row revoke 라 race 위험 X — class-default 를 method-level
+ * {@code @Transactional} 로 override.
  *
  * <p>다른 회원이 동일 endpoint 재구독 시도: 명세 §7.1 미정의 영역이라 {@link PushSubscriptionUpserter}
  * 안에서 안전하게 {@code 403 FORBIDDEN_RESOURCE} reject. push provider 가 endpoint 를 device-bound

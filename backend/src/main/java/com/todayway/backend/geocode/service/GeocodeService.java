@@ -31,7 +31,10 @@ import java.util.Optional;
  * <p>핵심 invariant:
  * <ul>
  *   <li>cache TTL filter — 명세 §8.1 30일. miss 캐시도 hit 처리해 외부 API quota 보호.</li>
- *   <li>외부 호출 실패 → 명세 §8.1 매핑표 (401/403=503, 5xx=502, timeout=504).</li>
+ *   <li>외부 호출 실패 → 명세 §8.1 매핑표:
+ *       401/403 → 503 EXTERNAL_AUTH_MISCONFIGURED (운영자 alert),
+ *       timeout → 504 EXTERNAL_TIMEOUT,
+ *       그 외 (4xx-other / 5xx / NETWORK) → 502 EXTERNAL_ROUTE_API_FAILED.</li>
  *   <li>UPSERT race 는 {@link GeocodeCacheUpserter} 의 {@code REQUIRES_NEW} 트랜잭션이 격리 처리 —
  *       outer 의 read-only tx 가 inner 의 rollback-only 영향을 받지 않게 한다.</li>
  * </ul>
@@ -147,7 +150,7 @@ public class GeocodeService {
         return status != null && (status == 401 || status == 403);
     }
 
-    /** 명세 §8.1 매핑표 — ExternalApiException → BusinessException. {@link com.todayway.backend.route.OdsayRouteService} 패턴 미러. */
+    /** 명세 §8.1 매핑표 — ExternalApiException → BusinessException. */
     private static BusinessException mapToBusinessException(ExternalApiException e) {
         if (isAuthError(e)) {
             return new BusinessException(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
