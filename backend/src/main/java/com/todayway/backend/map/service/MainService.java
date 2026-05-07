@@ -50,9 +50,10 @@ public class MainService {
         if (memberUid == null) {
             return null;
         }
-        // 탈퇴 회원의 토큰이 살아있는 경우 — 명세 §1.7 / §3.3 정합으로 nearestSchedule = null
-        // (UNAUTHORIZED 던지지 않고 graceful 게스트 처리. 로그인 필요 흐름은 다른 endpoint 가 담당).
-        // 단 silent 처리는 token-revocation 파이프라인 고장을 가리므로 WARN 로깅으로 신호 보존.
+        // 탈퇴 회원의 토큰이 살아있는 케이스. 다른 인증 endpoint 는 §1.7 v1.1.7 의
+        // 401 UNAUTHORIZED 정책을 따르지만, /main 은 §4.1 게스트 허용이라 의도적으로 그 정책에서
+        // 벗어나 graceful null 응답. silent 처리는 token-revocation 파이프라인 고장을 가리므로
+        // WARN 로깅으로 신호 보존.
         Long memberId = memberRepository.findByMemberUid(memberUid)
                 .map(Member::getId)
                 .orElse(null);

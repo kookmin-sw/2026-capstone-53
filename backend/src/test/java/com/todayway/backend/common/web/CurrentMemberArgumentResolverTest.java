@@ -5,7 +5,9 @@ import com.todayway.backend.common.exception.ErrorCode;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.MethodParameter;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.lang.reflect.Method;
@@ -102,5 +104,28 @@ class CurrentMemberArgumentResolverTest {
         MethodParameter param = optionalParam();
         Object result = resolver.resolveArgument(param, null, null, null);
         assertThat(result).isEqualTo("01HAA0123456789ABCDEFGHJK");
+    }
+
+    @Test
+    void resolveArgument_whenAnonymousToken_andOptional_returnsNull() throws Exception {
+        // Spring Security 의 AnonymousAuthenticationFilter 가 미인증 요청에 박는 토큰 — principal 이
+        // 비어있지 않은 String "anonymousUser" 라 단순 instanceof 검사로는 통과한다. instanceof
+        // AnonymousAuthenticationToken 명시 제외 가드의 회귀 검출용.
+        SecurityContextHolder.getContext().setAuthentication(new AnonymousAuthenticationToken(
+                "key", "anonymousUser", List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))));
+        MethodParameter param = optionalParam();
+        Object result = resolver.resolveArgument(param, null, null, null);
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void resolveArgument_whenAnonymousToken_andRequired_throwsUnauthorized() throws Exception {
+        SecurityContextHolder.getContext().setAuthentication(new AnonymousAuthenticationToken(
+                "key", "anonymousUser", List.of(new SimpleGrantedAuthority("ROLE_ANONYMOUS"))));
+        MethodParameter param = requiredParam();
+        assertThatThrownBy(() -> resolver.resolveArgument(param, null, null, null))
+                .isInstanceOf(BusinessException.class)
+                .extracting("errorCode")
+                .isEqualTo(ErrorCode.UNAUTHORIZED);
     }
 }

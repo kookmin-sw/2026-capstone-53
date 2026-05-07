@@ -8,6 +8,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -20,6 +21,7 @@ import java.io.IOException;
 import java.util.List;
 
 @RequiredArgsConstructor
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String BEARER_PREFIX = "Bearer ";
@@ -58,6 +60,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             response.getWriter().write(EXPIRED_BODY);
             return;
         } catch (JwtException | IllegalArgumentException e) {
+            // Signature mismatch / malformed / unsupported algorithm / null subject — 보안 신호 보존.
+            // 토큰 본문은 로깅 X (보안: payload 누출 차단). class 이름과 path 만 남김.
+            log.warn("JWT 검증 실패 type={} path={}", e.getClass().getSimpleName(), request.getRequestURI());
             SecurityContextHolder.clearContext();
         }
         chain.doFilter(request, response);

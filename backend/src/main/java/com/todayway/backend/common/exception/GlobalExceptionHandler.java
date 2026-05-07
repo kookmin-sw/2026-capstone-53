@@ -38,21 +38,22 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * 다양한 입력 검증 실패를 일괄 400 VALIDATION_ERROR 로 매핑 (명세 §1.6 정합).
+     * Spring 바인딩/검증 단계에서 발생하는 사용자 입력 오류를 일괄 400 VALIDATION_ERROR 매핑 (명세 §1.6).
      * <ul>
      *   <li>{@link HandlerMethodValidationException} — Spring 6.1+ {@code @RequestParam @Min/@Max} 위반.</li>
-     *   <li>{@link ConstraintViolationException} — 레거시 path. {@code Coordinate} compact constructor 의 invalid 좌표 등 도메인 invariant 위반도 흡수.</li>
-     *   <li>{@link IllegalArgumentException} — record/entity 의 invariant 위반 (사용자 입력 가정).</li>
-     *   <li>{@link HttpMessageNotReadableException} — malformed JSON / Content-Type 누락 (issue #16).</li>
+     *   <li>{@link ConstraintViolationException} — 레거시 controller-level 검증 path.</li>
+     *   <li>{@link HttpMessageNotReadableException} — malformed JSON / Content-Type 누락.</li>
      *   <li>{@link MissingServletRequestParameterException} — 필수 query 누락.</li>
      *   <li>{@link MethodArgumentTypeMismatchException} — query 타입 불일치 (예: {@code lat=foo}).</li>
      * </ul>
-     * 이전엔 catch-all 의 500 INTERNAL_SERVER_ERROR 로 떨어져 명세 §1.6 위반 + 운영 모니터링 오염 (가짜 500).
+     * 도메인 {@link IllegalArgumentException} (예: {@code RouteSegment} record invariant, {@code SegmentMode}
+     * 매핑 실패, {@code PushSendResult} 상태 invariant) 은 본 handler 가 catch 하지 않는다 — 사용자 입력
+     * 오류가 아닌 server-side bug 시그널이라 {@link #handleUnknown} 의 500 + ERROR 로깅으로 떨어져야
+     * 운영 관측성이 보존된다.
      */
     @ExceptionHandler({
             HandlerMethodValidationException.class,
             ConstraintViolationException.class,
-            IllegalArgumentException.class,
             HttpMessageNotReadableException.class,
             MissingServletRequestParameterException.class,
             MethodArgumentTypeMismatchException.class

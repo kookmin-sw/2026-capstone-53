@@ -6,8 +6,11 @@ import com.todayway.backend.map.dto.MainResponse;
 import com.todayway.backend.map.dto.MapConfigResponse;
 import com.todayway.backend.map.service.MainService;
 import com.todayway.backend.map.service.MapConfigService;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -21,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1")
 @RequiredArgsConstructor
+@Validated
 public class MapController {
 
     private final MainService mainService;
@@ -29,8 +33,8 @@ public class MapController {
     @GetMapping("/main")
     public ResponseEntity<ApiResponse<MainResponse>> getMain(
             @CurrentMember(required = false) String memberUid,
-            @RequestParam(required = false) Double lat,
-            @RequestParam(required = false) Double lng) {
+            @RequestParam(required = false) @DecimalMin("-90.0") @DecimalMax("90.0") Double lat,
+            @RequestParam(required = false) @DecimalMin("-180.0") @DecimalMax("180.0") Double lng) {
         return ResponseEntity.ok(ApiResponse.of(mainService.compose(memberUid, lat, lng)));
     }
 

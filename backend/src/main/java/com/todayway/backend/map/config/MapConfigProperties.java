@@ -26,9 +26,13 @@ public record MapConfigProperties(
         @NotBlank String tileStyle
 ) {
 
+    /**
+     * primitive 가 아닌 boxed {@code Double} 사용 — 누락된 yaml 키가 silent {@code 0.0} default 로
+     * 떨어져 Null Island 사고가 나지 않도록 {@code @NotNull} 로 fail-fast.
+     */
     public record DefaultCenter(
-            @DecimalMin("-90.0") @DecimalMax("90.0") double lat,
-            @DecimalMin("-180.0") @DecimalMax("180.0") double lng
+            @NotNull @DecimalMin("-90.0") @DecimalMax("90.0") Double lat,
+            @NotNull @DecimalMin("-180.0") @DecimalMax("180.0") Double lng
     ) {
     }
 }

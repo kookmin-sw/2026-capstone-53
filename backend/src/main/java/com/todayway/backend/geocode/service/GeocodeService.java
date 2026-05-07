@@ -13,7 +13,7 @@ import com.todayway.backend.geocode.dto.GeocodeResponse;
 import com.todayway.backend.geocode.repository.GeocodeCacheRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -72,14 +72,20 @@ public class GeocodeService {
             throw new BusinessException(ErrorCode.GEOCODE_NO_MATCH);
         }
 
+        KakaoLocalSearchResponse.Document doc = raw.documents().get(0);
+        if (doc.x() == null || doc.y() == null) {
+            log.warn("Kakao Local 응답 좌표 누락 query={}, x={}, y={}, id={}",
+                    trimmed, doc.x(), doc.y(), doc.id());
+            throw new BusinessException(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
+        }
         MatchedFields m;
         try {
-            m = KakaoLocalToGeocodeMapper.toMatchedFields(raw.documents().get(0));
-        } catch (NumberFormatException | NullPointerException e) {
-            // Kakao 가 x/y 를 빈 문자열/null/non-numeric 으로 반환 — 명세 §8.1 "외부 API 응답 이상"
-            // 분류로 502 매핑 (catch-all 500 으로 떨어지지 않게).
-            log.warn("Kakao Local 응답 매핑 실패 — x/y 비정상 query={}, cause={}",
-                    trimmed, e.getClass().getSimpleName(), e);
+            m = KakaoLocalToGeocodeMapper.toMatchedFields(doc);
+        } catch (NumberFormatException e) {
+            // Kakao 가 x/y 를 non-numeric 으로 반환 — 외부 응답 형식 위반 → 명세 §8.1 매핑표 502.
+            // raw 값을 함께 로깅해 ops 가 "Kakao 일시 corruption" vs "DTO drift" 구분 가능.
+            log.warn("Kakao Local 응답 매핑 실패 — x/y non-numeric query={}, x={}, y={}",
+                    trimmed, doc.x(), doc.y(), e);
             throw new BusinessException(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
         }
         GeocodeCache saved = upsertWithRetry(
@@ -109,12 +115,12 @@ public class GeocodeService {
     private GeocodeCache upsertWithRetry(java.util.function.Supplier<GeocodeCache> action, String hash) {
         try {
             return action.get();
-        } catch (DataIntegrityViolationException e) {
+        } catch (DuplicateKeyException e) {
             log.info("Geocode UPSERT race detected — single retry, hash={}, cause={}",
                     hash, e.getMostSpecificCause().getClass().getSimpleName());
             try {
                 return action.get();
-            } catch (DataIntegrityViolationException retryEx) {
+            } catch (DuplicateKeyException retryEx) {
                 log.error("Geocode UPSERT inconsistency after retry — hash={}", hash, retryEx);
                 throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
             }

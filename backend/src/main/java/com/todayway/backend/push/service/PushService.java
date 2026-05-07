@@ -10,7 +10,7 @@ import com.todayway.backend.push.dto.PushSubscribeResponse;
 import com.todayway.backend.push.repository.PushSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -59,12 +59,12 @@ public class PushService {
     private PushSubscription upsertWithRetry(Long memberId, PushSubscribeRequest req, String userAgent) {
         try {
             return upserter.upsert(memberId, req, userAgent);
-        } catch (DataIntegrityViolationException e) {
+        } catch (DuplicateKeyException e) {
             log.info("Push subscribe UPSERT race detected — single retry, cause={}",
                     e.getMostSpecificCause().getClass().getSimpleName());
             try {
                 return upserter.upsert(memberId, req, userAgent);
-            } catch (DataIntegrityViolationException retryEx) {
+            } catch (DuplicateKeyException retryEx) {
                 log.error("Push subscribe UPSERT inconsistency after retry", retryEx);
                 throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
             }
