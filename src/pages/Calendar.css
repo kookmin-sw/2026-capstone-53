@@ -922,16 +922,17 @@
    ================================================================ */
 
 .cal-tl {
-  background: #FAF5EF;
+  background: #E8E2D9;
   border-radius: 18px;
   padding: 16px 18px;
-  margin-top: 4px;
+  margin-top: 14px;
+  opacity: 0.75;
 }
 
 .cal-tl__title {
   font-size: 11px;
-  font-weight: 700;
-  color: #A09A93;
+  font-weight: 600;
+  color: #B0A99F;
   letter-spacing: 0.07em;
   text-transform: uppercase;
   margin-bottom: 14px;
@@ -942,7 +943,10 @@
   align-items: flex-start;
   gap: 12px;
   min-height: 54px;
+  padding-bottom: 16px;
 }
+
+.cal-tl__item:last-child { padding-bottom: 0; }
 
 .cal-tl__item--past { opacity: 0.38; }
 
@@ -982,7 +986,7 @@
   height: 10px;
   border-radius: 50%;
   background: #C5BFB8;
-  border: 2px solid #FAF5EF;
+  border: 2px solid #E8E2D9;
   margin-top: 4px;
   flex-shrink: 0;
 }
@@ -1278,7 +1282,7 @@
 /* 카드 기본 */
 /* ── 일정 카드 ── */
 .sac {
-  background: white;
+  background: #FAF5EF;
   border-radius: 14px;
   padding: 20px 20px;
   box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
@@ -1433,7 +1437,7 @@
 
 /* ── 빈 날 카드 ── */
 .sac--empty {
-  background: white;
+  background: #FAF5EF;
   border-radius: 14px;
   padding: 24px;
   text-align: center;
