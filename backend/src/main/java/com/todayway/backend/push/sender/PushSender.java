@@ -77,9 +77,10 @@ public class PushSender {
             log.warn("Push send interrupted: subscriptionUid={}", subscription.getSubscriptionUid());
             return PushSendResult.failed(null);
         } catch (Exception e) {
-            // 보안: cause는 endpoint/payload 일부 포함 가능 → 메시지에 클래스명만 남김 (KakaoLocalClient 패턴 미러).
+            // 보안: e.getMessage() 는 endpoint/payload 일부 포함 가능하나, stack trace 자체엔 endpoint
+            // reference 없음 → e 를 logger 에 위임해 stack trace 출력. 메시지엔 클래스명만 노출 유지.
             log.warn("Push send failed: subscriptionUid={}, cause={}",
-                    subscription.getSubscriptionUid(), e.getClass().getSimpleName());
+                    subscription.getSubscriptionUid(), e.getClass().getSimpleName(), e);
             return PushSendResult.failed(null);
         }
     }

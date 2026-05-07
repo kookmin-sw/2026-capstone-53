@@ -14,6 +14,7 @@ import com.todayway.backend.geocode.repository.GeocodeCacheRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -114,16 +115,20 @@ public class GeocodeService {
     /**
      * inner upserter 의 race 충돌은 1회 retry — race window 내 다른 호출이 먼저 INSERT 했다면
      * findByQueryHashAndProvider 가 즉시 hit 한다. 두 번째 시도도 fail 이면 데이터 불일치 — 500.
+     *
+     * <p>catch 범위: {@link DuplicateKeyException} (unique 충돌) + {@link TransientDataAccessException}
+     * (deadlock 1213, lock wait timeout 1205 등 transient 잠금 실패). 다른 integrity violation
+     * (length truncation, FK, NOT NULL) 은 retry 의미 없어 그대로 propagate.
      */
     private GeocodeCache upsertWithRetry(java.util.function.Supplier<GeocodeCache> action, String hash) {
         try {
             return action.get();
-        } catch (DuplicateKeyException e) {
+        } catch (DuplicateKeyException | TransientDataAccessException e) {
             log.info("Geocode UPSERT race detected — single retry, hash={}, cause={}",
-                    hash, e.getMostSpecificCause().getClass().getSimpleName());
+                    hash, e.getClass().getSimpleName());
             try {
                 return action.get();
-            } catch (DuplicateKeyException retryEx) {
+            } catch (DuplicateKeyException | TransientDataAccessException retryEx) {
                 log.error("Geocode UPSERT inconsistency after retry — hash={}", hash, retryEx);
                 throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
             }

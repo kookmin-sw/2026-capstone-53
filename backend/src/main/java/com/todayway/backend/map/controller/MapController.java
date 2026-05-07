@@ -1,5 +1,7 @@
 package com.todayway.backend.map.controller;
 
+import com.todayway.backend.common.exception.BusinessException;
+import com.todayway.backend.common.exception.ErrorCode;
 import com.todayway.backend.common.response.ApiResponse;
 import com.todayway.backend.common.web.CurrentMember;
 import com.todayway.backend.map.dto.MainResponse;
@@ -35,6 +37,12 @@ public class MapController {
             @CurrentMember(required = false) String memberUid,
             @RequestParam(required = false) @DecimalMin("-90.0") @DecimalMax("90.0") Double lat,
             @RequestParam(required = false) @DecimalMin("-180.0") @DecimalMax("180.0") Double lng) {
+        // @DecimalMin/@DecimalMax 가 NaN/Infinity 를 그대로 통과시키는 케이스가 있어 (BigDecimal
+        // 비교 시 false → @DecimalMax/Min 통과) 명시적 가드. 사용자 입력 오류는 400 — 통과 시
+        // Coordinate compact ctor 가 IAE 를 던져 catch-all 500 으로 떨어지는 silent regression 차단.
+        if ((lat != null && !Double.isFinite(lat)) || (lng != null && !Double.isFinite(lng))) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
         return ResponseEntity.ok(ApiResponse.of(mainService.compose(memberUid, lat, lng)));
     }
 

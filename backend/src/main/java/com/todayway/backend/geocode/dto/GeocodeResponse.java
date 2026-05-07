@@ -9,8 +9,8 @@ import com.todayway.backend.geocode.domain.GeocodeCache;
  * 항상 매치된 결과 ({@code matched=true}) 만 표현. {@code matched} 필드 자체는 명세 §8.1 응답 예시에
  * 박혀있으니 그대로 노출.
  *
- * <p>{@code provider} 는 명세 §8.1 v1.1.4 변환표대로 {@code "KAKAO_LOCAL"} 그대로 노출 — schedule
- * 저장 시점에 {@code "KAKAO"} 로 변환하는 책임은 schedule 도메인 (frontend 또는 ScheduleService).
+ * <p>{@code provider} 는 명세 §8.1 v1.1.4 변환표대로 {@code "KAKAO_LOCAL"} 그대로 노출 —
+ * schedule 저장 시 {@code "KAKAO"} 변환은 명세 §8.1 v1.1.4 변환표 책임이며 본 응답 단계의 책임 X.
  */
 public record GeocodeResponse(
         boolean matched,
@@ -22,13 +22,27 @@ public record GeocodeResponse(
         String provider
 ) {
 
+    /**
+     * cache row → 응답 변환. 입력 invariant: {@code c.isMatched()} 여야 한다 — caller(GeocodeService)
+     * 가 미스 row 는 GEOCODE_NO_MATCH 로 throw 하기 때문. {@code lat/lng = null} 인 매치 row 는
+     * 데이터 손상 시그널이라 silent {@code 0.0} fallback 대신 {@link IllegalStateException} 으로 surface
+     * (Null Island 응답 차단). {@link com.todayway.backend.map.dto.NearestScheduleDto#from} 패턴과 일관.
+     */
     public static GeocodeResponse from(GeocodeCache c) {
+        if (!c.isMatched()) {
+            throw new IllegalStateException(
+                    "GeocodeResponse.from called on miss row, queryHash=" + c.getQueryHash());
+        }
+        if (c.getLat() == null || c.getLng() == null) {
+            throw new IllegalStateException(
+                    "GeocodeCache id=" + c.getId() + " matched=true 인데 lat/lng null (data corruption)");
+        }
         return new GeocodeResponse(
-                c.isMatched(),
+                true,
                 c.getName(),
                 c.getAddress(),
-                c.getLat() != null ? c.getLat().doubleValue() : 0.0,
-                c.getLng() != null ? c.getLng().doubleValue() : 0.0,
+                c.getLat().doubleValue(),
+                c.getLng().doubleValue(),
                 c.getPlaceId(),
                 c.getProvider().name()
         );

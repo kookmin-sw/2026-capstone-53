@@ -11,6 +11,7 @@ import com.todayway.backend.push.repository.PushSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -57,16 +58,19 @@ public class PushService {
     /**
      * inner upserter race 충돌은 1회 retry — race window 내 다른 호출이 먼저 INSERT 했다면
      * findByEndpoint 가 즉시 hit. 두 번째 시도도 fail 이면 데이터 불일치 — 500.
+     *
+     * <p>catch 범위: {@link DuplicateKeyException} (unique 충돌) + {@link TransientDataAccessException}
+     * (deadlock / lock wait timeout 등 transient 잠금 실패). 다른 integrity violation 은 그대로 propagate.
      */
     private PushSubscription upsertWithRetry(Long memberId, PushSubscribeRequest req, String userAgent) {
         try {
             return upserter.upsert(memberId, req, userAgent);
-        } catch (DuplicateKeyException e) {
+        } catch (DuplicateKeyException | TransientDataAccessException e) {
             log.info("Push subscribe UPSERT race detected — single retry, cause={}",
-                    e.getMostSpecificCause().getClass().getSimpleName());
+                    e.getClass().getSimpleName());
             try {
                 return upserter.upsert(memberId, req, userAgent);
-            } catch (DuplicateKeyException retryEx) {
+            } catch (DuplicateKeyException | TransientDataAccessException retryEx) {
                 log.error("Push subscribe UPSERT inconsistency after retry", retryEx);
                 throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
             }
