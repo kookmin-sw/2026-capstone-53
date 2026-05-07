@@ -143,16 +143,17 @@
   transition: background 0.15s;
 }
 
-/* 1개: 연한 파랑 */
-.cal-cell__dot--1 { background: #93C5FD; }
-/* 2개: 중간 파랑 */
-.cal-cell__dot--2 { background: var(--color-point); }
-/* 3개 이상: 진한 파랑 */
-.cal-cell__dot--3 { background: var(--color-point-dark); }
+/* 1개: 아주 연한 파랑 */
+.cal-cell__dot--1 { background: #BFDBFE; }
+/* 2개: 중간 연한 파랑 */
+.cal-cell__dot--2 { background: #7DB3F8; }
+/* 3개 이상: 더 진하게 */
+.cal-cell__dot--3 { background: #1D4ED8; }
 
 /* 오늘 날짜 위는 항상 흰색 */
 .cal-cell--today .cal-cell__dot {
   background: rgba(255, 255, 255, 0.85);
+  box-shadow: none;
 }
 
 /* ── 일정 섹션 ── */
@@ -1132,109 +1133,128 @@
 }
 
 /* 카드 기본 */
+/* ── 일정 카드 ── */
 .sac {
-  background: #FAF5EF;
-  border-radius: 16px;
-  overflow: hidden;
+  background: white;
+  border-radius: 14px;
+  padding: 20px 20px;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.1s;
 }
 
-/* ── 헤더 ── */
-.sac-header {
-  padding: 18px 20px 0;
+.sac:active { background: #fafafa; }
+
+/* 1줄: 제목 + 도착시간 */
+.sac-row1 {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
+  align-items: center;
+  gap: 10px;
 }
 
-.sac-header__info {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  min-width: 0;
-  flex: 1;
-}
-
-.sac-header__title {
-  font-size: 16px;
-  font-weight: 700;
+.sac-title {
+  font-size: 18px;
+  font-weight: 600;
   color: #1a1a1a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 1;
+  min-width: 0;
 }
 
-.sac-header__sub {
-  font-size: 12px;
-  color: #888;
-  font-weight: 400;
-}
-
-.sac-header__arr {
-  font-size: 17px;
-  font-weight: 700;
+.sac-arr {
+  font-size: 18px;
+  font-weight: 600;
   color: var(--color-point);
   flex-shrink: 0;
   letter-spacing: -0.3px;
-  padding-top: 1px;
 }
 
-/* ── 카드 본문 ── */
-.sac-body {
-  padding: 12px 20px 18px;
-  display: flex;
-  flex-direction: column;
+/* 2줄: 시간 */
+.sac-row2 {
+  margin-top: 6px;
 }
 
-.sac-route {
+.sac-times {
   font-size: 12px;
-  color: #888;
-  margin: 0;
-  padding-top: 2px;
 }
 
-.sac-divider {
-  height: 0.5px;
-  background: #f0f0f0;
-  margin: 12px 0;
-}
-
-.sac-depart__main {
-  font-size: 13px;
-  font-weight: 500;
+.sac-times__num {
+  font-weight: 600;
   color: #1a1a1a;
-  margin: 0 0 3px;
 }
 
-.sac-depart__sub {
-  font-size: 11px;
+.sac-times__label {
+  font-weight: 400;
   color: #888;
-  margin: 0;
 }
 
-/* ── 반복 요일 ── */
+.sac-times__arrow {
+  color: #ccc;
+}
+
+/* 3줄: 요일 텍스트 */
 .sac-days {
   display: flex;
-  gap: 10px;
-  margin-top: 10px;
+  gap: 8px;
+  margin-top: 20px;
 }
 
 .sac-day {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 400;
   color: #ccc;
 }
 
 .sac-day--on {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--color-point);
 }
 
 .sac-day--today {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   color: var(--color-point);
+}
+
+/* ── 펼쳐지는 영역 ── */
+.sac-expand {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+
+.sac-expand--open {
+  max-height: 200px;
+  opacity: 1;
+}
+
+.sac-expand__inner {
+  display: flex;
+  flex-direction: column;
+}
+
+.sac-divider {
+  height: 0.5px;
+  background: #efefef;
+  margin: 14px 0 12px;
+}
+
+.sac-expand__route {
+  font-size: 13px;
+  color: #1a1a1a;
+  margin: 0 0 4px;
+}
+
+.sac-depart__sub {
+  font-size: 12px;
+  color: #888;
+  margin: 0;
 }
 
 /* ── 버튼 ── */
@@ -1265,14 +1285,16 @@
 
 .sac-btn--del {
   background: transparent;
-  color: #888;
+  color: #aaa;
 }
 
 /* ── 빈 날 카드 ── */
 .sac--empty {
-  background: #FAF5EF;
+  background: white;
+  border-radius: 14px;
   padding: 24px;
   text-align: center;
+  box-shadow: 0 1px 8px rgba(0, 0, 0, 0.04);
 }
 
 .sac-empty__text {
@@ -1285,6 +1307,7 @@
 .sac--add {
   background: transparent;
   border: 1.5px dashed #ddd;
+  border-radius: 14px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1303,21 +1326,20 @@
 
 .sac-add__label {
   font-size: 14px;
-  color: #888;
+  color: #aaa;
 }
 
 /* ── 다크모드 ── */
-[data-theme="dark"] .sac {
-  background: #2A2825;
-}
-
-[data-theme="dark"] .sac--empty { background: #252527; }
-
-[data-theme="dark"] .sac-header__title { color: #f0f0f0; }
-[data-theme="dark"] .sac-header__sub   { color: #555; }
-[data-theme="dark"] .sac-route         { color: #555; }
-[data-theme="dark"] .sac-depart__main  { color: #f0f0f0; }
-[data-theme="dark"] .sac-depart__sub   { color: #555; }
-[data-theme="dark"] .sac-divider       { background: #2a2a2a; }
-[data-theme="dark"] .sac-btn--edit     { background: #2a2a2a; color: #f0f0f0; }
-[data-theme="dark"] .sac--add          { border-color: #333; }
+[data-theme="dark"] .sac              { background: #2A2825; box-shadow: none; }
+[data-theme="dark"] .sac:active       { background: #333027; }
+[data-theme="dark"] .sac--empty       { background: #2A2825; box-shadow: none; }
+[data-theme="dark"] .sac-title        { color: #e8e4dc; }
+[data-theme="dark"] .sac-times__num    { color: #e8e4dc; }
+[data-theme="dark"] .sac-times__label  { color: #666; }
+[data-theme="dark"] .sac-times__arrow  { color: #444; }
+[data-theme="dark"] .sac-day          { color: #444; }
+[data-theme="dark"] .sac-expand__route { color: #d0ccc6; }
+[data-theme="dark"] .sac-depart__sub  { color: #666; }
+[data-theme="dark"] .sac-divider      { background: #3a3835; }
+[data-theme="dark"] .sac-btn--edit    { background: #333; color: #e8e4dc; }
+[data-theme="dark"] .sac--add         { border-color: #333; }

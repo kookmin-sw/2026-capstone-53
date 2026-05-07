@@ -1,8 +1,9 @@
-import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mockMember } from '../data/mockData';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { SettingsSkeletons, ErrorState } from '../components/StateUI';
 import './Settings.css';
 
 /* ================================================================
@@ -33,7 +34,6 @@ function LogoutDialog({ onConfirm, onCancel }) {
    공통 UI 컴포넌트
    ================================================================ */
 
-/* 토글 */
 function Toggle({ on, onChange, disabled }) {
   return (
     <button
@@ -47,7 +47,6 @@ function Toggle({ on, onChange, disabled }) {
   );
 }
 
-/* 설정 행 공통 래퍼 */
 function SettingRow({ label, desc, right, disabled, onClick }) {
   return (
     <div
@@ -63,7 +62,6 @@ function SettingRow({ label, desc, right, disabled, onClick }) {
   );
 }
 
-/* 섹션 래퍼 */
 function Section({ title, subtitle, children }) {
   return (
     <div className="st-section">
@@ -78,7 +76,6 @@ function Section({ title, subtitle, children }) {
   );
 }
 
-/* 구분선 */
 function Divider() {
   return <div className="st-divider" />;
 }
@@ -88,9 +85,24 @@ function Divider() {
    ================================================================ */
 function Settings() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [showLogout, setShowLogout] = React.useState(false);
+  const [uiState, setUiState] = React.useState('loading');
   const { theme, toggleTheme } = useTheme();
   const { settings: cfg, updateSetting: update } = useSettings();
+
+  useEffect(() => {
+    const forced = searchParams.get('state');
+    if (forced === 'loading') return;
+    if (forced === 'error') { setUiState('error'); return; }
+    const t = setTimeout(() => setUiState('ready'), 1000);
+    return () => clearTimeout(t);
+  }, [searchParams]);
+
+  const retry = () => {
+    setUiState('loading');
+    setTimeout(() => setUiState('ready'), 1000);
+  };
 
   const handleLogout = () => {
     localStorage.clear();
@@ -99,7 +111,6 @@ function Settings() {
 
   const handleLogoutConfirm = () => {
     setShowLogout(false);
-    /* TODO: 실제 로그아웃 로직 (토큰 제거 + 리디렉트) */
     alert('로그아웃되었습니다.');
   };
 
@@ -108,71 +119,82 @@ function Settings() {
   return (
     <div className="st-page">
       <div className="st-container">
-        <h1 className="st-page-title">설정</h1>
 
-        {/* ── 프로필 섹션 ── */}
-        <div className="st-profile">
-          <div className="st-profile__info">
-            <span className="st-profile__nickname">{mockMember.data.nickname}</span>
-            <span className="st-profile__loginid">{mockMember.data.loginId}</span>
+        {uiState === 'loading' && <SettingsSkeletons />}
+        {uiState === 'error'   && <ErrorState onRetry={retry} />}
+
+        {uiState === 'ready' && (<>
+          <h1 className="st-page-title">설정</h1>
+
+          {/* ── 프로필 섹션 ── */}
+          <div className="st-profile">
+            <div className="st-profile__info">
+              <span className="st-profile__nickname">{mockMember.data.nickname}</span>
+              <span className="st-profile__loginid">{mockMember.data.loginId}</span>
+            </div>
+            <div className="st-profile__actions">
+              <button className="st-profile__action-btn" onClick={() => alert('비밀번호 변경')}>
+                비밀번호 변경
+              </button>
+              <button className="st-profile__action-btn st-profile__action-btn--danger" onClick={handleLogout}>
+                로그아웃
+              </button>
+            </div>
           </div>
-          <div className="st-profile__actions">
-            <button className="st-profile__action-btn" onClick={() => alert('비밀번호 변경')}>
-              비밀번호 변경
-            </button>
-            <button className="st-profile__action-btn st-profile__action-btn--danger" onClick={handleLogout}>
-              로그아웃
-            </button>
-          </div>
-        </div>
-        <div className="st-divider st-divider--section" />
+          <div className="st-divider st-divider--section" />
 
-        {/* ── 섹션 1: 알림 ── */}
-        <Section title="알림">
+          {/* ── 섹션 1: 알림 ── */}
+          <Section title="알림">
 
-          {/* 출발 알림 */}
-          <SettingRow
-            label="출발 알림"
-            desc="추천 출발 시간에 맞춰 푸시 알림을 보내드려요"
-            right={<Toggle on={cfg.alertEnabled} onChange={v => update('alertEnabled', v)} />}
-          />
+            <SettingRow
+              label="출발 알림"
+              desc="추천 출발 시간에 맞춰 푸시 알림을 보내드려요"
+              right={<Toggle on={cfg.alertEnabled} onChange={v => update('alertEnabled', v)} />}
+            />
 
-          <Divider />
+            <Divider />
 
-          {/* 여유 시간 */}
-          <div className={`st-buffer-group ${!cfg.alertEnabled ? 'st-buffer-group--disabled' : ''}`}>
-            <div className="st-row">
-              <div className="st-row__left">
-                <span className="st-row__label">여유 시간</span>
-                <span className="st-row__desc">여유 시간이 클수록 더 일찍 출발 알림을 받아요</span>
+            <div className={`st-buffer-group ${!cfg.alertEnabled ? 'st-buffer-group--disabled' : ''}`}>
+              <div className="st-row">
+                <div className="st-row__left">
+                  <span className="st-row__label">여유 시간</span>
+                  <span className="st-row__desc">여유 시간이 클수록 더 일찍 출발 알림을 받아요</span>
+                </div>
+              </div>
+              <div className="st-chips">
+                {BUFFERS.map(min => (
+                  <button
+                    key={min}
+                    className={`st-chip ${cfg.alertBufferMinutes === min ? 'st-chip--on' : ''}`}
+                    onClick={() => cfg.alertEnabled && update('alertBufferMinutes', min)}
+                    disabled={!cfg.alertEnabled}
+                  >
+                    {min}분
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="st-chips">
-              {BUFFERS.map(min => (
-                <button
-                  key={min}
-                  className={`st-chip ${cfg.alertBufferMinutes === min ? 'st-chip--on' : ''}`}
-                  onClick={() => cfg.alertEnabled && update('alertBufferMinutes', min)}
-                  disabled={!cfg.alertEnabled}
-                >
-                  {min}분
-                </button>
-              ))}
-            </div>
-          </div>
 
-        </Section>
+          </Section>
 
-        {/* ── 섹션 2.5: 디스플레이 ── */}
-        <Section title="디스플레이">
-          <SettingRow
-            label="다크 모드"
-            desc="어두운 배경으로 눈의 피로를 줄여드려요"
-            right={<Toggle on={theme === 'dark'} onChange={() => toggleTheme()} />}
-          />
-        </Section>
+          {/* ── 섹션 2: 디스플레이 ── */}
+          <Section title="디스플레이">
+            <SettingRow
+              label="다크 모드"
+              desc="어두운 배경으로 눈의 피로를 줄여드려요"
+              right={<Toggle on={theme === 'dark'} onChange={() => toggleTheme()} />}
+            />
+          </Section>
+        </>)}
 
       </div>
+
+      {showLogout && (
+        <LogoutDialog
+          onConfirm={handleLogoutConfirm}
+          onCancel={() => setShowLogout(false)}
+        />
+      )}
     </div>
   );
 }

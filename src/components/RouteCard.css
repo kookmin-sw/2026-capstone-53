@@ -109,8 +109,8 @@
 
 .rc-arrive-time {
   font-size: 14px;
-  font-weight: 700;
-  color: #1C1C1E;
+  font-weight: 400;
+  color: #B0A99F;
 }
 
 .rc-buffer {
@@ -125,13 +125,13 @@
   align-items: center;
   gap: 4px;
   font-size: 12px;
-  color: #888;
-  font-weight: 500;
+  color: #1C1C1E;
+  font-weight: 600;
   margin-top: 4px;
 }
 
 [data-theme="dark"] .rc-reminder {
-  color: #6b6b6b;
+  color: #e8e4dc;
 }
 
 /* ── D: 버스 + 환승 (col 3, row 2) — 컴팩트 ── */
@@ -393,7 +393,7 @@
 
 [data-theme="dark"] .rc-stop-name,
 [data-theme="dark"] .rc-bus-num,
-[data-theme="dark"] .rc-arrive-time  { color: #F5F5F7; }
+[data-theme="dark"] .rc-arrive-time  { color: #6b6b6b; }
 [data-theme="dark"] .rc-label        { color: #58575A; }
 [data-theme="dark"] .rc-tl-val       { color: #F5F5F7; }
 [data-theme="dark"] .rc-tl-sub,

@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { mockSchedules, mockRouteInfo } from '../data/mockData';
+import { CalendarSkeletons, ErrorState } from '../components/StateUI';
 import './Calendar.css';
 
 /* ================================================================
@@ -453,70 +455,76 @@ function calcDepTime(arrivalTime, durationMin) {
 }
 
 function ScheduleAccordion({ schedule, onEdit, onDelete, todayDow }) {
-  const depTime    = calcDepTime(schedule.arrivalTime, schedule.averageDurationMinutes);
-  const sortedDays = [...(schedule.repeatDays || [])].sort(
-    (a, b) => DAY_ORDER.indexOf(a) - DAY_ORDER.indexOf(b)
-  );
+  const [open, setOpen] = useState(false);
+  const depTime = calcDepTime(schedule.arrivalTime, schedule.averageDurationMinutes);
 
   return (
-    <div className="sac">
+    <div className="sac" onClick={() => setOpen(o => !o)}>
 
-      {/* 상단: 타이틀 + 도착 시각 */}
-      <div className="sac-header">
-        <div className="sac-header__info">
-          <span className="sac-header__title">{schedule.title}</span>
-          <span className="sac-header__sub">{schedule.originName} → {schedule.destinationName}</span>
-        </div>
-        <span className="sac-header__arr">{schedule.arrivalTime}</span>
+      {/* 1줄: 제목 + 도착시간 */}
+      <div className="sac-row1">
+        <span className="sac-title">{schedule.title}</span>
+        <span className="sac-arr">{schedule.arrivalTime}</span>
       </div>
 
-      {/* 본문 */}
-      <div className="sac-body">
+      {/* 2줄: 출발 → 도착 시간 */}
+      <div className="sac-row2">
+        {depTime ? (
+          <span className="sac-times">
+            <span className="sac-times__num">{depTime}</span>
+            <span className="sac-times__label"> 출발 </span>
+            <span className="sac-times__arrow">→</span>
+            <span className="sac-times__label"> </span>
+            <span className="sac-times__num">{schedule.arrivalTime}</span>
+            <span className="sac-times__label"> 도착</span>
+          </span>
+        ) : (
+          <span className="sac-times">
+            <span className="sac-times__label">도착 </span>
+            <span className="sac-times__num">{schedule.arrivalTime}</span>
+          </span>
+        )}
+      </div>
 
-        {/* 구분선 */}
-        <div className="sac-divider" />
+      {/* 3줄: 요일 텍스트 */}
+      <div className="sac-days">
+        {DAY_KEYS.map(key => {
+          const isOn    = schedule.repeatDays?.includes(key);
+          const isToday = DAY_NUM[key] === todayDow;
+          return (
+            <span
+              key={key}
+              className={[
+                'sac-day',
+                isOn && isToday ? 'sac-day--today' :
+                isOn            ? 'sac-day--on'    : '',
+              ].join(' ')}
+            >
+              {DAY_SHORT[key]}
+            </span>
+          );
+        })}
+      </div>
 
-        {/* 출발 안내 */}
-        <div className="sac-depart">
-          <p className="sac-depart__main">
-            {depTime
-              ? `${depTime} 출발 → ${schedule.arrivalTime} 도착`
-              : `${schedule.arrivalTime} 도착`}
+      {/* 펼쳐지는 영역 */}
+      <div className={`sac-expand ${open ? 'sac-expand--open' : ''}`}>
+        <div className="sac-expand__inner">
+          <div className="sac-divider" />
+          <p className="sac-expand__route">
+            {schedule.originName} → {schedule.destinationName}
           </p>
           <p className="sac-depart__sub">
             {schedule.averageDurationMinutes ? `${schedule.averageDurationMinutes}분 · ` : ''}환승 1회 · 여유 30분
           </p>
-        </div>
-
-        {/* 반복 요일 */}
-        {sortedDays.length > 0 && (
-          <div className="sac-days">
-            {DAY_KEYS.map(key => {
-              const isOn    = sortedDays.includes(key);
-              const isToday = DAY_NUM[key] === todayDow;
-              return (
-                <span
-                  key={key}
-                  className={[
-                    'sac-day',
-                    isOn && isToday ? 'sac-day--today' :
-                    isOn            ? 'sac-day--on'    : '',
-                  ].join(' ')}
-                >
-                  {DAY_SHORT[key]}
-                </span>
-              );
-            })}
+          <div className="sac-actions">
+            <button className="sac-btn sac-btn--edit"
+              onClick={e => { e.stopPropagation(); onEdit(schedule); }}>수정</button>
+            <button className="sac-btn sac-btn--del"
+              onClick={e => { e.stopPropagation(); onDelete(schedule.scheduleId); }}>삭제</button>
           </div>
-        )}
-
-        {/* 버튼 */}
-        <div className="sac-actions">
-          <button className="sac-btn sac-btn--edit" onClick={() => onEdit(schedule)}>수정</button>
-          <button className="sac-btn sac-btn--del"  onClick={() => onDelete(schedule.scheduleId)}>삭제</button>
         </div>
-
       </div>
+
     </div>
   );
 }
@@ -556,6 +564,22 @@ function CalendarPage() {
   const [showSheet, setShowSheet]   = useState(false);
   const [editingSch, setEditingSch] = useState(null);
   const todayDow = today.getDay();
+
+  const [searchParams] = useSearchParams();
+  const [uiState, setUiState] = useState('loading');
+
+  useEffect(() => {
+    const forced = searchParams.get('state');
+    if (forced === 'loading') return;
+    if (forced === 'error') { setUiState('error'); return; }
+    const t = setTimeout(() => setUiState('ready'), 1000);
+    return () => clearTimeout(t);
+  }, [searchParams]);
+
+  const retry = () => {
+    setUiState('loading');
+    setTimeout(() => setUiState('ready'), 1000);
+  };
 
   // 이번 주 일정 수
   const thisWeekCount = useMemo(() => {
@@ -651,6 +675,9 @@ function CalendarPage() {
   return (
     <div className="cal-page">
       <div className="cal-container">
+        {uiState === 'loading' && <CalendarSkeletons />}
+        {uiState === 'error'   && <ErrorState onRetry={retry} />}
+        {uiState === 'ready'   && (<>
 
         {/* ── 월 네비게이션 ── */}
         <div className="cal-nav">
@@ -756,6 +783,7 @@ function CalendarPage() {
           )}
         </div>
 
+        </>)}
       </div>
 
       {/* ── 일정 추가/수정 바텀시트 ── */}

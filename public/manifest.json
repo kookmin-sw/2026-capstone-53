@@ -1,6 +1,7 @@
 {
   "name": "오늘어디",
   "short_name": "오늘어디",
+  "description": "매일 함께하는 경로 알리미",
   "icons": [
     {
       "src": "favicon.ico",
