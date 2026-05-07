@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mockRouteInfoList, mockMember } from '../data/mockData';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { usePushNotification } from '../hooks/usePushNotification';
 import ScheduleCard from '../components/ScheduleCard';
 import KakaoMap from '../components/KakaoMap';
 import { HomeSkeletons, HomeEmpty, ErrorState } from '../components/StateUI';
@@ -36,6 +37,8 @@ export default function HomeNoMap() {
   const pointColor = theme === 'dark' ? '#8BB5E0' : '#2563EB';
   const { settings } = useSettings();
 
+  const { requestPermission } = usePushNotification();
+
   const [uiState, setUiState] = useState('loading');
   const [activeIdx, setActiveIdx] = useState(0);
   const [hoverSide, setHoverSide] = useState(null);
@@ -48,9 +51,12 @@ export default function HomeNoMap() {
     if (forced === 'loading') return;
     if (forced === 'error')   { setUiState('error');  return; }
     if (forced === 'empty')   { setUiState('empty');  return; }
-    const t = setTimeout(() => setUiState('ready'), 1000);
+    const t = setTimeout(() => {
+      setUiState('ready');
+      requestPermission(); // 홈 로드 후 알림 권한 요청 (이미 허용/거부 시 no-op)
+    }, 1000);
     return () => clearTimeout(t);
-  }, [searchParams]);
+  }, [searchParams, requestPermission]);
 
   const retry = () => {
     setUiState('loading');

@@ -672,6 +672,38 @@
   color: #ef4444;
 }
 
+/* ================================================================
+   알림 차단 경고 배너
+   ================================================================ */
+
+.st-notif-blocked {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 18px 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #FEF3C7;
+  color: #92400E;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+[data-theme="dark"] .st-notif-blocked {
+  background: rgba(251, 191, 36, 0.12);
+  color: #FCD34D;
+}
+
+.st-notif-blocked svg {
+  flex-shrink: 0;
+  color: #D97706;
+}
+
+[data-theme="dark"] .st-notif-blocked svg {
+  color: #FCD34D;
+}
+
 .st-divider--section {
   margin: 0;
   height: 1px;

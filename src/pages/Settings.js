@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mockMember } from '../data/mockData';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { usePushNotification } from '../hooks/usePushNotification';
 import { SettingsSkeletons, ErrorState } from '../components/StateUI';
 import './Settings.css';
 
@@ -90,6 +91,7 @@ function Settings() {
   const [uiState, setUiState] = React.useState('loading');
   const { theme, toggleTheme } = useTheme();
   const { settings: cfg, updateSetting: update } = useSettings();
+  const { permission: notifPermission } = usePushNotification();
 
   useEffect(() => {
     const forced = searchParams.get('state');
@@ -115,6 +117,14 @@ function Settings() {
   };
 
   const BUFFERS = [5, 10, 20, 30];
+
+  const sendTestNotification = () => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    new Notification('오늘어디', {
+      body: '08:18에 출발하세요 (국민대 등교, 예상 42분)',
+      icon: '/logo192.png',
+    });
+  };
 
   return (
     <div className="st-page">
@@ -146,6 +156,19 @@ function Settings() {
           {/* ── 섹션 1: 알림 ── */}
           <Section title="알림">
 
+            {/* 알림 차단 경고 */}
+            {notifPermission === 'denied' && (
+              <div className="st-notif-blocked">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none">
+                  <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"
+                    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <line x1="12" y1="9" x2="12" y2="13" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="12" y1="17" x2="12.01" y2="17" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                알림이 차단되어 있어요. 브라우저 설정에서 허용해주세요.
+              </div>
+            )}
+
             <SettingRow
               label="출발 알림"
               desc="추천 출발 시간에 맞춰 푸시 알림을 보내드려요"
@@ -174,6 +197,24 @@ function Settings() {
                 ))}
               </div>
             </div>
+
+            {/* 테스트 알림 */}
+            {notifPermission === 'granted' && (
+              <>
+                <Divider />
+                <SettingRow
+                  label="테스트 알림 보내기"
+                  desc="알림이 잘 오는지 확인해보세요"
+                  onClick={sendTestNotification}
+                  right={
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none">
+                      <path d="M9 18l6-6-6-6" stroke="#C5BFB8" strokeWidth="2.2"
+                        strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                  }
+                />
+              </>
+            )}
 
           </Section>
 

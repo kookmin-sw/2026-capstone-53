@@ -1,4 +1,4 @@
-/* eslint-disable no-restricted-globals */
+/* eslint-disable no-restricted-globals, no-undef */
 
 // This service worker can be customized!
 // See https://developers.google.com/web/tools/workbox/modules
@@ -70,3 +70,49 @@ self.addEventListener('message', (event) => {
 });
 
 // Any other custom service worker logic can go here.
+
+// ── 푸시 알림 수신 ────────────────────────────────────────────
+self.addEventListener('push', function (event) {
+  const data = event.data ? event.data.json() : {};
+
+  const title = data.title || '오늘어디';
+  const options = {
+    body: data.body || '출발 시간을 확인하세요',
+    icon: '/logo192.png',
+    badge: '/logo192.png',
+    data: data.data || {},
+    vibrate: [200, 100, 200],
+    actions: [
+      { action: 'open',    title: '확인' },
+      { action: 'dismiss', title: '닫기' },
+    ],
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(title, options)
+  );
+});
+
+// ── 알림 클릭 → 앱 열기 ──────────────────────────────────────
+self.addEventListener('notificationclick', function (event) {
+  event.notification.close();
+
+  if (event.action === 'dismiss') return;
+
+  const scheduleId = event.notification.data?.scheduleId;
+  const url = scheduleId ? '/map' : '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
+      // 이미 열린 창이 있으면 포커스
+      for (const client of list) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          client.navigate(url);
+          return client.focus();
+        }
+      }
+      // 없으면 새 창
+      if (clients.openWindow) return clients.openWindow(url);
+    })
+  );
+});
