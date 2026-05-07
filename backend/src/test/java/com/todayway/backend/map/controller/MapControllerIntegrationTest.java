@@ -21,6 +21,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -85,7 +86,7 @@ class MapControllerIntegrationTest {
     void main_게스트_토큰없이_200_nearestSchedule_null_mapCenter_default() throws Exception {
         mockMvc.perform(get("/api/v1/main"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.nearestSchedule").doesNotExist())
+                .andExpect(jsonPath("$.data.nearestSchedule").value(nullValue()))
                 .andExpect(jsonPath("$.data.mapCenter.lat").value(37.5665))
                 .andExpect(jsonPath("$.data.mapCenter.lng").value(126.9780));
     }
@@ -94,7 +95,7 @@ class MapControllerIntegrationTest {
     void main_게스트_query_lat_lng_제공시_mapCenter_query() throws Exception {
         mockMvc.perform(get("/api/v1/main?lat=37.66&lng=127.01"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.nearestSchedule").doesNotExist())
+                .andExpect(jsonPath("$.data.nearestSchedule").value(nullValue()))
                 .andExpect(jsonPath("$.data.mapCenter.lat").value(37.66))
                 .andExpect(jsonPath("$.data.mapCenter.lng").value(127.01));
     }
@@ -105,7 +106,7 @@ class MapControllerIntegrationTest {
 
         mockMvc.perform(get("/api/v1/main").header("Authorization", "Bearer " + token))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.nearestSchedule").doesNotExist())
+                .andExpect(jsonPath("$.data.nearestSchedule").value(nullValue()))
                 .andExpect(jsonPath("$.data.mapCenter.lat").value(37.5665));
     }
 

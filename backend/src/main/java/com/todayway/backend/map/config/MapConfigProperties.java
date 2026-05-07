@@ -1,6 +1,8 @@
 package com.todayway.backend.map.config;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -44,7 +46,12 @@ public class MapConfigProperties {
     @Getter
     @Setter
     public static class DefaultCenter {
+        @DecimalMin("-90.0")
+        @DecimalMax("90.0")
         private double lat;
+
+        @DecimalMin("-180.0")
+        @DecimalMax("180.0")
         private double lng;
     }
 }

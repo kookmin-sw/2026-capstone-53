@@ -8,6 +8,7 @@ import com.todayway.backend.member.domain.Member;
 import com.todayway.backend.member.repository.MemberRepository;
 import com.todayway.backend.schedule.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +30,7 @@ import java.time.ZoneId;
  */
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class MainService {
 
@@ -50,11 +52,17 @@ public class MainService {
         }
         // 탈퇴 회원의 토큰이 살아있는 경우 — 명세 §1.7 / §3.3 정합으로 nearestSchedule = null
         // (UNAUTHORIZED 던지지 않고 graceful 게스트 처리. 로그인 필요 흐름은 다른 endpoint 가 담당).
-        return memberRepository.findByMemberUid(memberUid)
+        // 단 silent 처리는 token-revocation 파이프라인 고장을 가리므로 WARN 로깅으로 신호 보존.
+        Long memberId = memberRepository.findByMemberUid(memberUid)
                 .map(Member::getId)
-                .flatMap(memberId -> scheduleRepository
-                        .findFirstByMemberIdAndArrivalTimeAfterOrderByArrivalTimeAsc(
-                                memberId, OffsetDateTime.now(KST)))
+                .orElse(null);
+        if (memberId == null) {
+            log.warn("Authenticated /main with valid JWT but member not found — graceful guest fallback. memberUid={}",
+                    memberUid);
+            return null;
+        }
+        return scheduleRepository
+                .findFirstByMemberIdAndArrivalTimeAfterOrderByArrivalTimeAsc(memberId, OffsetDateTime.now(KST))
                 .map(NearestScheduleDto::from)
                 .orElse(null);
     }
