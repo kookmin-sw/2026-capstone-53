@@ -14,9 +14,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 명세 §8.1 — {@code POST /geocode}.
- * <p>인증은 SecurityConfig {@code anyRequest().authenticated()} 로 강제 — endpoint 가 permitAll 에
- * 등록되지 않았으므로 토큰 없으면 자동 401. {@link GeocodeService#geocode} 자체는 회원 데이터를 다루지
- * 않아 {@code @CurrentMember} 주입은 불필요 (인증 게이트만 통과하면 cache + 외부 호출만 수행).
+ * <p>{@link GeocodeService#geocode} 가 회원 데이터를 다루지 않아 {@code @CurrentMember} 주입 불필요 —
+ * 인증 게이트만 통과하면 cache + 외부 호출만 수행. 인증 미통과 401 회귀 가드는 통합 테스트가 담당.
  */
 @RestController
 @RequestMapping("/api/v1/geocode")

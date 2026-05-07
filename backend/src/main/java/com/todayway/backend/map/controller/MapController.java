@@ -15,8 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 명세 §4 — 메인/지도 (display, settings).
- * <p>{@code GET /main} 게스트 허용 + {@code GET /map/config} 인증 불필요.
- * SecurityConfig.permitAll 에 두 경로 모두 사전 등록되어 있다.
+ * <p>{@code GET /main} 은 명세 §4.1 게스트 허용 ({@code @CurrentMember(required=false)}),
+ * {@code GET /map/config} 는 인증 불필요. 두 경로 모두 통합 테스트가 401 회귀 가드 담당.
  */
 @RestController
 @RequestMapping("/api/v1")

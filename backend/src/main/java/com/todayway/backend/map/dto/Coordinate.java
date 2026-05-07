@@ -1,11 +1,11 @@
 package com.todayway.backend.map.dto;
 
 /**
- * 명세 §4 응답에 등장하는 위경도 좌표 (예: {@code mapCenter}, {@code defaultCenter}).
+ * 명세 §4 응답의 위경도 좌표 ({@code mapCenter}, {@code defaultCenter}).
  *
- * <p>compact constructor 가 NaN/Infinity/range 를 거부 — {@code Coordinate(0,0)} 같은 silent
- * "Null Island" 좌표는 명세상 valid 범위 안이라 통과시키되, 그 외 비정상 값은 즉시 차단해
- * 클라이언트가 의도한 좌표를 보내지 않은 케이스가 silent corruption 으로 흘러가지 않도록 한다.
+ * <p>compact constructor 가 NaN/Infinity/range 를 거부 — query 파라미터의 비정상 값이 silent 로
+ * 흘러가지 않게 한다. {@code (0, 0)} 은 valid 범위 안이라 통과되지만 운영 측면에선 "Null Island"
+ * 사고 신호일 수 있다 (호출자가 좌표를 셋업 안 한 채 호출).
  */
 public record Coordinate(double lat, double lng) {
 

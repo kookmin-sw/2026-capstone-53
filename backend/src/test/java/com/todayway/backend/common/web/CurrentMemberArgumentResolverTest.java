@@ -15,11 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /**
- * Resolver 단위 테스트.
- * SecurityFilterChain 의 인증 보장과 별도로 Resolver 자체의 안전망 검증.
- *
- * <p>{@code MethodParameter} 는 더미 메서드 시그니처에서 추출 — production 환경에서는 Spring 이
- * controller 메서드의 파라미터로부터 항상 valid {@code MethodParameter} 를 전달한다.
+ * Resolver 단위 테스트. SecurityFilterChain 의 인증 보장과 별도로 Resolver 자체의 안전망 검증.
  */
 class CurrentMemberArgumentResolverTest {
 
