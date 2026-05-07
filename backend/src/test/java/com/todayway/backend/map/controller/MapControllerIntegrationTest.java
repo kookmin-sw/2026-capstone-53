@@ -194,6 +194,21 @@ class MapControllerIntegrationTest {
     }
 
     @Test
+    void main_lat_만_제공_lng_누락_400_VALIDATION_ERROR_M2() throws Exception {
+        // 한쪽만 채워 보낸 건 사용자 입력 오류 — silent default fallback 차단 (PR #27 review M2).
+        mockMvc.perform(get("/api/v1/main?lat=37.5"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void main_lng_만_제공_lat_누락_400_VALIDATION_ERROR_M2() throws Exception {
+        mockMvc.perform(get("/api/v1/main?lng=127.0"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
     void main_nearestSchedule_null_시_value_null_명시() throws Exception {
         // 명세 §4.1 응답 예시는 nearestSchedule=null 을 명시 직렬화. JsonPath value(nullValue()) 는
         // path 가 존재하지 않으면 ParseException 으로 fail — 즉 "키 존재 + null 값" 둘 다 검증.

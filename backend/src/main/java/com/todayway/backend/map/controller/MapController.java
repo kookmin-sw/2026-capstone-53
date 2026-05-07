@@ -37,6 +37,12 @@ public class MapController {
             @CurrentMember(required = false) String memberUid,
             @RequestParam(required = false) @DecimalMin("-90.0") @DecimalMax("90.0") Double lat,
             @RequestParam(required = false) @DecimalMin("-180.0") @DecimalMax("180.0") Double lng) {
+        // 한쪽만 제공된 케이스 차단 — "내 위치 기반 지도" 의도였는데 silent 하게 default 서울시청으로
+        // 떨어지면 UX 혼란. 둘 다 있어야 query 우선순위 적용, 둘 다 없으면 nearestSchedule.origin 또는
+        // default fallback 분기. 둘 중 하나만 채워 보내는 건 사용자 입력 오류로 간주 (400).
+        if ((lat == null) != (lng == null)) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
         // @DecimalMin/@DecimalMax 가 NaN/Infinity 를 그대로 통과시키는 케이스가 있어 (BigDecimal
         // 비교 시 false → @DecimalMax/Min 통과) 명시적 가드. 사용자 입력 오류는 400 — 통과 시
         // Coordinate compact ctor 가 IAE 를 던져 catch-all 500 으로 떨어지는 silent regression 차단.

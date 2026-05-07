@@ -60,11 +60,25 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             response.getWriter().write(EXPIRED_BODY);
             return;
         } catch (JwtException | IllegalArgumentException e) {
-            // Signature mismatch / malformed / unsupported algorithm / null subject — 보안 신호 보존.
-            // 토큰 본문은 로깅 X (보안: payload 누출 차단). class 이름과 path 만 남김.
-            log.warn("JWT 검증 실패 type={} path={}", e.getClass().getSimpleName(), request.getRequestURI());
+            // Signature mismatch / malformed / unsupported algorithm / null subject — 만료 (정상 사용자
+            // 시나리오) 와 달리 공격 신호 가능성. ERROR 로 elevate 해 ELK / CloudWatch 알람 / IDS-SIEM
+            // 분석 대상으로 surface. 토큰 본문은 로깅 X (보안: payload 누출 차단) — class 이름 / path /
+            // remote IP 만 남김 (X-Forwarded-For 우선, 없으면 RemoteAddr). 게스트 흐름은 SecurityContext
+            // 만 비우고 체인 진행 (permitAll endpoint 가 401 차단 X 로 동작하게).
+            log.error("JWT 검증 실패 — 위조/형식 위반 가능성 type={} path={} remote={}",
+                    e.getClass().getSimpleName(), request.getServletPath(), resolveRemoteIp(request));
             SecurityContextHolder.clearContext();
         }
         chain.doFilter(request, response);
+    }
+
+    /** X-Forwarded-For 가 있으면 그 첫 토큰, 없으면 RemoteAddr. ELK/SIEM 분석 시 source IP 추적용. */
+    private static String resolveRemoteIp(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            int comma = xff.indexOf(',');
+            return (comma > 0 ? xff.substring(0, comma) : xff).trim();
+        }
+        return request.getRemoteAddr();
     }
 }
