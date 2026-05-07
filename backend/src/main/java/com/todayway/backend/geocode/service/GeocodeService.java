@@ -27,19 +27,13 @@ import java.util.Optional;
 /**
  * 명세 §8.1 — 주소/장소 지오코딩. Kakao Local 외부 호출 + {@code geocode_cache} TTL 30일.
  *
- * <p>흐름:
- * <ol>
- *   <li>{@code queryHash = SHA-256(query.trim())} — 명세 §8.1 v1.1.4 정규화 룰.</li>
- *   <li>TTL filter cache lookup (cached_at &gt; NOW - 30일). hit 면 즉시 응답.</li>
- *   <li>matched=false 캐시 hit → 404 GEOCODE_NO_MATCH (외부 API 호출 차단).</li>
- *   <li>miss → Kakao Local 호출. {@link ExternalApiException} 은 명세 §8.1 매핑표대로
- *       {@link BusinessException} 으로 변환 (401/403 → 503, timeout → 504, 그 외 → 502).</li>
- *   <li>documents 빈 배열 → miss row UPSERT + 404.</li>
- *   <li>매치 → match row UPSERT + 응답.</li>
- * </ol>
- *
- * <p>UPSERT race-safe: existing row 있으면 refresh, 없으면 save. {@link DataIntegrityViolationException}
- * (unique (query_hash, provider) 동시 INSERT 충돌) 은 catch 후 재조회 + refresh.
+ * <p>핵심 invariant:
+ * <ul>
+ *   <li>cache TTL filter — 명세 §8.1 30일. miss 캐시도 hit 처리해 외부 API quota 보호.</li>
+ *   <li>외부 호출 실패 → 명세 §8.1 매핑표 (401/403=503, 5xx=502, timeout=504).</li>
+ *   <li>UPSERT race 는 {@link GeocodeCacheUpserter} 의 {@code REQUIRES_NEW} 트랜잭션이 격리 처리 —
+ *       outer 의 read-only tx 가 inner 의 rollback-only 영향을 받지 않게 한다.</li>
+ * </ul>
  */
 @Service
 @RequiredArgsConstructor
@@ -52,17 +46,9 @@ public class GeocodeService {
     private static final int CACHE_TTL_DAYS = 30;
 
     private final GeocodeCacheRepository cacheRepository;
+    private final GeocodeCacheUpserter cacheUpserter;
     private final KakaoLocalClient kakaoLocalClient;
 
-    /**
-     * {@code noRollbackFor = BusinessException.class} — 의도된 응답 흐름(404 GEOCODE_NO_MATCH /
-     * 502/503/504 외부 API 매핑) 에서도 cache INSERT/refresh 부수효과를 보존하기 위함.
-     * miss 캐시는 명세 §8.1 의 의도 (반복 미스 query 의 외부 API 호출 차단). default rollback 이면
-     * GEOCODE_NO_MATCH 던지는 순간 miss row 가 함께 롤백되어 다음 호출 때 또 Kakao 를 부른다.
-     * 진짜 inconsistency 는 BusinessException 외 RuntimeException (DataAccessException 등) 으로 던져
-     * 자동 롤백.
-     */
-    @Transactional(noRollbackFor = BusinessException.class)
     public GeocodeResponse geocode(GeocodeRequest req) {
         String trimmed = req.query().trim();
         String hash = sha256Hex(trimmed);
@@ -81,7 +67,7 @@ public class GeocodeService {
         KakaoLocalSearchResponse raw = callKakao(trimmed);
 
         if (raw.documents() == null || raw.documents().isEmpty()) {
-            upsertMiss(hash, trimmed);
+            upsertWithRetry(() -> cacheUpserter.upsertMiss(hash, trimmed, PROVIDER), hash);
             throw new BusinessException(ErrorCode.GEOCODE_NO_MATCH);
         }
 
@@ -90,13 +76,13 @@ public class GeocodeService {
             m = KakaoLocalToGeocodeMapper.toMatchedFields(raw.documents().get(0));
         } catch (NumberFormatException | NullPointerException e) {
             // Kakao 가 x/y 를 빈 문자열/null/non-numeric 으로 반환 — 명세 §8.1 "외부 API 응답 이상"
-            // 분류로 502 매핑 (catch-all 500 으로 떨어지지 않게). miss 캐시는 안 함 — 일시적
-            // Kakao 응답 손상 가능성이라 다음 호출에서 정상 응답을 받을 기회 보존.
+            // 분류로 502 매핑 (catch-all 500 으로 떨어지지 않게).
             log.warn("Kakao Local 응답 매핑 실패 — x/y 비정상 query={}, cause={}",
                     trimmed, e.getClass().getSimpleName(), e);
             throw new BusinessException(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
         }
-        GeocodeCache saved = upsertMatch(hash, trimmed, m);
+        GeocodeCache saved = upsertWithRetry(
+                () -> cacheUpserter.upsertMatch(hash, trimmed, PROVIDER, m), hash);
         return GeocodeResponse.from(saved);
     }
 
@@ -115,43 +101,22 @@ public class GeocodeService {
         }
     }
 
-    private GeocodeCache upsertMatch(String hash, String queryText, KakaoLocalToGeocodeMapper.MatchedFields m) {
-        Optional<GeocodeCache> existing = cacheRepository.findByQueryHashAndProvider(hash, PROVIDER);
-        if (existing.isPresent()) {
-            existing.get().refreshAsMatch(queryText, m.name(), m.address(), m.lat(), m.lng(), m.placeId());
-            return existing.get();
-        }
+    /**
+     * inner upserter 의 race 충돌은 1회 retry — race window 내 다른 호출이 먼저 INSERT 했다면
+     * findByQueryHashAndProvider 가 즉시 hit 한다. 두 번째 시도도 fail 이면 데이터 불일치 — 500.
+     */
+    private GeocodeCache upsertWithRetry(java.util.function.Supplier<GeocodeCache> action, String hash) {
         try {
-            return cacheRepository.saveAndFlush(
-                    GeocodeCache.match(hash, queryText, PROVIDER,
-                            m.name(), m.address(), m.lat(), m.lng(), m.placeId()));
+            return action.get();
         } catch (DataIntegrityViolationException e) {
-            // race: 동시 INSERT 충돌 — 재조회 후 refresh.
-            log.info("Geocode UPSERT match race — retrying via findByQueryHashAndProvider, cause={}",
-                    e.getMostSpecificCause().getClass().getSimpleName());
-            GeocodeCache row = cacheRepository.findByQueryHashAndProvider(hash, PROVIDER)
-                    .orElseThrow(() -> {
-                        log.error("Geocode UPSERT inconsistency — DataIntegrityViolation but row not found", e);
-                        return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
-                    });
-            row.refreshAsMatch(queryText, m.name(), m.address(), m.lat(), m.lng(), m.placeId());
-            return row;
-        }
-    }
-
-    private void upsertMiss(String hash, String queryText) {
-        Optional<GeocodeCache> existing = cacheRepository.findByQueryHashAndProvider(hash, PROVIDER);
-        if (existing.isPresent()) {
-            existing.get().refreshAsMiss(queryText);
-            return;
-        }
-        try {
-            cacheRepository.saveAndFlush(GeocodeCache.miss(hash, queryText, PROVIDER));
-        } catch (DataIntegrityViolationException e) {
-            log.info("Geocode UPSERT miss race — retrying via findByQueryHashAndProvider, cause={}",
-                    e.getMostSpecificCause().getClass().getSimpleName());
-            cacheRepository.findByQueryHashAndProvider(hash, PROVIDER)
-                    .ifPresent(c -> c.refreshAsMiss(queryText));
+            log.info("Geocode UPSERT race detected — single retry, hash={}, cause={}",
+                    hash, e.getMostSpecificCause().getClass().getSimpleName());
+            try {
+                return action.get();
+            } catch (DataIntegrityViolationException retryEx) {
+                log.error("Geocode UPSERT inconsistency after retry — hash={}", hash, retryEx);
+                throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+            }
         }
     }
 
@@ -162,7 +127,6 @@ public class GeocodeService {
                     .digest(input.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
-            // SHA-256 은 JDK 표준 — 발생 불가. 발생 시 fail-fast.
             throw new IllegalStateException("SHA-256 not available", e);
         }
     }
@@ -176,7 +140,7 @@ public class GeocodeService {
         return status != null && (status == 401 || status == 403);
     }
 
-    /** 명세 §8.1 매핑표 — ExternalApiException → BusinessException. OdsayRouteService 패턴 미러. */
+    /** 명세 §8.1 매핑표 — ExternalApiException → BusinessException. {@link com.todayway.backend.route.OdsayRouteService} 패턴 미러. */
     private static BusinessException mapToBusinessException(ExternalApiException e) {
         if (isAuthError(e)) {
             return new BusinessException(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
