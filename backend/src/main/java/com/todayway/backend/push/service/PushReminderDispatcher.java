@@ -65,12 +65,16 @@ public class PushReminderDispatcher {
     /**
      * 단일 일정의 알림 발송. 본 트랜잭션 안에서 ODsay 재호출 + 발송 + 다음 occurrence 갱신을 모두 수행.
      *
-     * <p>{@link Schedule} 은 다시 fetch — {@link PushScheduler} 가 트랜잭션 밖에서 ID만 추출했기 때문.
-     * fetch 시 {@code @SQLRestriction("deleted_at IS NULL")} 로 soft-deleted 자동 제외.
-     * fetch 와 트랜잭션 시작 사이에 일정이 삭제·갱신되었을 수 있어 {@code reminderAt} 재확인.
+     * <p>{@link Schedule} 은 다시 fetch — {@link PushScheduler} 가 트랜잭션 밖에서 schedule을 추출했기
+     * 때문. fetch 시 {@code @SQLRestriction("deleted_at IS NULL")} 로 soft-deleted 자동 제외.
+     *
+     * <p>{@code expectedReminderAt} 은 scan 시점에 PushScheduler 가 캡처한 값 — 본 트랜잭션 시작 전에
+     * 사용자가 PATCH 로 출발지/도착지/도착 시각을 바꿔 {@code reminderAt} 이 재계산되었으면 skip.
+     * 그렇지 않으면 새 {@code reminderAt} 이 같은 폴링 윈도우 안일 때 한 발송 사이클에 두 번 잡혀
+     * 중복 발송될 수 있다.
      */
     @Transactional
-    public void process(Long scheduleId) {
+    public void process(Long scheduleId, OffsetDateTime expectedReminderAt) {
         Schedule s = scheduleRepository.findById(scheduleId).orElse(null);
         if (s == null) {
             // findById 에 @SQLRestriction("deleted_at IS NULL") 자동 적용 — soft-deleted 도 null 반환.
@@ -85,9 +89,14 @@ public class PushReminderDispatcher {
                     scheduleId);
             return;
         }
+        if (!s.getReminderAt().equals(expectedReminderAt)) {
+            // PATCH 로 reminderAt 이 변경됨 — 새 시각이 같은 윈도우 안이면 다음 폴링에 다시 잡혀 발송됨.
+            log.info("Push reminder skip — reminderAt changed between scan and dispatch (PATCH race?): scheduleId={}",
+                    scheduleId);
+            return;
+        }
 
         boolean refreshOk = refreshOdsayWithRetry(s);
-        String payloadJson = buildPayloadJson(s, refreshOk);
 
         List<PushSubscription> activeSubs = subscriptionRepository.findActiveByMemberId(s.getMemberId());
         if (activeSubs.isEmpty()) {
@@ -95,6 +104,8 @@ public class PushReminderDispatcher {
                     s.getId(), s.getMemberId());
         }
         for (PushSubscription sub : activeSubs) {
+            // payload 의 data.subscriptionId 가 sub 마다 다르므로 sub 단위로 빌드 (멀티 디바이스 식별).
+            String payloadJson = buildPayloadJson(s, sub, refreshOk);
             PushSendResult result = pushSender.send(sub, payloadJson);
             pushLogRepository.save(PushLog.record(
                     sub.getId(), s.getId(), PushType.REMINDER,
@@ -139,11 +150,14 @@ public class PushReminderDispatcher {
         return false;
     }
 
-    private String buildPayloadJson(Schedule s, boolean refreshOk) {
+    private String buildPayloadJson(Schedule s, PushSubscription sub, boolean refreshOk) {
         String externalScheduleId = IdPrefixes.SCHEDULE + s.getScheduleUid();
+        String externalSubscriptionId = IdPrefixes.SUBSCRIPTION + sub.getSubscriptionUid();
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("scheduleId", externalScheduleId);
+        // 명세 §9.1 v1.1.14 — 한 회원 다중 구독 시 SW 가 어느 device 의 push 인지 식별하기 위한 키.
+        data.put("subscriptionId", externalSubscriptionId);
         data.put("type", PUSH_TYPE_REMINDER);
         data.put("url", SCHEDULE_URL_PREFIX + externalScheduleId);
         if (s.getRecommendedDepartureTime() != null) {

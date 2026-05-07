@@ -38,20 +38,21 @@ public class PushScheduler {
         OffsetDateTime now = OffsetDateTime.now(KST);
         OffsetDateTime windowStart = now.minus(Duration.ofMinutes(properties.getWindowMinutes()));
 
-        List<Long> scheduleIds = scheduleRepository.findDueReminders(now, windowStart)
-                .stream()
-                .map(Schedule::getId)
-                .toList();
+        List<Schedule> dueList = scheduleRepository.findDueReminders(now, windowStart);
 
-        if (scheduleIds.isEmpty()) {
+        if (dueList.isEmpty()) {
             log.trace("Push reminder scan — no due");
             return;
         }
-        log.info("Push reminder due: count={}", scheduleIds.size());
+        log.info("Push reminder due: count={}", dueList.size());
 
-        for (Long id : scheduleIds) {
+        for (Schedule s : dueList) {
+            Long id = s.getId();
+            // scan 시점의 reminderAt 을 캡처해 dispatcher 에 전달 — scan↔process 사이에
+            // PATCH 로 reminderAt 이 변경되면 dispatcher 가 skip (race 가드, 명세 §9.1).
+            OffsetDateTime expectedReminderAt = s.getReminderAt();
             try {
-                dispatcher.process(id);
+                dispatcher.process(id, expectedReminderAt);
             } catch (Exception e) {
                 // dispatcher 트랜잭션 rollback 후 다음 일정 처리 계속. 입력은 internal scheduleId 뿐이라
                 // payload/endpoint leak 우려 없음 → e 를 last vararg 로 넘겨 stack trace 출력

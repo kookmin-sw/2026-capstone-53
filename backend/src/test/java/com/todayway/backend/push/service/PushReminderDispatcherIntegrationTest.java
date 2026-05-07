@@ -31,13 +31,16 @@ import java.time.ZoneOffset;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -92,7 +95,7 @@ class PushReminderDispatcherIntegrationTest {
         String externalScheduleId = createOnceSchedule(token);
 
         Long scheduleDbId = schId(externalScheduleId);
-        dispatcher.process(scheduleDbId);
+        dispatch(scheduleDbId);
 
         Schedule s = scheduleRepository.findById(scheduleDbId).orElseThrow();
         assertNull(s.getReminderAt(), "ONCE 일정 발송 후 reminder_at 은 NULL (재발송 방지)");
@@ -102,6 +105,9 @@ class PushReminderDispatcherIntegrationTest {
         assertEquals(1, logs.size());
         assertEquals(PushStatus.SENT, logs.get(0).getStatus());
         assertEquals(201, logs.get(0).getHttpStatus());
+        // 명세 §9.1 v1.1.14 — payload data 에 subscriptionId 포함 (멀티 디바이스 식별).
+        JsonNode payload = objectMapper.readTree(logs.get(0).getPayloadJson());
+        assertEquals(externalSubId, payload.path("data").path("subscriptionId").asText());
 
         Long subDbId = subId(externalSubId);
         PushSubscription sub = subscriptionRepository.findById(subDbId).orElseThrow();
@@ -122,7 +128,7 @@ class PushReminderDispatcherIntegrationTest {
                 .thenReturn(PushSendResult.sent(201));
 
         Long scheduleDbId = schId(externalScheduleId);
-        dispatcher.process(scheduleDbId);
+        dispatch(scheduleDbId);
 
         // odsayMaxAttempts=2 — 폴백 진입 시 총 2회 호출됨 (등록 시 1회 + dispatch 시 추가 2회 = 3회 호출 누적)
         verify(routeService, times(3)).refreshRouteSync(any(Schedule.class));
@@ -153,7 +159,7 @@ class PushReminderDispatcherIntegrationTest {
         String externalScheduleId = createOnceSchedule(token);
 
         Long scheduleDbId = schId(externalScheduleId);
-        dispatcher.process(scheduleDbId);
+        dispatch(scheduleDbId);
 
         List<PushLog> logs = pushLogRepository.findBySubscriptionId(subId(externalSubId));
         assertEquals(1, logs.size());
@@ -185,7 +191,7 @@ class PushReminderDispatcherIntegrationTest {
         OffsetDateTime origArrivalFromDb = before.getArrivalTime();
         OffsetDateTime origUserDepart = before.getUserDepartureTime();
 
-        dispatcher.process(scheduleDbId);
+        dispatcher.process(scheduleDbId, before.getReminderAt());
 
         Schedule s = scheduleRepository.findById(scheduleDbId).orElseThrow();
         assertTrue(s.getArrivalTime().isAfter(origArrival.plusHours(23)),
@@ -203,7 +209,128 @@ class PushReminderDispatcherIntegrationTest {
                 "userDepartureTime delta == arrivalTime delta — silent corruption 방지 (v1.1.13)");
     }
 
+    // ─────────── S5 / Q1 / Q2 회귀 가드 — PR #24 review fix ───────────
+
+    @Test
+    void 멀티_디바이스_한_회원_2개_구독_중_하나_410_나머지_SENT_S5() throws Exception {
+        // 명세 §9.1 — for (PushSubscription sub : activeSubs) sub 별 독립 처리.
+        // 한 sub 의 410 EXPIRED 가 다른 sub 의 발송에 전파되면 안 된다.
+        stubRouteRefreshSuccess(34);
+
+        String token = signupAndGetToken("dispmulti", "멀티");
+        String externalSubId1 = subscribe(token, "https://fcm.googleapis.com/fcm/send/multi-1");
+        String externalSubId2 = subscribe(token, "https://fcm.googleapis.com/fcm/send/multi-2");
+        String externalScheduleId = createOnceSchedule(token);
+
+        Long subDbId1 = subId(externalSubId1);
+        Long subDbId2 = subId(externalSubId2);
+        when(pushSender.send(any(PushSubscription.class), any(String.class)))
+                .thenAnswer(inv -> {
+                    PushSubscription sub = inv.getArgument(0);
+                    return sub.getId().equals(subDbId1)
+                            ? PushSendResult.expired()
+                            : PushSendResult.sent(201);
+                });
+
+        dispatch(schId(externalScheduleId));
+
+        // sub-1 → EXPIRED + revoked
+        List<PushLog> logs1 = pushLogRepository.findBySubscriptionId(subDbId1);
+        assertEquals(1, logs1.size());
+        assertEquals(PushStatus.EXPIRED, logs1.get(0).getStatus());
+        assertFalse(subscriptionRepository.findById(subDbId1).orElseThrow().isActive(),
+                "410 받은 sub-1 은 revoke");
+
+        // sub-2 → SENT + 활성 유지
+        List<PushLog> logs2 = pushLogRepository.findBySubscriptionId(subDbId2);
+        assertEquals(1, logs2.size());
+        assertEquals(PushStatus.SENT, logs2.get(0).getStatus());
+        assertTrue(subscriptionRepository.findById(subDbId2).orElseThrow().isActive(),
+                "정상 발송된 sub-2 는 활성 유지");
+
+        // 명세 §9.1 v1.1.14 — payload data.subscriptionId 가 sub 마다 다름 (멀티 디바이스 식별).
+        JsonNode p1 = objectMapper.readTree(logs1.get(0).getPayloadJson());
+        JsonNode p2 = objectMapper.readTree(logs2.get(0).getPayloadJson());
+        assertEquals(externalSubId1, p1.path("data").path("subscriptionId").asText());
+        assertEquals(externalSubId2, p2.path("data").path("subscriptionId").asText());
+    }
+
+    @Test
+    void PATCH_dispatch_race__reminderAt_변경시_dispatcher_skip_Q1() throws Exception {
+        // 명세 §9.1 v1.1.14 — scan↔dispatch 사이 PATCH 로 reminderAt 이 변경되면 dispatcher skip.
+        // 기존 reminderAt 은 새 시각으로 옮겨가 다음 폴링 사이클에 다시 잡혀 발송됨 (중복 방지).
+        when(pushSender.send(any(PushSubscription.class), any(String.class)))
+                .thenReturn(PushSendResult.sent(201));
+
+        String token = signupAndGetToken("disprace", "race");
+        String externalSubId = subscribe(token, "https://fcm.googleapis.com/fcm/send/race");
+        String externalScheduleId = createOnceSchedule(token);
+        Long scheduleDbId = schId(externalScheduleId);
+
+        // scan 시점의 reminderAt 캡처
+        OffsetDateTime expected = scheduleRepository.findById(scheduleDbId).orElseThrow().getReminderAt();
+
+        // 사용자가 PATCH 로 arrivalTime 을 미래로 변경 → reminderAt 재계산
+        OffsetDateTime newArrival = OffsetDateTime.now(KST).plusHours(3);
+        String patchBody = "{\"arrivalTime\": \"" + newArrival + "\"}";
+        mockMvc.perform(patch("/api/v1/schedules/" + externalScheduleId)
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(patchBody))
+                .andExpect(status().isOk());
+
+        // dispatcher 가 옛 reminderAt 으로 호출 → race 가드가 skip
+        dispatcher.process(scheduleDbId, expected);
+
+        // pushSender 호출 0건 + PushLog 0건
+        verify(pushSender, never()).send(any(PushSubscription.class), any(String.class));
+        Long subDbId = subId(externalSubId);
+        List<PushLog> logs = pushLogRepository.findBySubscriptionId(subDbId);
+        assertEquals(0, logs.size(), "PATCH race 시 dispatcher skip — PushLog 미생성");
+    }
+
+    @Test
+    void WEEKLY_루틴_advance_지정요일_userDepartureTime_delta_shift_S5() throws Exception {
+        // 명세 §9.2 — WEEKLY 는 daysOfWeek 중 가장 가까운 미래 요일로 advance.
+        // DAILY 만 검증하던 기존 회귀 가드의 사각지대 보강.
+        stubRouteRefreshSuccess(20);
+        when(pushSender.send(any(PushSubscription.class), any(String.class)))
+                .thenReturn(PushSendResult.sent(201));
+
+        String token = signupAndGetToken("dispweek", "주간");
+        subscribe(token, "https://fcm.googleapis.com/fcm/send/week");
+
+        OffsetDateTime origArrival = OffsetDateTime.now(KST).plusMinutes(60);
+        String externalScheduleId = createWeeklySchedule(token, origArrival);
+        Long scheduleDbId = schId(externalScheduleId);
+        Schedule before = scheduleRepository.findById(scheduleDbId).orElseThrow();
+        OffsetDateTime origArrivalFromDb = before.getArrivalTime();
+        OffsetDateTime origUserDepart = before.getUserDepartureTime();
+
+        dispatcher.process(scheduleDbId, before.getReminderAt());
+
+        Schedule s = scheduleRepository.findById(scheduleDbId).orElseThrow();
+        assertTrue(s.getArrivalTime().isAfter(origArrival),
+                "WEEKLY advance 후 arrivalTime 은 미래");
+        java.time.DayOfWeek dow = s.getArrivalTime().atZoneSameInstant(KST).getDayOfWeek();
+        assertTrue(dow == java.time.DayOfWeek.MONDAY
+                        || dow == java.time.DayOfWeek.WEDNESDAY
+                        || dow == java.time.DayOfWeek.FRIDAY,
+                "WEEKLY advance 후 routineDaysOfWeek 안의 요일이어야 함, 실제=" + dow);
+
+        long arrivalDeltaSec = java.time.Duration.between(origArrivalFromDb, s.getArrivalTime()).getSeconds();
+        long userDepartDeltaSec = java.time.Duration.between(origUserDepart, s.getUserDepartureTime()).getSeconds();
+        assertEquals(arrivalDeltaSec, userDepartDeltaSec,
+                "WEEKLY advance 도 userDepartureTime 동일 delta shift (v1.1.13 정합)");
+    }
+
     // ───── helpers ─────
+
+    /** scan↔dispatch race 가드 시그니처(Q1 v1.1.14) — 현 reminderAt 을 캡처해 dispatcher 호출. */
+    private void dispatch(Long scheduleDbId) {
+        OffsetDateTime expected = scheduleRepository.findById(scheduleDbId).orElseThrow().getReminderAt();
+        dispatcher.process(scheduleDbId, expected);
+    }
 
     private void stubRouteRefreshSuccess(int durationMinutes) {
         when(routeService.refreshRouteSync(any(Schedule.class))).thenAnswer(inv -> {
@@ -246,6 +373,11 @@ class PushReminderDispatcherIntegrationTest {
 
     private String createDailySchedule(String token, OffsetDateTime arrival) throws Exception {
         return createSchedule(token, arrival, "\"routineRule\": { \"type\": \"DAILY\" },");
+    }
+
+    private String createWeeklySchedule(String token, OffsetDateTime arrival) throws Exception {
+        return createSchedule(token, arrival,
+                "\"routineRule\": { \"type\": \"WEEKLY\", \"daysOfWeek\": [\"MON\", \"WED\", \"FRI\"] },");
     }
 
     private String createSchedule(String token, OffsetDateTime arrival, String routineRuleJsonField)

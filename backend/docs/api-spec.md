@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.13-MVP
-> **최종 수정**: 2026-05-07 (이상진 — §9.2 보강 (userDepartureTime delta shift), §12.5/§12.6 완료 표시. PR #24 셀프리뷰 후속.)
+> **버전**: v1.1.14-MVP
+> **최종 수정**: 2026-05-07 (이상진 — §9.1 payload `data.subscriptionId` 추가 + scan↔dispatch race 가드 명시. PR #24 외부 리뷰 (황찬우) Q1·Q2 흡수.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -30,6 +30,7 @@
 | **v1.1.11** | **2026-05-04** | **§6.1 응답 예시 WALK `from`/`to` 제거 — `RouteSegment` record invariant + `@JsonInclude(NON_NULL)` 정합 cleanup. 코드 동작 변경 X (record가 WALK에서 reject + Jackson이 null drop).** |
 | **v1.1.12** | **2026-05-07** | **§12.3 분담표 갱신 — `push` 도메인 황찬우→이상진 위임 (issue #9 본문 + 황찬우 직접 위임 발화 확정). `route` 완료 표시. Step 7 PR(`feat/backend-step7-push`)에 §7.1·§7.2·§9.1·§9.2 글루·#9 cascade 동반.** |
 | **v1.1.13** | **2026-05-07** | **§9.2 보강 — `userDepartureTime` delta shift 명시 (silent corruption 방지: routine advance 후 `departureAdvice` 정합). §12.5/§12.6 완료 표시. PR #24 셀프리뷰 후속 (이상진).** |
+| **v1.1.14** | **2026-05-07** | **§9.1 payload `data.subscriptionId` 추가 (멀티 디바이스 식별 — SW 가 어느 device 의 push 인지 분기 가능). 동작 흐름에 scan↔dispatch race 가드 명시 — PATCH 로 `reminder_at` 변경 시 dispatcher skip (중복 발송 방지). PR #24 외부 리뷰 (황찬우) Q1·Q2 흡수.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -1100,13 +1101,13 @@ WHERE s.reminder_at <= NOW()
 
 #### 동작 흐름
 
-1. 매칭된 일정 조회 (위 쿼리)
-2. **각 일정에 대해 ODsay 재호출** (실시간 경로/소요시간 확보)
+1. 매칭된 일정 조회 (위 쿼리). scan 결과의 `(schedule_id, reminder_at)` tuple 을 dispatcher 에 그대로 전달.
+2. **dispatcher 트랜잭션 진입 시 race 가드 (v1.1.14)** — `Schedule` 재 fetch 후 현재 `reminder_at` 이 scan 시점에 캡처한 값과 일치하는지 비교. 다르면 (사용자 PATCH 로 `arrival_time`/출발지/도착지 변경 → `reminder_at` 재계산) 본 사이클은 skip — 새 `reminder_at` 이 같은 폴링 윈도우 안이면 다음 폴링 사이클에 다시 잡혀 발송됨. soft-deleted 또는 `reminder_at = NULL` 도 같은 분기로 skip.
+3. **각 일정에 대해 ODsay 재호출** (실시간 경로/소요시간 확보)
    - 재시도 정책: 최대 2회 시도, 1초 간격
    - 성공 시: `route_summary_json`, `estimated_duration_minutes`, `recommended_departure_time`, `departure_advice`, `route_calculated_at` 갱신
    - 실패 시 (2회 모두 실패): **폴백** — 기존 `route_summary_json` 사용 (등록/마지막 갱신 시점 스냅샷). DB 컬럼은 갱신하지 않음.
-3. 푸시 페이로드 생성 (재호출 성공 시 갱신된 값 기반, 실패 시 기존 값 + 폴백 플래그)
-4. 회원의 `push_subscription` 중 `revoked_at IS NULL`인 모든 구독에 푸시 발송
+4. 회원의 `push_subscription` 중 `revoked_at IS NULL`인 모든 구독에 대해 **sub 단위로 페이로드 빌드 + 발송** — `data.subscriptionId` 가 sub 마다 다르므로 sub 별 빌드. 한 sub 의 410 EXPIRED 가 다른 sub 의 발송에 전파되지 않는다 (`for` 루프 sub 별 독립 처리).
 5. 발송 결과를 `push_log`에 기록 (`status`, `http_status`, `payload_json`, `schedule_id`, `subscription_id`). 폴백 여부는 `payload_json.fallback: true`로 표시.
 6. 루틴 일정인 경우, 다음 occurrence로 `arrival_time`, `recommended_departure_time`, `reminder_at` 갱신 (다음 발생일 계산 시점에는 ODsay 재호출 X — 9.2 참조)
 7. 단발성 일정 (`routine_type = 'ONCE'` 또는 NULL)은 `reminder_at = NULL`로 설정 (재발송 방지)
@@ -1122,6 +1123,7 @@ WHERE s.reminder_at <= NOW()
   "body": "5분 뒤 출발하세요 (8:25, 예상 소요시간 35분)",
   "data": {
     "scheduleId": "sch_abc123",
+    "subscriptionId": "sub_def456",
     "type": "REMINDER",
     "url": "/schedules/sch_abc123",
     "recommendedDepartureTime": "2026-04-21T08:25:00+09:00",
@@ -1138,6 +1140,7 @@ WHERE s.reminder_at <= NOW()
   "body": "5분 뒤 출발하세요 (8:25, 예상 소요시간 35분)",
   "data": {
     "scheduleId": "sch_abc123",
+    "subscriptionId": "sub_def456",
     "type": "REMINDER",
     "url": "/schedules/sch_abc123",
     "recommendedDepartureTime": "2026-04-21T08:25:00+09:00",
@@ -1147,6 +1150,8 @@ WHERE s.reminder_at <= NOW()
   }
 }
 ```
+
+> `data.subscriptionId` (v1.1.14 추가) — 한 회원이 다중 구독을 가질 수 있고 (PC + 모바일 등) 서비스 워커가 어느 device 의 푸시인지 분기해야 할 때 사용. payload 는 sub 단위로 빌드되어 sub 마다 다른 `subscriptionId` 가 들어간다.
 
 #### 동시성/내구성 고려
 - 단일 인스턴스 가정 (MVP)
