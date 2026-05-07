@@ -12,9 +12,12 @@ import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.method.support.ModelAndViewContainer;
 
 /**
- * @CurrentMember 가 붙은 String 파라미터에 SecurityContext의 raw memberUid 주입.
- * DB 호출 0회 — Authentication.getName() 만 호출. 멤버 존재 검증은 Service의 findByMemberUid 책임.
+ * {@link CurrentMember} 가 붙은 String 파라미터에 SecurityContext 의 raw memberUid 주입.
+ * DB 호출 0회 — Authentication.getPrincipal() 만 사용. 멤버 존재 검증은 Service 의 findByMemberUid 책임.
  * 명세 §1.7: JWT sub claim = prefix 없는 raw ULID 26자.
+ *
+ * <p>{@code @CurrentMember(required = false)} 인 경우 미인증 시 {@code null} 주입 — 명세 §4.1
+ * {@code GET /main} 게스트 허용 endpoint 전용. 디폴트 ({@code required = true}) 는 미인증 시 401.
  */
 @Component
 public class CurrentMemberArgumentResolver implements HandlerMethodArgumentResolver {
@@ -31,9 +34,13 @@ public class CurrentMemberArgumentResolver implements HandlerMethodArgumentResol
                                   NativeWebRequest webRequest,
                                   WebDataBinderFactory binderFactory) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !(auth.getPrincipal() instanceof String memberUid) || memberUid.isBlank()) {
-            throw new BusinessException(ErrorCode.UNAUTHORIZED);
+        if (auth != null && auth.getPrincipal() instanceof String memberUid && !memberUid.isBlank()) {
+            return memberUid;
         }
-        return memberUid;
+        CurrentMember annotation = parameter.getParameterAnnotation(CurrentMember.class);
+        if (annotation != null && !annotation.required()) {
+            return null;
+        }
+        throw new BusinessException(ErrorCode.UNAUTHORIZED);
     }
 }
