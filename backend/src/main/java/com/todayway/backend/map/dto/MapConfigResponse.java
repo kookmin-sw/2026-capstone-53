@@ -14,10 +14,10 @@ public record MapConfigResponse(
 
     public static MapConfigResponse from(MapConfigProperties p) {
         return new MapConfigResponse(
-                p.getProvider(),
-                p.getDefaultZoom(),
-                new Coordinate(p.getDefaultCenter().getLat(), p.getDefaultCenter().getLng()),
-                p.getTileStyle()
+                p.provider(),
+                p.defaultZoom(),
+                new Coordinate(p.defaultCenter().lat(), p.defaultCenter().lng()),
+                p.tileStyle()
         );
     }
 }

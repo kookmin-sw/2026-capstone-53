@@ -7,6 +7,7 @@ import com.todayway.backend.external.kakao.KakaoLocalClient;
 import com.todayway.backend.external.kakao.dto.KakaoLocalSearchResponse;
 import com.todayway.backend.geocode.domain.GeocodeCache;
 import com.todayway.backend.geocode.domain.GeocodeCacheProvider;
+import com.todayway.backend.geocode.domain.MatchedFields;
 import com.todayway.backend.geocode.dto.GeocodeRequest;
 import com.todayway.backend.geocode.dto.GeocodeResponse;
 import com.todayway.backend.geocode.repository.GeocodeCacheRepository;
@@ -71,7 +72,7 @@ public class GeocodeService {
             throw new BusinessException(ErrorCode.GEOCODE_NO_MATCH);
         }
 
-        KakaoLocalToGeocodeMapper.MatchedFields m;
+        MatchedFields m;
         try {
             m = KakaoLocalToGeocodeMapper.toMatchedFields(raw.documents().get(0));
         } catch (NumberFormatException | NullPointerException e) {

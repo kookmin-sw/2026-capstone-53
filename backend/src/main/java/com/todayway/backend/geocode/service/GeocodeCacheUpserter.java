@@ -2,6 +2,7 @@ package com.todayway.backend.geocode.service;
 
 import com.todayway.backend.geocode.domain.GeocodeCache;
 import com.todayway.backend.geocode.domain.GeocodeCacheProvider;
+import com.todayway.backend.geocode.domain.MatchedFields;
 import com.todayway.backend.geocode.repository.GeocodeCacheRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -32,15 +33,13 @@ public class GeocodeCacheUpserter {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public GeocodeCache upsertMatch(String queryHash, String queryText, GeocodeCacheProvider provider,
-                                    KakaoLocalToGeocodeMapper.MatchedFields m) {
+                                    MatchedFields fields) {
         Optional<GeocodeCache> existing = repository.findByQueryHashAndProvider(queryHash, provider);
         if (existing.isPresent()) {
-            existing.get().refreshAsMatch(queryText, m.name(), m.address(), m.lat(), m.lng(), m.placeId());
+            existing.get().refreshAsMatch(queryText, fields);
             return existing.get();
         }
-        return repository.saveAndFlush(GeocodeCache.match(
-                queryHash, queryText, provider,
-                m.name(), m.address(), m.lat(), m.lng(), m.placeId()));
+        return repository.saveAndFlush(GeocodeCache.match(queryHash, queryText, provider, fields));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

@@ -74,7 +74,7 @@ public class MainService {
         if (nearest != null) {
             return new Coordinate(nearest.origin().lat(), nearest.origin().lng());
         }
-        MapConfigProperties.DefaultCenter dc = mapConfigProperties.getDefaultCenter();
-        return new Coordinate(dc.getLat(), dc.getLng());
+        MapConfigProperties.DefaultCenter dc = mapConfigProperties.defaultCenter();
+        return new Coordinate(dc.lat(), dc.lng());
     }
 }

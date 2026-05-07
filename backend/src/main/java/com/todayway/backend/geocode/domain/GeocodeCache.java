@@ -87,11 +87,11 @@ public class GeocodeCache {
         this.placeId = placeId;
     }
 
-    /** 매칭된 결과 캐시 신규 생성. */
+    /** 매칭된 결과 캐시 신규 생성. {@link MatchedFields} 로 9-positional-arg 의 swap 위험 차단. */
     public static GeocodeCache match(String queryHash, String queryText, GeocodeCacheProvider provider,
-                                     String name, String address,
-                                     BigDecimal lat, BigDecimal lng, String placeId) {
-        return new GeocodeCache(queryHash, queryText, provider, true, name, address, lat, lng, placeId);
+                                     MatchedFields fields) {
+        return new GeocodeCache(queryHash, queryText, provider, true,
+                fields.name(), fields.address(), fields.lat(), fields.lng(), fields.placeId());
     }
 
     /** Kakao documents 빈 배열 응답을 캐시 (반복 미스 query 의 외부 API 호출 차단). */
@@ -107,15 +107,14 @@ public class GeocodeCache {
     }
 
     /** TTL 만료 후 재조회 결과로 row 갱신. {@code cachedAt} 도 NOW 로 reset. */
-    public void refreshAsMatch(String queryText, String name, String address,
-                               BigDecimal lat, BigDecimal lng, String placeId) {
+    public void refreshAsMatch(String queryText, MatchedFields fields) {
         this.queryText = queryText;
         this.matched = true;
-        this.name = name;
-        this.address = address;
-        this.lat = lat;
-        this.lng = lng;
-        this.placeId = placeId;
+        this.name = fields.name();
+        this.address = fields.address();
+        this.lat = fields.lat();
+        this.lng = fields.lng();
+        this.placeId = fields.placeId();
         this.cachedAt = OffsetDateTime.now(KST);
     }
 
