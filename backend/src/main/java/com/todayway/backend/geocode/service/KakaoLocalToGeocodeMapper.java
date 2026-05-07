@@ -24,6 +24,13 @@ final class KakaoLocalToGeocodeMapper {
     private KakaoLocalToGeocodeMapper() {
     }
 
+    /**
+     * @throws NumberFormatException Kakao 응답의 {@code x}/{@code y} 가 numeric 으로 파싱 불가
+     *                               (외부 응답 형식 위반). caller {@link GeocodeService#geocode}
+     *                               가 catch 후 명세 §8.1 매핑표 502 (EXTERNAL_ROUTE_API_FAILED)
+     *                               으로 변환. implicit contract 명시 — caller 변경 시 catch 누락이
+     *                               silent 500 으로 떨어지지 않도록 컴파일러 도움 받기.
+     */
     static MatchedFields toMatchedFields(KakaoLocalSearchResponse.Document doc) {
         return new MatchedFields(
                 doc.placeName(),
