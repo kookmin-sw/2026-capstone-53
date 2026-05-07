@@ -12,8 +12,8 @@ import com.todayway.backend.common.exception.BusinessException;
 import com.todayway.backend.common.exception.ErrorCode;
 import com.todayway.backend.common.jwt.JwtProperties;
 import com.todayway.backend.common.jwt.JwtProvider;
-import com.todayway.backend.common.util.MemberIdFormatter;
 import com.todayway.backend.common.util.Sha256Hasher;
+import com.todayway.backend.common.web.IdPrefixes;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -58,7 +58,7 @@ public class AuthService {
         saveRefreshToken(member.getId(), refreshToken);
 
         return new SignupResponse(
-                MemberIdFormatter.format(member.getMemberUid()),
+                IdPrefixes.MEMBER + member.getMemberUid(),
                 member.getLoginId(),
                 member.getNickname(),
                 accessToken,
@@ -81,7 +81,7 @@ public class AuthService {
         saveRefreshToken(member.getId(), refreshToken);
 
         return new LoginResponse(
-                MemberIdFormatter.format(member.getMemberUid()),
+                IdPrefixes.MEMBER + member.getMemberUid(),
                 accessToken,
                 refreshToken
         );

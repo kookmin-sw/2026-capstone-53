@@ -3,42 +3,37 @@ package com.todayway.backend.push.service;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todayway.backend.common.web.IdPrefixes;
-import com.todayway.backend.push.domain.PushLog;
 import com.todayway.backend.push.domain.PushSubscription;
-import com.todayway.backend.push.domain.PushType;
-import com.todayway.backend.push.repository.PushLogRepository;
-import com.todayway.backend.push.repository.PushSubscriptionRepository;
 import com.todayway.backend.push.sender.PushSendResult;
 import com.todayway.backend.push.sender.PushSender;
 import com.todayway.backend.route.RouteService;
-import com.todayway.backend.schedule.domain.RoutineCalculator;
-import com.todayway.backend.schedule.domain.RoutineType;
 import com.todayway.backend.schedule.domain.Schedule;
-import com.todayway.backend.schedule.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
- * 한 일정의 알림 발송 처리 (트랜잭션 boundary). 명세 §9.1 흐름 정합:
+ * 한 일정의 알림 발송 orchestrator. 명세 §9.1 v1.1.16 트랜잭션 분리 패턴:
  * <ol>
- *   <li>ODsay 재조회 — 총 {@link PushSchedulerProperties#getOdsayMaxAttempts()} 회 시도 (첫 호출 포함), 실패 시 폴백 모드.</li>
- *   <li>페이로드 빌드 — 명세 §9.1 형식. 폴백 시 {@code data.fallback=true} + {@code fallbackReason}.</li>
- *   <li>회원 활성 구독 모두에 발송 + {@link PushLog} 기록. 410 Gone → {@link PushSubscription#revoke()}.</li>
- *   <li>다음 occurrence — ONCE/null → {@link Schedule#clearReminderAt()},
- *       루틴 → {@link RoutineCalculator}로 next, 없으면 종결.</li>
+ *   <li>{@link PushReminderTransactional#loadContext} (read tx) — race 가드 + activeSubs.</li>
+ *   <li>본 클래스 (트랜잭션 X) — ODsay 재호출 (최대 2회 + 1초 sleep, 최악 11초). 실패 시 폴백 모드.</li>
+ *   <li>본 클래스 (트랜잭션 X) — sub 별 페이로드 빌드 + push provider IO. 명세 §9.1 v1.1.14 의 sub 별
+ *       {@code data.subscriptionId} 차별화.</li>
+ *   <li>{@link PushReminderTransactional#persistAndAdvance} (write tx) — schedule reload + race
+ *       재검증 + ODsay 결과 적용 + PushLog INSERT + 410 revoke + ONCE/루틴 종결/advance.</li>
  * </ol>
  *
  * <p>{@link PushScheduler} 가 per-iteration {@code try/catch} 로 본 메서드를 감싸서 한 일정 실패가
- * 다른 일정 처리에 전파되지 않게 한다. 트랜잭션 boundary는 본 클래스 — {@link PushScheduler} 는 X.
+ * 다른 일정 처리에 전파되지 않게 한다.
  */
 @Service
 @RequiredArgsConstructor
@@ -53,64 +48,46 @@ public class PushReminderDispatcher {
     private static final String SCHEDULE_URL_PREFIX = "/schedules/";
     private static final String PUSH_TYPE_REMINDER = "REMINDER";
 
-    private final ScheduleRepository scheduleRepository;
-    private final PushSubscriptionRepository subscriptionRepository;
-    private final PushLogRepository pushLogRepository;
+    private final PushReminderTransactional transactional;
     private final RouteService routeService;
-    private final RoutineCalculator routineCalculator;
     private final PushSender pushSender;
     private final PushSchedulerProperties properties;
     private final ObjectMapper objectMapper;
 
     /**
-     * 단일 일정의 알림 발송. 본 트랜잭션 안에서 ODsay 재호출 + 발송 + 다음 occurrence 갱신을 모두 수행.
+     * 단일 일정의 알림 발송 orchestrator. 트랜잭션 X — ODsay/Push provider IO 가 한 트랜잭션에 묶이지
+     * 않도록 짧은 read/write 트랜잭션 두 번을 {@link PushReminderTransactional} 빈에 위임.
      *
-     * <p>{@link Schedule} 은 다시 fetch — {@link PushScheduler} 가 트랜잭션 밖에서 ID만 추출했기 때문.
-     * fetch 시 {@code @SQLRestriction("deleted_at IS NULL")} 로 soft-deleted 자동 제외.
-     * fetch 와 트랜잭션 시작 사이에 일정이 삭제·갱신되었을 수 있어 {@code reminderAt} 재확인.
+     * <p>{@code expectedReminderAt} 은 scan 시점에 {@link PushScheduler} 가 캡처한 값 — race 가드.
      */
-    @Transactional
-    public void process(Long scheduleId) {
-        Schedule s = scheduleRepository.findById(scheduleId).orElse(null);
-        if (s == null) {
-            // soft-delete 만 사용하는 codebase 에서 row 가 사라지는 것은 비정상 — 명시적 WARN.
-            log.warn("Push reminder skip — Schedule disappeared between scan and dispatch: scheduleId={}",
-                    scheduleId);
+    public void process(Long scheduleId, OffsetDateTime expectedReminderAt) {
+        Optional<DispatchContext> ctxOpt = transactional.loadContext(scheduleId, expectedReminderAt);
+        if (ctxOpt.isEmpty()) {
             return;
         }
-        if (s.getReminderAt() == null) {
-            // 동시 PATCH/dispatch 또는 직전 advance 로 reminderAt 이 이미 정리됨 — 정상 race.
-            log.debug("Push reminder skip — reminderAt cleared (race or already processed): scheduleId={}",
-                    scheduleId);
-            return;
-        }
+        DispatchContext ctx = ctxOpt.get();
 
-        boolean refreshOk = refreshOdsayWithRetry(s);
-        String payloadJson = buildPayloadJson(s, refreshOk);
+        // 트랜잭션 밖 — ODsay (최악 11초 블로킹). detached entity 에 mutate 후 결과를 snapshot 으로 캡처.
+        RouteRefreshSnapshot snap = refreshOdsayWithRetry(ctx.schedule());
 
-        List<PushSubscription> activeSubs = subscriptionRepository.findActiveByMemberId(s.getMemberId());
+        // 트랜잭션 밖 — sub 별 발송 IO. payload 의 data.subscriptionId 가 sub 마다 다르므로 sub 단위 빌드.
+        List<PushSubscription> activeSubs = ctx.activeSubs();
         if (activeSubs.isEmpty()) {
             log.info("Push reminder no active subscription: scheduleId={}, memberId={}",
-                    s.getId(), s.getMemberId());
+                    ctx.schedule().getId(), ctx.schedule().getMemberId());
         }
+        List<SendOutcome> outcomes = new ArrayList<>(activeSubs.size());
         for (PushSubscription sub : activeSubs) {
+            String payloadJson = buildPayloadJson(ctx.schedule(), sub, snap);
             PushSendResult result = pushSender.send(sub, payloadJson);
-            pushLogRepository.save(PushLog.record(
-                    sub.getId(), s.getId(), PushType.REMINDER,
-                    result.status(), result.httpStatus(), payloadJson));
-            if (result.isExpired()) {
-                // 410 Gone 자동 cleanup — 운영 관측성을 위해 dispatcher 레벨에서도 INFO 로깅
-                // (PushSender 에서 같은 이벤트를 INFO 로 남기지만 cause 가 다른 호출자 추적에 유용).
-                log.info("Push subscription auto-revoked due to 410 Gone: subscriptionUid={}",
-                        sub.getSubscriptionUid());
-                sub.revoke();
-            }
+            outcomes.add(new SendOutcome(sub.getId(), result, payloadJson));
         }
 
-        advanceOrTerminate(s);
+        // 짧은 write 트랜잭션 — schedule reload + race 재검증 + 결과 persist + advance.
+        transactional.persistAndAdvance(scheduleId, expectedReminderAt, snap, outcomes);
     }
 
-    private boolean refreshOdsayWithRetry(Schedule s) {
+    private RouteRefreshSnapshot refreshOdsayWithRetry(Schedule s) {
         int max = properties.getOdsayMaxAttempts();
         for (int attempt = 1; attempt <= max; attempt++) {
             if (attempt > 1) {
@@ -119,12 +96,18 @@ public class PushReminderDispatcher {
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     log.warn("Push reminder ODsay retry interrupted: scheduleId={}", s.getId());
-                    return false;
+                    return RouteRefreshSnapshot.failed();
                 }
             }
             try {
                 if (routeService.refreshRouteSync(s)) {
-                    return true;
+                    // refreshRouteSync 가 detached entity 를 mutate 한 결과를 snapshot 으로 캡처 —
+                    // write 트랜잭션이 reload 한 entity 에 다시 setter 호출하기 위함.
+                    return new RouteRefreshSnapshot(true,
+                            s.getEstimatedDurationMinutes(),
+                            s.getRecommendedDepartureTime(),
+                            s.getRouteSummaryJson(),
+                            s.getRouteCalculatedAt());
                 }
                 log.debug("ODsay refresh returned false: scheduleId={}, attempt={}/{}",
                         s.getId(), attempt, max);
@@ -135,30 +118,37 @@ public class PushReminderDispatcher {
                         s.getId(), attempt, max, e);
             }
         }
-        return false;
+        return RouteRefreshSnapshot.failed();
     }
 
-    private String buildPayloadJson(Schedule s, boolean refreshOk) {
+    private String buildPayloadJson(Schedule s, PushSubscription sub, RouteRefreshSnapshot snap) {
         String externalScheduleId = IdPrefixes.SCHEDULE + s.getScheduleUid();
+        String externalSubscriptionId = IdPrefixes.SUBSCRIPTION + sub.getSubscriptionUid();
+
+        // refreshOk 시 snapshot 의 갱신값, 실패 시 detached schedule 의 기존 값 (마지막 성공 스냅샷).
+        OffsetDateTime recDeparture = snap.refreshOk() ? snap.recommendedDepartureTime() : s.getRecommendedDepartureTime();
+        Integer duration = snap.refreshOk() ? snap.estimatedDurationMinutes() : s.getEstimatedDurationMinutes();
 
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("scheduleId", externalScheduleId);
+        // 명세 §9.1 v1.1.14 — 한 회원 다중 구독 시 SW 가 어느 device 의 push 인지 식별하기 위한 키.
+        data.put("subscriptionId", externalSubscriptionId);
         data.put("type", PUSH_TYPE_REMINDER);
         data.put("url", SCHEDULE_URL_PREFIX + externalScheduleId);
-        if (s.getRecommendedDepartureTime() != null) {
-            data.put("recommendedDepartureTime", s.getRecommendedDepartureTime().format(ISO_OFFSET_SECONDS));
+        if (recDeparture != null) {
+            data.put("recommendedDepartureTime", recDeparture.format(ISO_OFFSET_SECONDS));
         }
-        if (s.getEstimatedDurationMinutes() != null) {
-            data.put("estimatedDurationMinutes", s.getEstimatedDurationMinutes());
+        if (duration != null) {
+            data.put("estimatedDurationMinutes", duration);
         }
-        data.put("fallback", !refreshOk);
-        if (!refreshOk) {
+        data.put("fallback", !snap.refreshOk());
+        if (!snap.refreshOk()) {
             data.put("fallbackReason", FALLBACK_REASON_ODSAY);
         }
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("title", s.getTitle());
-        payload.put("body", buildBody(s));
+        payload.put("body", buildBody(s, recDeparture, duration));
         payload.put("data", data);
 
         try {
@@ -171,30 +161,11 @@ public class PushReminderDispatcher {
     }
 
     /** 명세 §9.1 body 예시: "5분 뒤 출발하세요 (8:25, 예상 소요시간 35분)". */
-    private static String buildBody(Schedule s) {
+    private static String buildBody(Schedule s, OffsetDateTime recDeparture, Integer duration) {
         Integer offsetMin = s.getReminderOffsetMinutes();
-        OffsetDateTime depart = s.getRecommendedDepartureTime();
-        Integer duration = s.getEstimatedDurationMinutes();
-
-        String hhmm = depart != null ? depart.atZoneSameInstant(KST).toLocalTime().format(HHMM) : "?";
+        String hhmm = recDeparture != null ? recDeparture.atZoneSameInstant(KST).toLocalTime().format(HHMM) : "?";
         String durationStr = duration != null ? duration + "분" : "계산 중";
         String offsetStr = offsetMin != null ? offsetMin + "분 뒤" : "곧";
         return String.format("%s 출발하세요 (%s, 예상 소요시간 %s)", offsetStr, hhmm, durationStr);
-    }
-
-    private void advanceOrTerminate(Schedule s) {
-        RoutineType type = s.getRoutineType();
-        if (type == null || type == RoutineType.ONCE) {
-            s.clearReminderAt();
-            return;
-        }
-        OffsetDateTime nextArrival = routineCalculator.calculateNextOccurrence(s);
-        if (nextArrival == null) {
-            log.warn("Routine next occurrence not found — terminating reminder: scheduleId={}, type={}",
-                    s.getId(), type);
-            s.clearReminderAt();
-            return;
-        }
-        s.advanceToNextOccurrence(nextArrival);
     }
 }

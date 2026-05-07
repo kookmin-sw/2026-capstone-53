@@ -4,6 +4,7 @@ import com.todayway.backend.push.domain.PushSubscription;
 import nl.martijndwars.webpush.Notification;
 import nl.martijndwars.webpush.PushService;
 import org.apache.http.HttpResponse;
+import org.apache.http.util.EntityUtils;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +21,7 @@ import java.security.Security;
  *   <li>BouncyCastle Provider 1회 등록 (클래스 로드 시 static init — Spring lifecycle 이전)</li>
  *   <li>{@link VapidProperties} 기반 {@code PushService} lazy 초기화 (publicKey/privateKey 미설정 시 {@link IllegalStateException})</li>
  *   <li>HTTP 응답 코드 → {@link PushSendResult} 매핑 (2xx = SENT, 410 = EXPIRED, 그 외 + 예외 = FAILED)</li>
+ *   <li>{@link HttpResponse} entity 명시적 consume (connection pool 반환 — leak 차단)</li>
  *   <li>checked exception 다수 래핑 (라이브러리가 IOException/GeneralSecurityException/JoseException/InterruptedException 등 던짐)</li>
  * </ul>
  *
@@ -52,6 +54,7 @@ public class PushSender {
      */
     public PushSendResult send(PushSubscription subscription, String payloadJson) {
         PushService ps = getOrCreatePushService();
+        HttpResponse response = null;
         try {
             Notification notification = new Notification(
                     subscription.getEndpoint(),
@@ -59,7 +62,7 @@ public class PushSender {
                     subscription.getAuthKey(),
                     payloadJson
             );
-            HttpResponse response = ps.send(notification);
+            response = ps.send(notification);
             int code = response.getStatusLine().getStatusCode();
 
             if (code == 410) {
@@ -77,11 +80,19 @@ public class PushSender {
             log.warn("Push send interrupted: subscriptionUid={}", subscription.getSubscriptionUid());
             return PushSendResult.failed(null);
         } catch (Exception e) {
-            // 보안: e.getMessage() 는 endpoint/payload 일부 포함 가능하나, stack trace 자체엔 endpoint
-            // reference 없음 → e 를 logger 에 위임해 stack trace 출력. 메시지엔 클래스명만 노출 유지.
+            // 보안: message 에는 클래스명만 — endpoint/payload 가 cause message 에 포함될 위험 차단
+            // (KakaoLocalClient 패턴 미러). stack trace 자체엔 endpoint reference 없음이라 e 를
+            // last vararg 로 logger 에 위임해 root cause 출력 — PushScheduler 와 일관.
+            // subscriptionUid 는 internal UUID 라 안전.
             log.warn("Push send failed: subscriptionUid={}, cause={}",
                     subscription.getSubscriptionUid(), e.getClass().getSimpleName(), e);
             return PushSendResult.failed(null);
+        } finally {
+            if (response != null) {
+                // connection pool 반환 — entity body 미read 시 idle pool 점유로 점진적 hang 가능.
+                // nl.martijndwars 5.1.x 가 내부에서 자동 처리하지 않을 경우 대비 명시적 consume.
+                EntityUtils.consumeQuietly(response.getEntity());
+            }
         }
     }
 
