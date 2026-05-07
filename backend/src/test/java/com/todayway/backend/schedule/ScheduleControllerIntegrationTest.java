@@ -52,6 +52,9 @@ class ScheduleControllerIntegrationTest {
         registry.add("spring.datasource.username", mysql::getUsername);
         registry.add("spring.datasource.password", mysql::getPassword);
         registry.add("jwt.secret", () -> "dGVzdC1zZWNyZXQtYmFzZTY0LXBhZGRlZC0zMmJ5dGVzLWxvbmc9PQ==");
+        // 본 테스트가 schedule + reminderAt row 를 만들고 30초 윈도우 안에서 다음 케이스로
+        // 이어지면 PushScheduler 가 활성화 시 같은 row 를 잡아 race · 실 IO 발생 위험.
+        registry.add("push.scheduler.enabled", () -> "false");
     }
 
     @Autowired MockMvc mockMvc;

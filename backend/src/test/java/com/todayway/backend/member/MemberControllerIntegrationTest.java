@@ -44,6 +44,9 @@ class MemberControllerIntegrationTest {
         registry.add("spring.datasource.username", mysql::getUsername);
         registry.add("spring.datasource.password", mysql::getPassword);
         registry.add("jwt.secret", () -> "dGVzdC1zZWNyZXQtYmFzZTY0LXBhZGRlZC0zMmJ5dGVzLWxvbmc9PQ==");
+        // PushScheduler 자동 트리거 차단 — cascade 테스트가 schedule row 를 만들고 reminder_at 이
+        // 박힌 채로 30초 윈도우에 진입하면 scheduler 가 잡아 실 RouteService 호출 위험.
+        registry.add("push.scheduler.enabled", () -> "false");
     }
 
     @Autowired MockMvc mockMvc;
