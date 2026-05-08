@@ -40,6 +40,9 @@ class AuthControllerIntegrationTest {
         registry.add("spring.datasource.username", mysql::getUsername);
         registry.add("spring.datasource.password", mysql::getPassword);
         registry.add("jwt.secret", () -> "dGVzdC1zZWNyZXQtYmFzZTY0LXBhZGRlZC0zMmJ5dGVzLWxvbmc9PQ==");
+        // 명세 §9.1 PushScheduler 30초 자동 트리거 차단 — 본 테스트가 schedule row 를 만들지 않더라도
+        // matchIfMissing=true 라 default 활성화 시 다른 테스트가 만든 row 와 race 가능.
+        registry.add("push.scheduler.enabled", () -> "false");
     }
 
     @Autowired MockMvc mockMvc;

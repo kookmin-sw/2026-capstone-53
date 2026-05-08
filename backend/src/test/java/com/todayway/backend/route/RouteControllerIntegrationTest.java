@@ -58,6 +58,10 @@ class RouteControllerIntegrationTest {
         registry.add("spring.datasource.username", mysql::getUsername);
         registry.add("spring.datasource.password", mysql::getPassword);
         registry.add("jwt.secret", () -> "dGVzdC1zZWNyZXQtYmFzZTY0LXBhZGRlZC0zMmJ5dGVzLWxvbmc9PQ==");
+        // route 통합 테스트는 RouteService 자체를 @MockitoBean 으로 격리하지만, PushScheduler 가
+        // 활성 시 schedule row 의 reminder_at 을 잡아 process() 안에서 mock 이 적용 안 된 분기
+        // (또는 흡수되지 않은 예외) 로 flaky 위험 — 토글 명시.
+        registry.add("push.scheduler.enabled", () -> "false");
     }
 
     @Autowired MockMvc mockMvc;

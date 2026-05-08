@@ -58,7 +58,9 @@ EC2에서 RDS에 붙어 동작시킬 때:
 | `DB_USER` / `DB_PASSWORD` | RDS master credential |
 | `DB_SSL_MODE` | `REQUIRED` (RDS 운영 권장) / `PREFERRED` (default, server 지원 시 SSL) / `VERIFY_CA` (RDS CA bundle로 cert 검증) |
 | `JWT_SECRET` | `openssl rand -base64 32` 결과 |
-| `ODSAY_API_KEY` / `KAKAO_LOCAL_API_KEY` / `VAPID_*` | 외부 키 (도메인 담당자) |
+| `ODSAY_API_KEY` / `KAKAO_LOCAL_API_KEY` / `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` | 외부 키 (도메인 담당자) |
+| `VAPID_SUBJECT` | `mailto:실운영메일@도메인` — RFC 8292 §2.1 권장. 일부 push provider 가 placeholder 면 401 반환 |
+| `PUSH_SCHEDULER_*` | 선택 — 미설정 시 yml 디폴트 (30초 주기 / 5분 윈도우 / ODsay 2회·1초 간격) |
 
 ### 2. 이미지 빌드 + 실행
 

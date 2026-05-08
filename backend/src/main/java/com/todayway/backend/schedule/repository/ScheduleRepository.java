@@ -45,8 +45,12 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
             Long memberId, OffsetDateTime now);
 
     /**
-     * 이상진 Step 7 PushScheduler용 — 알림 시각 도래한 일정 조회.
-     * ⚠️ JPQL `deletedAt IS NULL` 명시 필수.
+     * 명세 §9.1 — PushScheduler 알림 시각 도래 일정 조회. {@code reminder_at > NOW()-5min AND <= NOW()}
+     * 누락 방지 윈도우 + soft-delete 필터.
+     *
+     * <p>회원 soft-delete 는 {@code MemberService.softDelete} cascade 가 schedule 도 일괄
+     * {@code deleted_at} 채우므로 위 {@code s.deletedAt IS NULL} 조건에서 자동 배제 — Member 서브쿼리
+     * 중복 제거. cascade 회귀는 {@code MemberSoftDeleteCascadeTest} 가 가드.
      */
     @Query("""
             SELECT s FROM Schedule s

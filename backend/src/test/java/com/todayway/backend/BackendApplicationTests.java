@@ -22,6 +22,10 @@ class BackendApplicationTests {
 		registry.add("spring.datasource.username", mysql::getUsername);
 		registry.add("spring.datasource.password", mysql::getPassword);
 		registry.add("jwt.secret", () -> "dGVzdC1zZWNyZXQtYmFzZTY0LXBhZGRlZC0zMmJ5dGVzLWxvbmc9PQ==");
+		// contextLoads 만 검증하지만 PushScheduler 가 빈 등록 시 contextLoads 자체가 실 ODsay/Push
+		// 호출 위험을 부른다 — 본 토글로 빈 자체가 등록되지 않음 (PushSchedulingConfig
+		// @ConditionalOnProperty enabled=false → @EnableScheduling X).
+		registry.add("push.scheduler.enabled", () -> "false");
 	}
 
 	@Test

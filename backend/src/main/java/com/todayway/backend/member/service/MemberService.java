@@ -7,6 +7,7 @@ import com.todayway.backend.member.domain.Member;
 import com.todayway.backend.member.dto.MemberResponse;
 import com.todayway.backend.member.dto.MemberUpdateRequest;
 import com.todayway.backend.member.repository.MemberRepository;
+import com.todayway.backend.push.repository.PushSubscriptionRepository;
 import com.todayway.backend.schedule.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class MemberService {
     private final MemberRepository memberRepository;
     private final RefreshTokenRepository refreshTokenRepository;
     private final ScheduleRepository scheduleRepository;
+    private final PushSubscriptionRepository pushSubscriptionRepository;
     private final PasswordEncoder passwordEncoder;
 
     public MemberResponse getMe(String memberUid) {
@@ -55,18 +57,15 @@ public class MemberService {
 
     @Transactional
     public void softDelete(String memberUid) {
-        // 의사결정 4 (가-1) cascade — Step 5 진입으로 schedule 추가 (Issue #8):
-        //   ✅ Member.deleted_at (자체)
-        //   ✅ refresh_token.revoked_at 일괄
-        //   ✅ schedule.deleted_at 일괄 (β PR + Step 5 — closes #8)
-        //   ⏳ push_subscription.revoked_at — 이상진 Step 7 진입 시 추가 (#9)
+        // soft-delete cascade 는 코드 레벨에서만 보장 — DB FK CASCADE 는 hard-delete 시에만 동작.
         Member m = memberRepository.findByMemberUid(memberUid)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
         m.softDelete();
         OffsetDateTime now = OffsetDateTime.now(KST);
-        int revoked = refreshTokenRepository.revokeAllActiveByMemberId(m.getId(), now);
+        int revokedTokens = refreshTokenRepository.revokeAllActiveByMemberId(m.getId(), now);
         int deletedSchedules = scheduleRepository.softDeleteByMemberId(m.getId(), now);
-        log.info("revoked {} active refresh tokens, soft-deleted {} schedules for memberId={} (member soft delete)",
-                revoked, deletedSchedules, m.getId());
+        int revokedSubscriptions = pushSubscriptionRepository.revokeAllByMemberId(m.getId(), now);
+        log.info("member soft delete cascade — memberId={} : refresh tokens={}, schedules={}, push subscriptions={}",
+                m.getId(), revokedTokens, deletedSchedules, revokedSubscriptions);
     }
 }

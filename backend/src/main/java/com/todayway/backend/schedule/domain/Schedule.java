@@ -217,10 +217,9 @@ public class Schedule extends BaseEntity {
     }
 
     /**
-     * 부분 업데이트. 출/도착지 또는 arrivalTime 변경 시 true 반환 (ODsay 재호출 분기 trigger).
-     * 명세 §5.4 정합. D8: deleted invariant 가드.
+     * 명세 §5.4 부분 업데이트. {@code deletedAt != null} 시 SCHEDULE_NOT_FOUND — 유령 변경 차단.
      *
-     * @return placeOrArrivalChanged — 출/도착지 또는 arrivalTime 변경 여부
+     * @return placeOrArrivalChanged — 출/도착지 또는 arrivalTime 변경 시 true (ODsay 재호출 trigger)
      */
     public boolean applyUpdate(String title,
                                PlaceUpdate origin,
@@ -278,9 +277,8 @@ public class Schedule extends BaseEntity {
     }
 
     /**
-     * RouteService가 ODsay 호출 후 결과 반영. departureAdvice / reminderAt 자동 재계산.
-     * Step 6 OdsayRouteService와의 ON_TIME_WINDOW_MINUTES silent drift 차단
-     * (claude.ai PR #10 P2 — invariant 통합으로 컴파일 강제 일관성).
+     * RouteService 가 ODsay 호출 후 결과 반영. departureAdvice / reminderAt 자동 재계산.
+     * {@code ON_TIME_WINDOW_MINUTES} 를 본 클래스 단독 소유 — 외부에서 임계값 재정의 시 silent drift.
      */
     public void updateRouteInfo(Integer estimatedDurationMinutes,
                                 OffsetDateTime recommendedDepartureTime,
@@ -327,6 +325,47 @@ public class Schedule extends BaseEntity {
         if (deletedAt == null) {
             this.deletedAt = OffsetDateTime.now(KST);
         }
+    }
+
+    /**
+     * 명세 §9.1 — ONCE 일정 발송 직후 호출. {@code reminder_at = NULL} 로 재발송 방지. 멱등.
+     */
+    public void clearReminderAt() {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_NOT_FOUND);
+        }
+        this.reminderAt = null;
+    }
+
+    /**
+     * 명세 §9.2 — 루틴 일정 다음 occurrence 로 갱신. ODsay 재호출 X
+     * ({@code estimatedDurationMinutes} 마지막 호출값 그대로 사용).
+     *
+     * <p>{@code userDepartureTime} delta shift (v1.1.13): {@code arrivalTime} 변화량과 동일하게
+     * 사용자 출발 의도 시각도 이동. 미동기화 시 {@code recalculateDepartureAdvice} 가 24h+ 차이로
+     * 항상 {@code EARLIER} 가 되어 silent corruption 발생 → §6.1/§5.4 응답이 무의미해진다.
+     */
+    public void advanceToNextOccurrence(OffsetDateTime nextArrival) {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_NOT_FOUND);
+        }
+        if (userDepartureTime != null && this.arrivalTime != null) {
+            Duration delta = Duration.between(this.arrivalTime, nextArrival);
+            this.userDepartureTime = this.userDepartureTime.plus(delta);
+        }
+        this.arrivalTime = nextArrival;
+        // estimatedDurationMinutes 는 OdsayRouteService.applyToSchedule 가 항상 non-null 로 채우지만,
+        // null 인 채로 본 메서드가 호출되면 recommendedDepartureTime 이 옛 occurrence 값으로 잔존하고
+        // recalculateReminderAt 이 그 옛 값을 재사용 → reminder_at 이 과거 시각으로 박혀 다음 폴링에
+        // 다시 잡혀 무한 dispatch 가능. fail-loud 대신 명시적 정리 — reminderAt 비우고 종결.
+        if (estimatedDurationMinutes == null) {
+            this.recommendedDepartureTime = null;
+            this.reminderAt = null;
+            return;
+        }
+        this.recommendedDepartureTime = nextArrival.minusMinutes(estimatedDurationMinutes);
+        recalculateDepartureAdvice();
+        recalculateReminderAt();
     }
 
     /** PATCH 부분 업데이트용 입력 DTO — 출/도착지 묶음. */
