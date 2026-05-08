@@ -25,7 +25,8 @@ public class ExternalApiException extends RuntimeException {
     /** 외부 API 출처 (exhaustive switch에 사용 가능). */
     public enum Source {
         ODSAY,
-        KAKAO_LOCAL
+        KAKAO_LOCAL,
+        TMAP
     }
 
     private final Source source;
