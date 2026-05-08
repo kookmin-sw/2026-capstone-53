@@ -22,7 +22,7 @@ public class TmapProperties {
     /** TMAP App Key. {@code ${TMAP_APP_KEY:}} 로 주입. 빈 값 허용 (graceful fallback). */
     private String appKey;
 
-    /** {@code https://apis.openapi.sk.com/tmap}. */
+    /** {@code application.yml} 에서 주입 (디폴트 {@code https://apis.openapi.sk.com/tmap}). */
     private String baseUrl;
 
     /** 호출 timeout. WALK 구간 한 번 호출이 ODsay searchPubTransPathT 와 같은 사이클에 포함되므로 짧게. */

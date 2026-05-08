@@ -284,8 +284,9 @@ public class OdsayResponseMapper {
      *   <li>{@link TmapClient#routesPedestrian} 호출 → GeoJSON LineString features 의 좌표 평탄화</li>
      *   <li>실패 (키 미설정 / 401/403/timeout/5xx / 응답 형식 위반) → v1.1.9 합성 직선 fallback</li>
      * </ol>
-     * 성공 시 양 끝에 from/to 강제 prepend/append — TMAP 응답 양 끝이 정확히 from/to 와 일치하지 않을
-     * 수 있어 transit 정류장 좌표와 시각상 정확히 만나도록 보정.
+     * 성공 시 양 끝에 from/to 강제 prepend/append — 관측 기반 보정 (TMAP 이 가까운 보행 도로
+     * 진입점으로 snap 하는 경우 응답 양 끝이 from/to 와 미세 차이 가능). transit 정류장 좌표와
+     * 시각상 정확히 만나도록 보장.
      */
     private List<double[]> resolveWalkPath(double[] from, double[] to) {
         List<double[]> fallback = List.of(
@@ -299,6 +300,9 @@ public class OdsayResponseMapper {
             String raw = tmapClient.routesPedestrian(from[0], from[1], to[0], to[1]);
             List<double[]> coords = parseTmapLineString(raw);
             if (coords.size() < 2) {
+                // L1 — features 누락 / LineString 0개 / 좌표 invariant 모두 skip 의 합성 결과. 응답 형식
+                // 검증 필요한 신호로 1회 log (운영 INFO 안 보이지만 fallback 빈도 추적은 L2 백로그).
+                log.debug("TMAP 응답 LineString 좌표 < 2 — graceful fallback 직선");
                 return fallback;
             }
             // 양 끝 강제 prepend/append — 정류장 좌표 정확 매칭.
@@ -329,11 +333,18 @@ public class OdsayResponseMapper {
      *       반환 차단 → 좌표 (0,0) 적도/대서양 점프 방지.</li>
      *   <li>{@link Double#isFinite} — NaN/Infinity 차단.</li>
      *   <li>한국 service area bbox — transit graphPos 와 같은 invariant. 외국 좌표 silent 통과 차단
-     *       (TMAP 한국 전용 서비스라 위반 빈도 0 이지만 일관성).</li>
+     *       (TMAP 한국 전용 서비스라 기대값 0).</li>
      * </ol>
      */
     private List<double[]> parseTmapLineString(String rawJson) {
-        JsonNode root = parse(rawJson);
+        JsonNode root;
+        try {
+            root = objectMapper.readTree(rawJson);
+        } catch (JsonProcessingException e) {
+            // M1 — TMAP 호출 흐름 별도 라벨링. ODsay 의 parse() 와 메시지 구별 (운영 디버깅 시 어느
+            // 외부 API 회귀인지 즉시 식별).
+            throw new IllegalStateException("TMAP 응답 JSON 파싱 실패", e);
+        }
         JsonNode features = root.path("features");
         if (!features.isArray()) {
             return List.of();
