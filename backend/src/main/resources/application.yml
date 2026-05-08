@@ -68,3 +68,16 @@ push:
     window-minutes: ${PUSH_SCHEDULER_WINDOW_MINUTES:5}                      # 명세 §9.1 — 누락 방지 윈도우
     odsay-max-attempts: ${PUSH_SCHEDULER_ODSAY_MAX_ATTEMPTS:2}              # 명세 §9.1 — 최대 2회 시도
     odsay-retry-interval-ms: ${PUSH_SCHEDULER_ODSAY_RETRY_INTERVAL_MS:1000} # 명세 §9.1 — 1초 간격
+
+map:                                            # 명세 §4.2 GET /map/config 정적 응답
+  provider: ${MAP_PROVIDER:NAVER}
+  default-zoom: ${MAP_DEFAULT_ZOOM:15}
+  default-center:
+    lat: ${MAP_DEFAULT_CENTER_LAT:37.5665}     # 서울시청 (명세 예시 디폴트)
+    lng: ${MAP_DEFAULT_CENTER_LNG:126.9780}
+  tile-style: ${MAP_TILE_STYLE:basic}
+
+geocode:
+  cleanup:
+    enabled: ${GEOCODE_CLEANUP_ENABLED:true}
+    cron: ${GEOCODE_CLEANUP_CRON:0 0 4 * * *}  # 명세 §8.1 v1.1.18 — 매일 04:00 KST TTL eviction

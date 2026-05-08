@@ -10,22 +10,23 @@ import com.todayway.backend.push.dto.PushSubscribeResponse;
 import com.todayway.backend.push.repository.PushSubscriptionRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 명세 §7 — Web Push 구독 도메인 서비스. UPSERT(by endpoint) + soft revoke.
+ * 명세 §7 — Web Push 구독 도메인 서비스. UPSERT (by endpoint) + soft revoke.
  *
- * <p>{@link #subscribe} 의 race condition 정책:
- * <ul>
- *   <li>endpoint UNIQUE 제약으로 동시 INSERT 시 두 번째가 {@link DataIntegrityViolationException}.
- *       catch 후 재조회 → reactivate.</li>
- *   <li>{@code saveAndFlush} 로 commit 미루지 않고 즉시 발견 — silent late-commit 충돌 방지.</li>
- * </ul>
+ * <p>{@code subscribe()} 의 outer 는 class-default read-only — DB 쓰기는 inner
+ * {@link PushSubscriptionUpserter} ({@code REQUIRES_NEW}) 만 수행. inner 의 unique 위반이 outer
+ * 의 commit-time {@code UnexpectedRollbackException} 으로 번지지 않는다.
+ * {@code unsubscribe()} 는 single row revoke 라 race 위험 X — class-default 를 method-level
+ * {@code @Transactional} 로 override.
  *
- * <p>다른 회원이 동일 endpoint 재구독 시도: 명세 미정의 영역이라 안전하게 {@code 403 FORBIDDEN_RESOURCE}
- * reject. push provider 가 endpoint 를 device-bound 로 발급하므로 실제 발생 빈도 매우 낮음.
+ * <p>다른 회원이 동일 endpoint 재구독 시도: 명세 §7.1 미정의 영역이라 {@link PushSubscriptionUpserter}
+ * 안에서 안전하게 {@code 403 FORBIDDEN_RESOURCE} reject. push provider 가 endpoint 를 device-bound
+ * 로 발급하므로 실제 발생 빈도 매우 낮음.
  */
 @Service
 @RequiredArgsConstructor
@@ -35,11 +36,11 @@ public class PushService {
 
     private final MemberRepository memberRepository;
     private final PushSubscriptionRepository subscriptionRepository;
+    private final PushSubscriptionUpserter upserter;
 
-    @Transactional
     public PushSubscribeResponse subscribe(String memberUid, PushSubscribeRequest req, String userAgent) {
         Long memberId = resolveMemberId(memberUid);
-        PushSubscription saved = upsertByEndpoint(memberId, req, userAgent);
+        PushSubscription saved = upsertWithRetry(memberId, req, userAgent);
         return PushSubscribeResponse.from(saved);
     }
 
@@ -54,36 +55,26 @@ public class PushService {
         s.revoke();
     }
 
-    private PushSubscription upsertByEndpoint(Long memberId, PushSubscribeRequest req, String userAgent) {
+    /**
+     * inner upserter race 충돌은 1회 retry — race window 내 다른 호출이 먼저 INSERT 했다면
+     * findByEndpoint 가 즉시 hit. 두 번째 시도도 fail 이면 데이터 불일치 — 500.
+     *
+     * <p>catch 범위: {@link DuplicateKeyException} (unique 충돌) + {@link TransientDataAccessException}
+     * (deadlock / lock wait timeout 등 transient 잠금 실패). 다른 integrity violation 은 그대로 propagate.
+     */
+    private PushSubscription upsertWithRetry(Long memberId, PushSubscribeRequest req, String userAgent) {
         try {
-            return subscriptionRepository.findByEndpoint(req.endpoint())
-                    .map(existing -> reactivateOwned(existing, memberId, req, userAgent))
-                    .orElseGet(() -> subscriptionRepository.saveAndFlush(
-                            PushSubscription.create(memberId, req.endpoint(),
-                                    req.keys().p256dh(), req.keys().auth(), userAgent)));
-        } catch (DataIntegrityViolationException e) {
-            // race: 동시 INSERT 충돌 — 두 번째 요청이 unique 위반. 재조회 후 reactivate.
-            // cause 클래스명 함께 로깅 — endpoint 이외 제약(member_id FK 등) 위반 시 진단 가능.
-            log.info("Push subscribe UPSERT race — retrying via findByEndpoint, cause={}",
-                    e.getMostSpecificCause().getClass().getSimpleName());
-            PushSubscription existing = subscriptionRepository.findByEndpoint(req.endpoint())
-                    .orElseThrow(() -> {
-                        // unique 위반 났는데 endpoint 가 안 나오면 다른 제약 위반 — 원인 보존 후 500.
-                        log.error("Push subscribe UPSERT inconsistency — DataIntegrityViolation but endpoint not found",
-                                e);
-                        return new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
-                    });
-            return reactivateOwned(existing, memberId, req, userAgent);
+            return upserter.upsert(memberId, req, userAgent);
+        } catch (DuplicateKeyException | TransientDataAccessException e) {
+            log.info("Push subscribe UPSERT race detected — single retry, cause={}",
+                    e.getClass().getSimpleName());
+            try {
+                return upserter.upsert(memberId, req, userAgent);
+            } catch (DuplicateKeyException | TransientDataAccessException retryEx) {
+                log.error("Push subscribe UPSERT inconsistency after retry", retryEx);
+                throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+            }
         }
-    }
-
-    private PushSubscription reactivateOwned(PushSubscription existing, Long memberId,
-                                             PushSubscribeRequest req, String userAgent) {
-        if (!existing.belongsTo(memberId)) {
-            throw new BusinessException(ErrorCode.FORBIDDEN_RESOURCE);
-        }
-        existing.reactivate(req.keys().p256dh(), req.keys().auth(), userAgent);
-        return existing;
     }
 
     private Long resolveMemberId(String memberUid) {

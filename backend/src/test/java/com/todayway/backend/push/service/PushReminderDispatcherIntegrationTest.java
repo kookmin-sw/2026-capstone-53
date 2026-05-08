@@ -29,6 +29,7 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -36,6 +37,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -287,6 +289,58 @@ class PushReminderDispatcherIntegrationTest {
         Long subDbId = subId(externalSubId);
         List<PushLog> logs = pushLogRepository.findBySubscriptionId(subDbId);
         assertEquals(0, logs.size(), "PATCH race 시 dispatcher skip — PushLog 미생성");
+    }
+
+    @Test
+    void write_tx_race_재검증__ODsay_도중_PATCH_시_pushLog_미저장_advance_미수행_M3() throws Exception {
+        // 명세 §9.1 v1.1.16 — read tx race 가드 통과 후 ODsay 호출 사이에 사용자 PATCH 발생 시
+        // write tx 의 race 재검증 분기에서 모든 mutate skip. 이미 발송된 push 의 push_log 누락은
+        // trade-off (사용자 입장 두 번 발송 위험), advance 가 옛 schedule 기준으로 reminder_at 을
+        // 덮어쓰는 silent corruption 차단이 우선.
+        stubRouteRefreshSuccess(34);
+        when(pushSender.send(any(PushSubscription.class), any(String.class)))
+                .thenReturn(PushSendResult.sent(201));
+
+        String token = signupAndGetToken("disprace2", "post-race");
+        String externalSubId = subscribe(token, "https://fcm.googleapis.com/fcm/send/race2");
+        String externalScheduleId = createOnceSchedule(token);
+        Long scheduleDbId = schId(externalScheduleId);
+        OffsetDateTime expectedReminderAt = scheduleRepository.findById(scheduleDbId).orElseThrow().getReminderAt();
+
+        // dispatcher 진입 직전 — race-injecting thenAnswer 로 교체. 첫 호출 (dispatcher ODsay) 시점에만
+        // PATCH trigger, 이후 호출 (PATCH 의 ScheduleService 가 routeService 다시 호출 가능 + dispatcher
+        // retry) 은 단순 false 반환.
+        AtomicInteger refreshCalls = new AtomicInteger(0);
+        when(routeService.refreshRouteSync(any(Schedule.class))).thenAnswer(inv -> {
+            if (refreshCalls.incrementAndGet() == 1) {
+                // reminderOffsetMinutes 변경이 Schedule.update 에서 recalculateReminderAt 직접 트리거 —
+                // routeService 추가 호출 없이 reminderAt 만 변경 (test isolation).
+                mockMvc.perform(patch("/api/v1/schedules/" + externalScheduleId)
+                                .header("Authorization", "Bearer " + token)
+                                .contentType(MediaType.APPLICATION_JSON)
+                                .content("{\"reminderOffsetMinutes\": 45}"))
+                        .andExpect(status().isOk());
+            }
+            return false;
+        });
+
+        dispatcher.process(scheduleDbId, expectedReminderAt);
+
+        // 검증 1: pushSender 는 호출됨 — 트랜잭션 밖 발송 IO 가 race 발견 전에 이미 일어남.
+        verify(pushSender, atLeastOnce()).send(any(PushSubscription.class), any(String.class));
+
+        // 검증 2: push_log INSERT 는 안 됨 — write tx 의 race 재검증 분기가 모든 mutate skip.
+        Long subDbId = subId(externalSubId);
+        List<PushLog> logs = pushLogRepository.findBySubscriptionId(subDbId);
+        assertEquals(0, logs.size(), "race 재검증 시 push_log 누락 (관측성 trade-off, 명세 §9.1 v1.1.16)");
+
+        // 검증 3: schedule.reminderAt 은 PATCH 가 박은 새 시각 — advance 가 NULL 또는 옛 기준으로
+        // 덮어쓰지 않았음 (race 재검증 skip 의 핵심 효과).
+        Schedule s = scheduleRepository.findById(scheduleDbId).orElseThrow();
+        assertNotNull(s.getReminderAt(),
+                "PATCH 의 새 reminderAt 보존 — advance 의 silent corruption 차단");
+        assertFalse(s.getReminderAt().equals(expectedReminderAt),
+                "reminderAt 은 PATCH 후 새 시각이어야 (옛 expectedReminderAt 과 다름)");
     }
 
     @Test

@@ -81,8 +81,9 @@ public class PushSender {
             return PushSendResult.failed(null);
         } catch (Exception e) {
             // 보안: message 에는 클래스명만 — endpoint/payload 가 cause message 에 포함될 위험 차단
-            // (KakaoLocalClient 패턴 미러). stack trace 는 root cause 진단을 위해 last vararg 로 출력
-            // (PushScheduler 와 일관). subscriptionUid 는 internal UUID 라 안전.
+            // (KakaoLocalClient 패턴 미러). stack trace 자체엔 endpoint reference 없음이라 e 를
+            // last vararg 로 logger 에 위임해 root cause 출력 — PushScheduler 와 일관.
+            // subscriptionUid 는 internal UUID 라 안전.
             log.warn("Push send failed: subscriptionUid={}, cause={}",
                     subscription.getSubscriptionUid(), e.getClass().getSimpleName(), e);
             return PushSendResult.failed(null);
