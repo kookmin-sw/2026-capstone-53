@@ -35,7 +35,10 @@ import java.util.Map;
  * <ul>
  *   <li>모든 실패 (401/403/timeout/5xx/응답 형식 위반) → graceful — caller 가 catch 후 v1.1.9 의
  *       합성 직선 알고리즘으로 fallback. WALK 곡선 누락은 시각 품질 저하일 뿐이라 사용자 영향 작음.</li>
- *   <li>401/403 도 ODsay 처럼 503 격상하지 않음 — TMAP 키 미설정도 정상 시작 (다른 도메인 작업자 영향 X).</li>
+ *   <li>{@link com.todayway.backend.external.odsay.OdsayClient} 와 달리 401/403 도 503
+ *       {@code EXTERNAL_AUTH_MISCONFIGURED} 로 격상하지 않는다 — TMAP 키 미설정도 정상 시작
+ *       (다른 도메인 작업자 영향 X). 모든 4xx/5xx/timeout 은 mapper 의 catch 분기에서 v1.1.9
+ *       합성 직선으로 흡수.</li>
  * </ul>
  */
 @Component
@@ -151,6 +154,10 @@ public class TmapClient {
             throw new ExternalApiException(SOURCE, type, null,
                     "TMAP 통신 실패 (" + causeName + ")", null);
         } catch (RestClientException e) {
+            // SSL handshake / 직렬화 / 기타 RestClientException subclass 는 4xx/5xx 와 달리 응답
+            // 본문이 message 에 들어갈 위험이 작음. 그러나 일관성 + 보안 보수적 정책으로 cause=null
+            // 유지하고, root-cause 진단을 위해 logger 에 stack 한 번만 출력 (e 를 last vararg).
+            log.warn("TMAP 호출 중 예외 — class={}", e.getClass().getSimpleName(), e);
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.NETWORK, null,
                     "TMAP 호출 중 예외 (" + e.getClass().getSimpleName() + ")", null);
         }
