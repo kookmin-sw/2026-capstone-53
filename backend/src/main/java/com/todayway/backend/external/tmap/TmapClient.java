@@ -104,6 +104,13 @@ public class TmapClient {
      * @throws ExternalApiException 모든 호출 실패 — caller 가 graceful fallback 처리
      */
     public String routesPedestrian(double startLng, double startLat, double endLng, double endLat) {
+        // defensive — caller 가 isConfigured() 검증 우회해 직접 호출 시 null appKey 가
+        // RestClient.header("appKey", null) 에서 NPE 던지지 않게 ExternalApiException 으로 정상화.
+        // mapper 의 catch 분기가 graceful fallback 으로 흡수.
+        if (!isConfigured()) {
+            throw new ExternalApiException(SOURCE, ExternalApiException.Type.CLIENT_ERROR,
+                    null, "TMAP_APP_KEY 미설정", null);
+        }
         log.debug("TMAP pedestrian: ({},{})→({},{})", startLng, startLat, endLng, endLat);
         Map<String, Object> body = Map.of(
                 "startX", startLng, "startY", startLat,
