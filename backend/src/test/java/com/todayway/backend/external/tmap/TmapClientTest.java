@@ -11,6 +11,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.client.MockRestServiceServer;
 import org.springframework.web.client.RestClient;
 
+import java.net.SocketTimeoutException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.catchThrowableOfType;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
@@ -143,6 +145,24 @@ class TmapClientTest {
         assertThat(ex).isNotNull();
         assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.SERVER_ERROR);
         assertThat(ex.getHttpStatus()).isEqualTo(500);
+        assertThat(ex.getCause()).isNull();
+    }
+
+    @Test
+    void SocketTimeoutException은_TIMEOUT_분류_L5() {
+        // L5 — ResourceAccessException 의 root cause 가 SocketTimeoutException 이면 TIMEOUT 분류.
+        // 운영 모니터링에서 timeout 알림 / 재시도 정책 분기에 사용. 분류가 깨져도 mapper 가 catch
+        // 해서 사용자 영향 없지만, 메트릭/알람 회귀 가드.
+        server.expect(requestTo(Matchers.any(String.class)))
+                .andRespond(req -> { throw new SocketTimeoutException("read timeout"); });
+
+        ExternalApiException ex = catchThrowableOfType(
+                ExternalApiException.class,
+                () -> client.routesPedestrian(126.99, 37.61, 127.0, 37.66));
+
+        assertThat(ex).isNotNull();
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.TIMEOUT);
+        assertThat(ex.getSource()).isEqualTo(ExternalApiException.Source.TMAP);
         assertThat(ex.getCause()).isNull();
     }
 

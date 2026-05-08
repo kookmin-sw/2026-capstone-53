@@ -21,6 +21,13 @@ import static org.mockito.Mockito.mock;
  */
 class OdsayResponseMapperTest {
 
+    /**
+     * 국민대(126.997, 37.611) → 서울시청(126.978, 37.5665) ODsay 실 응답.
+     * subPath 3개 구성: WALK(시청앞 가는 정류장까지) → BUS 1711번 → WALK(시청까지). transit 1개라 lane 1개.
+     * 본 fixture 가 변경/교체되면 아래 좌표·점수·이름 단정이 silent 깨질 수 있어 — 갱신 시
+     * BUS 시작점 / 끝점 좌표 (`126.994769, 37.61072` / `126.976851, 37.565929`), WALK 갯수,
+     * `transferCount=1` 등 fixture 메타데이터 동시 점검 필수.
+     */
     private static final String FIXTURE_PATH = "src/test/resources/fixtures/odsay-kookmin-to-cityhall.json";
 
     // 국민대→서울시청 좌표 (WALK path 보충 검증용)
@@ -28,6 +35,12 @@ class OdsayResponseMapperTest {
     private static final double ORIGIN_LAT = 37.611;
     private static final double DEST_LNG = 126.978;
     private static final double DEST_LAT = 37.5665;
+
+    // BUS 1711번 시작 정류장 (청덕초 부근) / 끝 정류장 (시청앞.덕수궁) 좌표 — fixture 의존.
+    private static final double BUS_START_LNG = 126.994769;
+    private static final double BUS_START_LAT = 37.61072;
+    private static final double BUS_END_LNG = 126.976851;
+    private static final double BUS_END_LAT = 37.565929;
 
     private OdsayResponseMapper mapper;
 
@@ -508,6 +521,84 @@ class OdsayResponseMapperTest {
     }
 
     // ─────────── §6.1 v1.1.21 — TMAP WALK 곡선 ───────────
+
+    @Test
+    void TMAP_호출_좌표_인자_순서_정확성_M3_ArgumentCaptor() throws IOException {
+        // M3 — mapper 가 routesPedestrian 에 (lng, lat) 순서로 from/to 를 정확히 전달하는지 검증.
+        // swap 회귀 (예: from-to 뒤바뀜 / lat-lng 뒤바뀜) 시각상 시각상 시각으로만 발견되는데 그 시점엔
+        // 운영 후. unit 단계에서 ArgumentCaptor 로 차단.
+        com.todayway.backend.external.tmap.TmapClient tmap = mock(com.todayway.backend.external.tmap.TmapClient.class);
+        org.mockito.Mockito.when(tmap.isConfigured()).thenReturn(true);
+        org.mockito.Mockito.when(tmap.routesPedestrian(
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble()))
+                .thenReturn("{\"type\":\"FeatureCollection\",\"features\":[]}");
+        OdsayResponseMapper customMapper = new OdsayResponseMapper(new ObjectMapper(), tmap);
+
+        String raw = Files.readString(Path.of(FIXTURE_PATH));
+        customMapper.toRoute(raw, null, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        org.mockito.ArgumentCaptor<Double> sLng = org.mockito.ArgumentCaptor.forClass(Double.class);
+        org.mockito.ArgumentCaptor<Double> sLat = org.mockito.ArgumentCaptor.forClass(Double.class);
+        org.mockito.ArgumentCaptor<Double> eLng = org.mockito.ArgumentCaptor.forClass(Double.class);
+        org.mockito.ArgumentCaptor<Double> eLat = org.mockito.ArgumentCaptor.forClass(Double.class);
+        org.mockito.Mockito.verify(tmap, org.mockito.Mockito.times(2)).routesPedestrian(
+                sLng.capture(), sLat.capture(), eLng.capture(), eLat.capture());
+
+        // 첫 WALK: origin → BUS startX/Y
+        assertThat(sLng.getAllValues().get(0)).isEqualTo(ORIGIN_LNG);
+        assertThat(sLat.getAllValues().get(0)).isEqualTo(ORIGIN_LAT);
+        assertThat(eLng.getAllValues().get(0)).isEqualTo(BUS_START_LNG);
+        assertThat(eLat.getAllValues().get(0)).isEqualTo(BUS_START_LAT);
+        // 마지막 WALK: BUS endX/Y → destination
+        assertThat(sLng.getAllValues().get(1)).isEqualTo(BUS_END_LNG);
+        assertThat(sLat.getAllValues().get(1)).isEqualTo(BUS_END_LAT);
+        assertThat(eLng.getAllValues().get(1)).isEqualTo(DEST_LNG);
+        assertThat(eLat.getAllValues().get(1)).isEqualTo(DEST_LAT);
+    }
+
+    @Test
+    void TMAP_두_WALK가_각자_다른_응답_받는다_cross_talk_M4() throws IOException {
+        // M4 — 첫 WALK 와 마지막 WALK 가 같은 stub 결과 받으면 mapper 가 첫 결과를 모든 WALK 에
+        // 재사용해도 단위 테스트 통과. 다른 GeoJSON 두 개로 chain stub → 두 segment path 가 서로
+        // 다른 중간 좌표 보유하는지 검증.
+        String json1 = """
+                {"type":"FeatureCollection","features":[
+                  {"type":"Feature","geometry":{"type":"LineString","coordinates":[[126.995,37.610],[126.9955,37.6105]]}}
+                ]}
+                """;
+        String json2 = """
+                {"type":"FeatureCollection","features":[
+                  {"type":"Feature","geometry":{"type":"LineString","coordinates":[[126.977,37.566],[126.9775,37.5665]]}}
+                ]}
+                """;
+        com.todayway.backend.external.tmap.TmapClient tmap = mock(com.todayway.backend.external.tmap.TmapClient.class);
+        org.mockito.Mockito.when(tmap.isConfigured()).thenReturn(true);
+        org.mockito.Mockito.when(tmap.routesPedestrian(
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble()))
+                .thenReturn(json1).thenReturn(json2);
+        OdsayResponseMapper customMapper = new OdsayResponseMapper(new ObjectMapper(), tmap);
+
+        String raw = Files.readString(Path.of(FIXTURE_PATH));
+        Route route = customMapper.toRoute(raw, null, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        // 첫 WALK 의 중간 좌표는 json1 의 점들 (126.995 ~)
+        var path0 = route.segments().get(0).path();
+        assertThat(path0).hasSize(4);  // origin + 2 + busStart
+        assertThat(path0.get(1)).containsExactly(126.995, 37.610);
+        assertThat(path0.get(2)).containsExactly(126.9955, 37.6105);
+
+        // 마지막 WALK 의 중간 좌표는 json2 의 점들 (126.977 ~) — cross-talk 없으면 두 path 가 다른 좌표
+        var path2 = route.segments().get(2).path();
+        assertThat(path2).hasSize(4);  // busEnd + 2 + dest
+        assertThat(path2.get(1)).containsExactly(126.977, 37.566);
+        assertThat(path2.get(2)).containsExactly(126.9775, 37.5665);
+    }
 
     @Test
     void TMAP_isConfigured_true_정상응답_시_WALK_path_가_GeoJSON_좌표로_채워진다() throws IOException {
