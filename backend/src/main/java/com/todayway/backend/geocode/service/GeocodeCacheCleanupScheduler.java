@@ -22,6 +22,12 @@ import java.time.ZoneId;
  * {@link com.todayway.backend.push.service.PushSchedulingConfig} 의 push.scheduler.enabled=false
  * 로 {@code @EnableScheduling} 자체를 끄므로 본 빈은 등록되어도 {@code @Scheduled} 트리거 X.
  * 별도로 {@code geocode.cleanup.enabled=false} 로 빈 등록 자체를 막을 수도 있음.
+ *
+ * <p><b>스케일 한계 (P2 백로그)</b>: 현재는 단일 bulk DELETE — 운영 1년+ 에서 만료 row 가 수만
+ * 건 누적된 시점에 한 번에 삭제 시 InnoDB undo log + UNIQUE INDEX 갱신으로 락 시간이 길어져
+ * 동시 read 영향 가능. 그 시점 이전에 batch 단위 삭제 (예: {@code LIMIT 1000} loop, 또는
+ * {@code DELETE ... ORDER BY id LIMIT N}) 로 전환 권고. MVP/데모 (2026-05-22) 단계는 row 수
+ * 가 적어 본 패턴으로 충분.
  */
 @Component
 @RequiredArgsConstructor
