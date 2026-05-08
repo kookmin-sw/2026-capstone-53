@@ -576,6 +576,85 @@ class OdsayResponseMapperTest {
     }
 
     @Test
+    void TMAP_features_배열_없을때_fallback_직선() throws IOException {
+        com.todayway.backend.external.tmap.TmapClient tmap = mock(com.todayway.backend.external.tmap.TmapClient.class);
+        org.mockito.Mockito.when(tmap.isConfigured()).thenReturn(true);
+        // FeatureCollection 형식이지만 features 키 없음 — graceful fallback 직선 (2점)
+        org.mockito.Mockito.when(tmap.routesPedestrian(
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble()))
+                .thenReturn("{\"type\":\"FeatureCollection\"}");
+        OdsayResponseMapper customMapper = new OdsayResponseMapper(new ObjectMapper(), tmap);
+
+        String raw = Files.readString(Path.of(FIXTURE_PATH));
+        Route route = customMapper.toRoute(raw, null, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        assertThat(route.segments().get(0).path()).hasSize(2);
+    }
+
+    @Test
+    void TMAP_Point_feature만_있으면_LineString_없어_fallback() throws IOException {
+        com.todayway.backend.external.tmap.TmapClient tmap = mock(com.todayway.backend.external.tmap.TmapClient.class);
+        org.mockito.Mockito.when(tmap.isConfigured()).thenReturn(true);
+        // TMAP 응답에 시작/끝 Point feature 만 있고 LineString 0개 — coords.size() < 2 → fallback
+        org.mockito.Mockito.when(tmap.routesPedestrian(
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble()))
+                .thenReturn("""
+                        {"type":"FeatureCollection","features":[
+                          {"type":"Feature","geometry":{"type":"Point","coordinates":[127.0,37.6]}},
+                          {"type":"Feature","geometry":{"type":"Point","coordinates":[127.01,37.61]}}
+                        ]}
+                        """);
+        OdsayResponseMapper customMapper = new OdsayResponseMapper(new ObjectMapper(), tmap);
+
+        String raw = Files.readString(Path.of(FIXTURE_PATH));
+        Route route = customMapper.toRoute(raw, null, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        assertThat(route.segments().get(0).path()).hasSize(2);
+    }
+
+    @Test
+    void TMAP_좌표가_NaN이거나_string이거나_서비스영역_밖이면_silent_skip() throws IOException {
+        com.todayway.backend.external.tmap.TmapClient tmap = mock(com.todayway.backend.external.tmap.TmapClient.class);
+        org.mockito.Mockito.when(tmap.isConfigured()).thenReturn(true);
+        // 5점 중 정상 2점 + 비정상 3점 (string / NaN / 외국). 정상만 추출 + 양 끝 prepend/append → 4점
+        org.mockito.Mockito.when(tmap.routesPedestrian(
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble(),
+                org.mockito.ArgumentMatchers.anyDouble()))
+                .thenReturn("""
+                        {"type":"FeatureCollection","features":[
+                          {"type":"Feature","geometry":{"type":"LineString","coordinates":[
+                            ["abc","def"],
+                            [127.0,37.61],
+                            ["NaN",37.61],
+                            [127.001,37.612],
+                            [200.0,37.61]
+                          ]}}
+                        ]}
+                        """);
+        OdsayResponseMapper customMapper = new OdsayResponseMapper(new ObjectMapper(), tmap);
+
+        String raw = Files.readString(Path.of(FIXTURE_PATH));
+        Route route = customMapper.toRoute(raw, null, ORIGIN_LNG, ORIGIN_LAT, DEST_LNG, DEST_LAT);
+
+        // 정상 2점 + 양 끝 prepend/append = 4점 (적도/대서양 (0,0) 추가 없이 silent skip 검증)
+        var path = route.segments().get(0).path();
+        assertThat(path).hasSize(4);
+        // (0,0) 좌표 silent 추가 없음 — 모든 점이 한국 service area 안
+        for (double[] p : path) {
+            assertThat(p[0]).isBetween(124.0, 132.0);
+            assertThat(p[1]).isBetween(33.0, 39.0);
+        }
+    }
+
+    @Test
     void TMAP_isConfigured_false_시_호출_안하고_바로_fallback() throws IOException {
         com.todayway.backend.external.tmap.TmapClient tmap = mock(com.todayway.backend.external.tmap.TmapClient.class);
         org.mockito.Mockito.when(tmap.isConfigured()).thenReturn(false);

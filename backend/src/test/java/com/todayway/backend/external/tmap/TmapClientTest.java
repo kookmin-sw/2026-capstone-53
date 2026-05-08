@@ -96,6 +96,42 @@ class TmapClientTest {
     }
 
     @Test
+    void HTTP_401이면_CLIENT_ERROR_분류() {
+        // 키 만료/invalid — graceful fallback 분기 (mapper 가 catch 후 v1.1.9 직선 반환)
+        server.expect(requestTo(Matchers.any(String.class)))
+                .andRespond(withStatus(HttpStatus.UNAUTHORIZED).body("AUTH_FAILED"));
+
+        ExternalApiException ex = catchThrowableOfType(
+                ExternalApiException.class,
+                () -> client.routesPedestrian(126.99, 37.61, 127.0, 37.66));
+
+        assertThat(ex).isNotNull();
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.CLIENT_ERROR);
+        assertThat(ex.getHttpStatus()).isEqualTo(401);
+        assertThat(ex.getCause()).isNull();
+    }
+
+    @Test
+    void appKey_미설정_시_routesPedestrian_즉시_CLIENT_ERROR_throw_NPE_방지() {
+        // M2 — caller 가 isConfigured() 검증 우회해 직접 호출 시 RestClient.header(name, null) 의
+        // NPE 방지. graceful 정상화 — mapper catch 후 fallback.
+        TmapProperties unconfigured = new TmapProperties();
+        unconfigured.setBaseUrl("https://apis.openapi.sk.com/tmap");
+        // appKey 빈 문자열 (또는 null) — isConfigured()=false
+        TmapClient noKeyClient = new TmapClient(unconfigured, RestClient.builder().build());
+
+        ExternalApiException ex = catchThrowableOfType(
+                ExternalApiException.class,
+                () -> noKeyClient.routesPedestrian(126.99, 37.61, 127.0, 37.66));
+
+        assertThat(ex).isNotNull();
+        assertThat(ex.getType()).isEqualTo(ExternalApiException.Type.CLIENT_ERROR);
+        assertThat(ex.getSource()).isEqualTo(ExternalApiException.Source.TMAP);
+        assertThat(ex.getCause()).isNull();
+        // 실 RestClient 호출 X (HTTP 트래픽 0, 본 테스트는 server stub 도 X)
+    }
+
+    @Test
     void HTTP_500이면_SERVER_ERROR_재시도_가능_분류() {
         server.expect(requestTo(Matchers.any(String.class)))
                 .andRespond(withStatus(HttpStatus.INTERNAL_SERVER_ERROR));

@@ -318,7 +318,20 @@ public class OdsayResponseMapper {
         }
     }
 
-    /** TMAP GeoJSON FeatureCollection → LineString features 의 coordinates 평탄화. */
+    /**
+     * TMAP GeoJSON FeatureCollection → LineString features 의 coordinates 평탄화. graceful —
+     * 손상된 좌표는 silent skip (전체 fallback 으로 떨어지지 않음, 정상 좌표만 살림). 모든 좌표가
+     * skip 되면 caller(resolveWalkPath)의 {@code coords.size() < 2} 가드가 fallback 트리거.
+     *
+     * <p>좌표 단위 invariant:
+     * <ol>
+     *   <li>{@link JsonNode#isNumber} — non-numeric (string/object/null) silent {@code 0.0}
+     *       반환 차단 → 좌표 (0,0) 적도/대서양 점프 방지.</li>
+     *   <li>{@link Double#isFinite} — NaN/Infinity 차단.</li>
+     *   <li>한국 service area bbox — transit graphPos 와 같은 invariant. 외국 좌표 silent 통과 차단
+     *       (TMAP 한국 전용 서비스라 위반 빈도 0 이지만 일관성).</li>
+     * </ol>
+     */
     private List<double[]> parseTmapLineString(String rawJson) {
         JsonNode root = parse(rawJson);
         JsonNode features = root.path("features");
@@ -332,11 +345,15 @@ public class OdsayResponseMapper {
             }
             for (JsonNode pt : f.path("geometry").path("coordinates")) {
                 if (!pt.isArray() || pt.size() < 2) continue;
-                double lng = pt.get(0).asDouble();
-                double lat = pt.get(1).asDouble();
-                if (Double.isFinite(lng) && Double.isFinite(lat)) {
-                    coords.add(new double[]{lng, lat});
-                }
+                JsonNode lngNode = pt.get(0);
+                JsonNode latNode = pt.get(1);
+                if (!lngNode.isNumber() || !latNode.isNumber()) continue;
+                double lng = lngNode.asDouble();
+                double lat = latNode.asDouble();
+                if (!Double.isFinite(lng) || !Double.isFinite(lat)) continue;
+                if (lng < SERVICE_LNG_MIN || lng > SERVICE_LNG_MAX
+                        || lat < SERVICE_LAT_MIN || lat > SERVICE_LAT_MAX) continue;
+                coords.add(new double[]{lng, lat});
             }
         }
         return coords;
