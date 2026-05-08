@@ -54,6 +54,11 @@ kakao-local:
   base-url: https://dapi.kakao.com/v2/local
   timeout-seconds: 5
 
+tmap:                                            # 명세 §6.1 v1.1.21 — WALK 인도 곡선 제공자
+  app-key: ${TMAP_APP_KEY:}
+  base-url: https://apis.openapi.sk.com/tmap
+  timeout-seconds: 5
+
 vapid:
   public-key: ${VAPID_PUBLIC_KEY:}
   private-key: ${VAPID_PRIVATE_KEY:}

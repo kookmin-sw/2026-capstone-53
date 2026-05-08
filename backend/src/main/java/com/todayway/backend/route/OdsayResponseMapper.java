@@ -3,6 +3,8 @@ package com.todayway.backend.route;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.todayway.backend.external.ExternalApiException;
+import com.todayway.backend.external.tmap.TmapClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -48,6 +50,7 @@ import java.util.List;
 public class OdsayResponseMapper {
 
     private final ObjectMapper objectMapper;
+    private final TmapClient tmapClient;
 
     /**
      * @param pathRawJson  {@code searchPubTransPathT} raw 응답
@@ -117,7 +120,8 @@ public class OdsayResponseMapper {
                 double[] nextPoint = transitIdx < transitStarts.size()
                         ? transitStarts.get(transitIdx)
                         : new double[]{destLng, destLat};
-                segments.add(buildWalkSegment(sectionTime, distance, lastPoint, nextPoint));
+                List<double[]> walkPath = resolveWalkPath(lastPoint, nextPoint);
+                segments.add(buildWalkSegment(sectionTime, distance, walkPath));
                 lastPoint = nextPoint;
             } else {
                 List<double[]> graphPath = transitIdx < lanePaths.size()
@@ -262,8 +266,7 @@ public class OdsayResponseMapper {
         return starts;
     }
 
-    private static RouteSegment buildWalkSegment(int sectionTime, int distance,
-                                                 double[] from, double[] to) {
+    private static RouteSegment buildWalkSegment(int sectionTime, int distance, List<double[]> path) {
         // WALK는 lineName/lineId/stationStart/stationEnd/stationCount 모두 null
         // (RouteSegment의 @JsonInclude(NON_NULL)이 응답 직렬화 시 키 자체 제거)
         return new RouteSegment(
@@ -271,11 +274,72 @@ public class OdsayResponseMapper {
                 null, null,            // from/to (정류장명) — WALK엔 의미 없음
                 null, null,            // lineName/lineId
                 null, null, null,      // stationStart/stationEnd/stationCount
-                List.of(
-                        new double[]{from[0], from[1]},
-                        new double[]{to[0], to[1]}
-                )
+                path
         );
+    }
+
+    /**
+     * 명세 §6.1 v1.1.21 — WALK 구간 path 결정.
+     * <ol>
+     *   <li>{@link TmapClient#routesPedestrian} 호출 → GeoJSON LineString features 의 좌표 평탄화</li>
+     *   <li>실패 (키 미설정 / 401/403/timeout/5xx / 응답 형식 위반) → v1.1.9 합성 직선 fallback</li>
+     * </ol>
+     * 성공 시 양 끝에 from/to 강제 prepend/append — TMAP 응답 양 끝이 정확히 from/to 와 일치하지 않을
+     * 수 있어 transit 정류장 좌표와 시각상 정확히 만나도록 보정.
+     */
+    private List<double[]> resolveWalkPath(double[] from, double[] to) {
+        List<double[]> fallback = List.of(
+                new double[]{from[0], from[1]},
+                new double[]{to[0], to[1]}
+        );
+        if (!tmapClient.isConfigured()) {
+            return fallback;
+        }
+        try {
+            String raw = tmapClient.routesPedestrian(from[0], from[1], to[0], to[1]);
+            List<double[]> coords = parseTmapLineString(raw);
+            if (coords.size() < 2) {
+                return fallback;
+            }
+            // 양 끝 강제 prepend/append — 정류장 좌표 정확 매칭.
+            List<double[]> result = new ArrayList<>(coords.size() + 2);
+            result.add(new double[]{from[0], from[1]});
+            result.addAll(coords);
+            result.add(new double[]{to[0], to[1]});
+            return result;
+        } catch (ExternalApiException e) {
+            log.debug("TMAP WALK 호출 실패 — graceful fallback 직선: type={} status={}",
+                    e.getType(), e.getHttpStatus());
+            return fallback;
+        } catch (RuntimeException e) {
+            log.debug("TMAP 응답 파싱 실패 — graceful fallback 직선: cause={}",
+                    e.getClass().getSimpleName());
+            return fallback;
+        }
+    }
+
+    /** TMAP GeoJSON FeatureCollection → LineString features 의 coordinates 평탄화. */
+    private List<double[]> parseTmapLineString(String rawJson) {
+        JsonNode root = parse(rawJson);
+        JsonNode features = root.path("features");
+        if (!features.isArray()) {
+            return List.of();
+        }
+        List<double[]> coords = new ArrayList<>();
+        for (JsonNode f : features) {
+            if (!"LineString".equals(f.path("geometry").path("type").asText())) {
+                continue;
+            }
+            for (JsonNode pt : f.path("geometry").path("coordinates")) {
+                if (!pt.isArray() || pt.size() < 2) continue;
+                double lng = pt.get(0).asDouble();
+                double lat = pt.get(1).asDouble();
+                if (Double.isFinite(lng) && Double.isFinite(lat)) {
+                    coords.add(new double[]{lng, lat});
+                }
+            }
+        }
+        return coords;
     }
 
     private static RouteSegment buildTransitSegment(SegmentMode mode, int sectionTime,
