@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.18-MVP
-> **최종 수정**: 2026-05-07 (이상진 — §8.1 GeocodeCacheCleanupScheduler 추가 (매일 04:00 KST TTL eviction). PR #27 외부 리뷰 (황찬우) G3 흡수.)
+> **버전**: v1.1.19-MVP
+> **최종 수정**: 2026-05-08 (이상진 — §4.1 lat/lng XOR 검증 명시. PR #27 외부 리뷰 (황찬우) M2 코드 fix 의 명세 mirroring.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -35,6 +35,7 @@
 | **v1.1.16** | **2026-05-07** | **§9.1 dispatcher 트랜잭션 분리 — 기존 단일 `@Transactional` 안에서 ODsay 재호출(최악 11초) + push provider IO 까지 묶여 30초 폴링 사이클 race 위험. 새 패턴: read tx (race 가드 + activeSubs fetch) → 트랜잭션 밖 ODsay → 트랜잭션 밖 push 발송 IO → write tx (schedule reload + race 재검증 + ODsay 결과 적용 + PushLog INSERT + 410 revoke + advance). PR #24 외부 리뷰 (황찬우) B1 흡수.** |
 | **v1.1.17** | **2026-05-07** | **§8.1 `query_hash` canonical 강화 — `trim` 만 적용하던 v1.1.4 룰을 `lowercase(NFC(squash(trim(query))))` 로 확장. squash (`\s+`→` `) / NFC / `Locale.ROOT` lowercase 추가로 cache hit ratio 향상 + 외부 API quota 보호. 기존 캐시 row 는 TTL 30일 후 자연 만료 (별도 마이그레이션 불필요). PR #27 외부 리뷰 (황찬우) G1 흡수.** |
 | **v1.1.18** | **2026-05-07** | **§8.1 `GeocodeCacheCleanupScheduler` 추가 — 매일 04:00 KST `@Scheduled` 로 `cached_at < NOW() - INTERVAL 30 DAY` row 삭제. read filter TTL 과 같은 cutoff. 운영 1년+ 누적 시 row/UNIQUE 인덱스 비대화 차단. `geocode.cleanup.{enabled,cron}` 환경변수 외부화. PR #27 외부 리뷰 (황찬우) G3 흡수.** |
+| **v1.1.19** | **2026-05-08** | **§4.1 lat/lng XOR 검증 명시 — 둘 다 함께 또는 둘 다 누락만 허용. 한쪽만 채워 보낸 케이스는 400 VALIDATION_ERROR (silent default fallback 차단). NaN/±Infinity 도 400 명시. PR #27 review M2 코드 fix 의 명세 mirroring + 자체 review H1/L1/L3 (javadoc 운영 가정/XFF spoof 안내) 동반.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -388,8 +389,11 @@ JWT의 `sub` claim에는 `member.member_uid` 값(prefix 없는 raw ULID 26자, C
 
 | 파라미터 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| `lat` | number | N | 사용자 현재 위도 |
-| `lng` | number | N | 사용자 현재 경도 |
+| `lat` | number | N | 사용자 현재 위도 (`-90.0 ~ 90.0`, finite) |
+| `lng` | number | N | 사용자 현재 경도 (`-180.0 ~ 180.0`, finite) |
+
+> **둘 다 함께 또는 둘 다 누락** 만 허용 (XOR 검증, v1.1.19). 한쪽만 채워 보낸 케이스는 `400 VALIDATION_ERROR` — silent default fallback (서울시청) 으로 떨어지면 "내 위치 기반 지도" 의도와 어긋나 UX 혼란.
+> NaN / ±Infinity 도 `400 VALIDATION_ERROR` (controller 의 `Double.isFinite` 가드).
 
 ```
 GET /main?lat=37.66&lng=127.01

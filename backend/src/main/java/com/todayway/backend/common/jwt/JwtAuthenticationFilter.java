@@ -72,7 +72,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         chain.doFilter(request, response);
     }
 
-    /** X-Forwarded-For 가 있으면 그 첫 토큰, 없으면 RemoteAddr. ELK/SIEM 분석 시 source IP 추적용. */
+    /**
+     * X-Forwarded-For 가 있으면 그 첫 토큰, 없으면 RemoteAddr. ELK/SIEM 분석 시 source IP 추적용.
+     *
+     * <p><b>가정</b>: LB 뒷단 운영 (EC2 + ALB) — LB 가 신뢰 가능한 XFF 만 set. malicious user 가 LB
+     * 우회로 직접 endpoint 접근 시 임의 XFF 헤더 spoof 가능 → 본 메서드는 가짜 IP 를 그대로 로깅.
+     * 보안 alert 차원이라 spoofed 도 패턴 분석 가치 있음 (반복 fingerprint 보존). 정확한 source
+     * 식별이 필요하면 LB 가 박는 별도 헤더 (예: AWS ALB 의 {@code X-Amzn-Trace-Id}) 또는 mTLS 권고.
+     */
     private static String resolveRemoteIp(HttpServletRequest request) {
         String xff = request.getHeader("X-Forwarded-For");
         if (xff != null && !xff.isBlank()) {
