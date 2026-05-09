@@ -5,12 +5,26 @@ import App from './App';
 import * as serviceWorkerRegistration from './serviceWorkerRegistration';
 import reportWebVitals from './reportWebVitals';
 
-const root = ReactDOM.createRoot(document.getElementById('root'));
-root.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-);
+// ── MSW 조건부 시작 ──
+async function bootstrap() {
+  if (process.env.REACT_APP_USE_MOCK === 'true') {
+    const { worker } = await import('./mocks/browser');
+    const scenario = localStorage.getItem('msw-scenario') || 'default';
+    await worker.start({
+      onUnhandledRequest: 'bypass',
+    });
+    console.log(`[MSW] enabled, scenario: ${scenario}`);
+  }
+
+  const root = ReactDOM.createRoot(document.getElementById('root'));
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+}
+
+bootstrap();
 
 // If you want your app to work offline and load faster, you can change
 // unregister() to register() below. Note this comes with some pitfalls.
