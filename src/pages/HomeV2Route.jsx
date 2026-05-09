@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { mockRouteInfoList, mockMember } from '../data/mockData';
+import { mockRouteInfoList, mockMember, mockTodaySchedules } from '../data/mockData';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePushNotification } from '../hooks/usePushNotification';
@@ -34,7 +34,7 @@ export default function HomeNoMap() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { theme } = useTheme();
-  const pointColor = theme === 'dark' ? '#8BB5E0' : '#2563EB';
+  const pointColor = '#2563EB';
   const { settings } = useSettings();
 
   const { requestPermission } = usePushNotification();
@@ -43,6 +43,7 @@ export default function HomeNoMap() {
   const [activeIdx, setActiveIdx] = useState(0);
   const [hoverSide, setHoverSide] = useState(null);
   const [busExpanded, setBusExpanded] = useState(false);
+  const [tlOpen, setTlOpen] = useState(false);
   const touchStartX = useRef(null);
   const total = mockRouteInfoList.length;
 
@@ -134,6 +135,7 @@ export default function HomeNoMap() {
                 onMouseLeave={() => setHoverSide(null)}
                 onTouchStart={onTouchStart}
                 onTouchEnd={onTouchEnd}
+                onClick={() => setTlOpen(v => !v)}
               >
                 <div
                   className="home__sch-track"
@@ -186,6 +188,48 @@ export default function HomeNoMap() {
                     ))}
                   </div>
                 )}
+
+                {/* 펼침/접힘 표시 */}
+                <div className="home__tl-toggle">
+                  <svg
+                    className={`home__tl-chevron${tlOpen ? ' home__tl-chevron--open' : ''}`}
+                    width="16" height="16" viewBox="0 0 24 24" fill="none"
+                  >
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2"
+                      strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </div>
+              </div>
+
+              {/* 오늘의 일정 타임라인 */}
+              <div className={`home__today-tl${tlOpen ? ' home__today-tl--open' : ''}`}>
+                <div className="home__today-tl__inner">
+                  <div className="home__today-tl__header">
+                    <span className="home__today-tl__label">오늘의 일정</span>
+                    <span className="home__today-tl__count">{mockTodaySchedules.length}개</span>
+                  </div>
+                  {mockTodaySchedules.map((sch, i) => {
+                    const isPast = sch.status === 'PAST';
+                    const isNext = sch.status === 'NEXT';
+                    const isLast = i === mockTodaySchedules.length - 1;
+                    return (
+                      <div key={sch.scheduleId} className={`htl-item${isPast ? ' htl-item--past' : ''}${isNext ? ' htl-item--next' : ''}`}>
+                        <div className="htl-item__line">
+                          <div className={`htl-item__dot${isNext ? ' htl-item__dot--point' : ''}`} />
+                          {!isLast && <div className="htl-item__connector" />}
+                        </div>
+                        <div className="htl-item__body">
+                          <div className="htl-item__title">{sch.title}</div>
+                          <div className="htl-item__time">
+                            <span className="htl-item__depart">{sch.departureTime}</span>
+                            <span className="htl-item__arrow"> → </span>
+                            <span className="htl-item__arrive">{sch.arrivalTime}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
 
               {/* 경로 안내 벤토 4칸 */}

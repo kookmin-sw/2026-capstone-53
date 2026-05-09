@@ -961,10 +961,6 @@ function CalendarPage() {
             ))}
           </div>
 
-          {/* 오늘 선택 시 타임라인 뷰 */}
-          {isToday && daySchedules.length > 0 && (
-            <DayTimeline schedules={daySchedules} />
-          )}
         </div>
 
         </>)}

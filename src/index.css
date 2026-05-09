@@ -6,10 +6,10 @@
   --color-point-border: #BFDBFE;
 }
 [data-theme="dark"] {
-  --color-point: #8BB5E0;
-  --color-point-dark: #7AAAD4;
-  --color-point-bg: #1a2d3f;
-  --color-point-border: #2a4460;
+  --color-point: #2563EB;
+  --color-point-dark: #1D4ED8;
+  --color-point-bg: #172554;
+  --color-point-border: #1e3a6e;
 }
 
 /* 전역 리셋 및 모바일 퍼스트 기반 */

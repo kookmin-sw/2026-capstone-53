@@ -420,8 +420,36 @@ export const mockSchedules = mockScheduleList.data.map(s => ({
   averageDurationMinutes: s.averageDurationMinutes,
 }));
 
-// 오늘(또는 특정 날) 일정 — Calendar 와 동일한 shape
-export const mockTodaySchedules = mockSchedules;
+// 오늘의 전체 일정 타임라인용
+export const mockTodaySchedules = [
+  {
+    scheduleId: 'sch-today-001',
+    title: '헬스장',
+    originName: '우이동',
+    destinationName: '쌍문동 피트니스센터',
+    departureTime: '06:30',
+    arrivalTime: '07:00',
+    status: 'PAST',
+  },
+  {
+    scheduleId: 'sch-today-002',
+    title: '국민대 등교',
+    originName: '우이동',
+    destinationName: '국민대학교',
+    departureTime: '08:30',
+    arrivalTime: '09:00',
+    status: 'NEXT',
+  },
+  {
+    scheduleId: 'sch-today-003',
+    title: '동아리 모임',
+    originName: '국민대학교',
+    destinationName: '홍대입구역 카페',
+    departureTime: '18:00',
+    arrivalTime: '19:00',
+    status: 'UPCOMING',
+  },
+];
 
 // 홈 화면 다중 일정 카드용
 export const mockRouteInfoList = [

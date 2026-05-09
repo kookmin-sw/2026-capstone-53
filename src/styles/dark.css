@@ -60,9 +60,9 @@
 [data-theme="dark"] .cal-nav__arrow svg path { stroke: #6b6b6b; }
 [data-theme="dark"] .cal-cell__num  { color: #e8e4dc; }
 [data-theme="dark"] .cal-cell--today .cal-cell__num { color: white; }
-[data-theme="dark"] .cal-cell__dot--1 { background: rgba(139, 181, 224, 0.3); }
-[data-theme="dark"] .cal-cell__dot--2 { background: rgba(139, 181, 224, 0.6); }
-[data-theme="dark"] .cal-cell__dot--3 { background: #8BB5E0; }
+[data-theme="dark"] .cal-cell__dot--1 { background: rgba(37, 99, 235, 0.3); }
+[data-theme="dark"] .cal-cell__dot--2 { background: rgba(37, 99, 235, 0.6); }
+[data-theme="dark"] .cal-cell__dot--3 { background: #2563EB; }
 [data-theme="dark"] .cal-section__title { color: #e8e4dc; }
 [data-theme="dark"] .sch-card       { background: #2d2b28; }
 [data-theme="dark"] .sch-card__title { color: #e8e4dc; }

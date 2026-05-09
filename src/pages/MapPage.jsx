@@ -9,7 +9,7 @@ const SEGMENTS = mockRouteData.data.candidates[0].segments;
 export default function MapPage() {
   const navigate = useNavigate();
   const { theme } = useTheme();
-  const pointColor = theme === 'dark' ? '#8BB5E0' : '#2563EB';
+  const pointColor = '#2563EB';
   const mapRef   = useRef(null);
   const sheetRef = useRef(null);
 

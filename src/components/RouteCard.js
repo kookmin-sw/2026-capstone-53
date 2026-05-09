@@ -4,7 +4,7 @@ import './RouteCard.css';
 
 function usePointColor() {
   const { theme } = useTheme();
-  return theme === 'dark' ? '#8BB5E0' : '#2563EB';
+  return '#2563EB';
 }
 
 function MiniMapCell({ segments, onMapTap }) {

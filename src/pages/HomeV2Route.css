@@ -480,3 +480,178 @@
 [data-theme="dark"] .home__dot--on {
   background: rgba(255, 255, 255, 0.85);
 }
+
+/* ================================================================
+   오늘의 일정 타임라인 (펼침/접힘)
+   ================================================================ */
+
+/* 펼침/접힘 화살표 */
+.home__tl-toggle {
+  display: flex;
+  justify-content: center;
+  padding: 6px 0 2px;
+}
+
+.home__tl-chevron {
+  color: rgba(255, 255, 255, 0.5);
+  transition: transform 0.25s ease;
+}
+
+.home__tl-chevron--open {
+  transform: rotate(180deg);
+}
+
+/* 타임라인 래퍼 */
+.home__today-tl {
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.25s ease;
+}
+
+.home__today-tl--open {
+  max-height: 600px;
+  opacity: 1;
+}
+
+.home__today-tl__inner {
+  background: #FAF5EF;
+  border-radius: 16px;
+  padding: 20px 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 헤더 */
+.home__today-tl__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 18px;
+}
+
+.home__today-tl__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #888;
+  letter-spacing: 1px;
+}
+
+.home__today-tl__count {
+  font-size: 12px;
+  font-weight: 600;
+  color: #888;
+}
+
+/* ── 타임라인 아이템 ── */
+.htl-item {
+  display: flex;
+  gap: 14px;
+  min-height: 0;
+}
+
+/* 왼쪽: 점 + 세로선 */
+.htl-item__line {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 14px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.htl-item__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ccc;
+  flex-shrink: 0;
+}
+
+.htl-item__dot--point {
+  background: var(--color-point);
+}
+
+.htl-item__connector {
+  width: 1px;
+  flex: 1;
+  min-height: 16px;
+  background: #e0e0e0;
+  margin: 4px 0;
+}
+
+/* 오른쪽: 내용 */
+.htl-item__body {
+  flex: 1;
+  padding-bottom: 22px;
+  min-width: 0;
+}
+
+.htl-item:last-child .htl-item__body {
+  padding-bottom: 0;
+}
+
+/* 일정 이름 */
+.htl-item__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 4px;
+}
+
+/* 시간 */
+.htl-item__time {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.htl-item__depart,
+.htl-item__arrive {
+  font-size: 13px;
+  font-weight: 500;
+  color: #aaa;
+}
+
+.htl-item__arrow {
+  font-size: 13px;
+  font-weight: 400;
+  color: #aaa;
+}
+
+/* ── 지난 일정 ── */
+.htl-item--past .htl-item__title   { color: #aaa; }
+.htl-item--past .htl-item__depart,
+.htl-item--past .htl-item__arrow,
+.htl-item--past .htl-item__arrive  { color: #ccc; }
+
+/* ── 다음 일정 ── */
+.htl-item--next .htl-item__title {
+  color: var(--color-point);
+}
+
+/* ── 다크모드 ── */
+[data-theme="dark"] .home__today-tl__inner {
+  background: #2A2825;
+}
+
+[data-theme="dark"] .home__today-tl__label,
+[data-theme="dark"] .home__today-tl__count {
+  color: #5a5248;
+}
+
+[data-theme="dark"] .htl-item__title   { color: #e8e4dc; }
+[data-theme="dark"] .htl-item__depart,
+[data-theme="dark"] .htl-item__arrive  { color: #555; }
+[data-theme="dark"] .htl-item__arrow   { color: #555; }
+
+[data-theme="dark"] .htl-item__dot         { background: #444; }
+[data-theme="dark"] .htl-item__dot--point  { background: var(--color-point); }
+[data-theme="dark"] .htl-item__connector   { background: #333; }
+
+[data-theme="dark"] .htl-item--past .htl-item__title  { color: #555; }
+[data-theme="dark"] .htl-item--past .htl-item__depart,
+[data-theme="dark"] .htl-item--past .htl-item__arrow,
+[data-theme="dark"] .htl-item--past .htl-item__arrive { color: #444; }
+
+[data-theme="dark"] .htl-item--next .htl-item__title { color: var(--color-point); }

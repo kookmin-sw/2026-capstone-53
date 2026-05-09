@@ -11,11 +11,12 @@ import Settings from './pages/Settings';
 import LoginPage from './pages/LoginPage';
 import SignupPage from './pages/SignupPage';
 import NotificationPage from './pages/NotificationPage';
+import SmokeTest from './pages/SmokeTest';
 import './App.css';
 import './styles/dark.css';
 
 const AUTH_PATHS = ['/login', '/signup'];
-const HIDE_NAV_PATHS = ['/map', '/login', '/signup', '/notifications'];
+const HIDE_NAV_PATHS = ['/map', '/login', '/signup', '/notifications', '/smoke-test'];
 
 function RequireAuth({ children }) {
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
@@ -30,7 +31,7 @@ function AppLayout() {
   useEffect(() => {
     const meta = document.querySelector('meta[name="theme-color"]');
     if (meta) {
-      meta.setAttribute('content', theme === 'dark' ? '#8BB5E0' : '#2563EB');
+      meta.setAttribute('content', '#2563EB');
     }
   }, [theme]);
 
@@ -42,6 +43,7 @@ function AppLayout() {
           {/* 인증 불필요 */}
           <Route path="/login"  element={<LoginPage />} />
           <Route path="/signup" element={<SignupPage />} />
+          <Route path="/smoke-test" element={<SmokeTest />} />
 
           {/* 인증 필요 */}
           <Route path="/" element={<RequireAuth><HomeV2Route /></RequireAuth>} />
