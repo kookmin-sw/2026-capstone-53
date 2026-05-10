@@ -16,19 +16,11 @@
       --accent: #2563EB;
       --accent-dark: #1D4ED8;
       --accent-soft: #EFF6FF;
-      --blue: #3267a8;
-      --coral: #e86f51;
       --shadow: 0 18px 45px rgba(23, 32, 42, 0.08);
     }
 
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -36,15 +28,8 @@
       background: var(--surface);
       line-height: 1.6;
     }
-
-    img {
-      max-width: 100%;
-      display: block;
-    }
-
-    a {
-      color: inherit;
-    }
+    img { max-width: 100%; display: block; }
+    a { color: inherit; }
 
     .site-header {
       position: sticky;
@@ -54,7 +39,6 @@
       background: rgba(255, 255, 255, 0.94);
       backdrop-filter: blur(12px);
     }
-
     .nav {
       width: min(1120px, calc(100% - 40px));
       min-height: 68px;
@@ -64,42 +48,26 @@
       justify-content: space-between;
       gap: 20px;
     }
-
     .brand {
+      height: 44px;
       display: inline-flex;
       align-items: center;
-      gap: 12px;
-      font-weight: 800;
+      gap: 8px;
       text-decoration: none;
     }
-
     .brand-logo {
-      width: 36px;
-      height: 36px;
+      width: 24px;
+      height: 24px;
+      flex: 0 0 auto;
       object-fit: contain;
     }
-
-    .asset-fallback {
-      display: grid;
-      place-items: center;
-      border: 1px dashed #aab7c4;
-      border-radius: 8px;
-      background:
-        linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(50, 103, 168, 0.07)),
-        #fff;
-      color: var(--muted);
-      font-size: 13px;
-      font-weight: 700;
-      text-align: center;
+    .brand-wordmark {
+      width: auto;
+      height: 25px;
+      max-width: 126px;
+      flex: 0 0 auto;
+      object-fit: contain;
     }
-
-    .brand .asset-fallback {
-      width: 36px;
-      height: 36px;
-      border-radius: 8px;
-      font-size: 12px;
-    }
-
     .nav-links {
       display: flex;
       align-items: center;
@@ -107,10 +75,7 @@
       color: var(--muted);
       font-size: 14px;
     }
-
-    .nav-links a {
-      text-decoration: none;
-    }
+    .nav-links a { text-decoration: none; }
 
     .button {
       display: inline-flex;
@@ -126,21 +91,16 @@
       text-decoration: none;
       white-space: nowrap;
     }
-
     .button.secondary {
       background: #fff;
       color: var(--accent-dark);
     }
 
-    main {
-      overflow: hidden;
-    }
-
+    main { overflow: hidden; }
     .hero {
       background: #fff;
       border-bottom: 1px solid var(--line);
     }
-
     .hero-inner {
       width: min(1120px, calc(100% - 40px));
       min-height: calc(100vh - 68px);
@@ -151,21 +111,13 @@
       gap: 54px;
       padding: 64px 0;
     }
-
     .eyebrow {
       margin: 0 0 14px;
       color: var(--accent-dark);
       font-size: 14px;
       font-weight: 800;
     }
-
-    h1,
-    h2,
-    h3,
-    p {
-      margin-top: 0;
-    }
-
+    h1, h2, h3, p { margin-top: 0; }
     h1 {
       max-width: 760px;
       margin-bottom: 22px;
@@ -173,21 +125,23 @@
       line-height: 1.04;
       letter-spacing: 0;
     }
-
+    .hero-wordmark {
+      width: min(420px, 100%);
+      height: auto;
+      margin-bottom: 24px;
+    }
     .lead {
       max-width: 660px;
       margin-bottom: 30px;
       color: var(--muted);
       font-size: clamp(18px, 2.1vw, 22px);
     }
-
     .hero-actions {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
       max-width: 720px;
     }
-
     .jump-link {
       min-height: 76px;
       display: flex;
@@ -202,22 +156,30 @@
       text-decoration: none;
       box-shadow: 0 10px 28px rgba(23, 32, 42, 0.04);
     }
-
     .jump-link strong {
       color: var(--accent-dark);
       font-size: 16px;
     }
-
     .jump-link span {
       color: var(--muted);
       font-size: 13px;
     }
-
     .jump-link:hover {
       border-color: rgba(37, 99, 235, 0.55);
       background: var(--accent-soft);
     }
 
+    .asset-fallback {
+      display: grid;
+      place-items: center;
+      border: 1px dashed #aab7c4;
+      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(50, 103, 168, 0.07)), #fff;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+    }
     .hero-media {
       min-height: 460px;
       display: grid;
@@ -228,13 +190,11 @@
       box-shadow: var(--shadow);
       overflow: hidden;
     }
-
     .hero-media img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-
     .hero-media .asset-fallback {
       width: calc(100% - 48px);
       height: calc(100% - 48px);
@@ -246,30 +206,25 @@
       margin: 0 auto;
       padding: 84px 0;
     }
-
     .section-head {
       max-width: 740px;
       margin-bottom: 34px;
     }
-
     h2 {
       margin-bottom: 12px;
       font-size: clamp(30px, 4.2vw, 48px);
       line-height: 1.12;
       letter-spacing: 0;
     }
-
     .section-head p {
       color: var(--muted);
       font-size: 18px;
     }
-
     .grid {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 16px;
     }
-
     .card {
       min-height: 250px;
       padding: 24px;
@@ -278,7 +233,6 @@
       background: var(--panel);
       box-shadow: 0 10px 28px rgba(23, 32, 42, 0.04);
     }
-
     .card-media {
       height: 132px;
       margin-bottom: 20px;
@@ -286,26 +240,40 @@
       border-radius: 8px;
       background: var(--surface);
     }
-
-    .card-media img {
+    .card-media img, .gallery-item img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
-
     .card-media .asset-fallback {
       width: 100%;
       height: 100%;
     }
-
     .card h3 {
       margin-bottom: 8px;
       font-size: 20px;
     }
-
     .card p {
       margin-bottom: 0;
       color: var(--muted);
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+    .gallery-item {
+      min-height: 260px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+    .gallery-item .asset-fallback {
+      width: 100%;
+      height: 100%;
+      min-height: 260px;
     }
 
     .split {
@@ -314,7 +282,6 @@
       gap: 26px;
       align-items: stretch;
     }
-
     .panel {
       padding: 26px;
       border: 1px solid var(--line);
@@ -322,7 +289,6 @@
       background: #fff;
       box-shadow: var(--shadow);
     }
-
     .asset-list {
       display: grid;
       gap: 12px;
@@ -330,7 +296,6 @@
       padding: 0;
       list-style: none;
     }
-
     .asset-list li {
       display: grid;
       grid-template-columns: 170px minmax(0, 1fr);
@@ -339,49 +304,20 @@
       border-bottom: 1px solid var(--line);
       color: var(--muted);
     }
-
     .asset-list li:last-child {
       padding-bottom: 0;
       border-bottom: 0;
     }
-
     code {
       color: var(--accent-dark);
       font-family: "SFMono-Regular", Consolas, monospace;
       font-size: 0.95em;
     }
 
-    .gallery {
-      display: grid;
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 16px;
-    }
-
-    .gallery-item {
-      min-height: 260px;
-      overflow: hidden;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: #fff;
-    }
-
-    .gallery-item img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .gallery-item .asset-fallback {
-      width: 100%;
-      height: 100%;
-      min-height: 260px;
-    }
-
     .footer {
       border-top: 1px solid var(--line);
       background: #fff;
     }
-
     .footer-inner {
       width: min(1120px, calc(100% - 40px));
       margin: 0 auto;
@@ -395,51 +331,17 @@
     }
 
     @media (max-width: 880px) {
-      .nav {
-        width: min(100% - 28px, 1120px);
-      }
-
-      .nav-links {
-        display: none;
-      }
-
-      .hero-inner,
-      .split,
-      .grid,
-      .gallery {
-        grid-template-columns: 1fr;
-      }
-
-      .hero-inner {
-        min-height: auto;
-        gap: 36px;
-        padding: 48px 0;
-      }
-
-      .hero-media {
-        min-height: 340px;
-      }
-
-      .section {
-        width: min(100% - 28px, 1120px);
-        padding: 62px 0;
-      }
-
-      .asset-list li {
-        grid-template-columns: 1fr;
-      }
-
-      .footer-inner {
-        width: min(100% - 28px, 1120px);
-        align-items: flex-start;
-        flex-direction: column;
-      }
+      .nav { width: min(100% - 28px, 1120px); }
+      .nav-links { display: none; }
+      .hero-inner, .split, .grid, .gallery { grid-template-columns: 1fr; }
+      .hero-inner { min-height: auto; gap: 36px; padding: 48px 0; }
+      .hero-media { min-height: 340px; }
+      .section { width: min(100% - 28px, 1120px); padding: 62px 0; }
+      .asset-list li { grid-template-columns: 1fr; }
+      .footer-inner { width: min(100% - 28px, 1120px); align-items: flex-start; flex-direction: column; }
     }
-
     @media (max-width: 520px) {
-      .hero-actions {
-        grid-template-columns: 1fr;
-      }
+      .hero-actions { grid-template-columns: 1fr; }
     }
   </style>
 </head>
@@ -447,9 +349,8 @@
   <header class="site-header">
     <nav class="nav" aria-label="주요 메뉴">
       <a class="brand" href="#top">
-        <img class="brand-logo" src="./assets/images/logo.svg" alt="오늘어디 로고" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
-        <span class="asset-fallback" hidden>Logo</span>
-        <span>오늘어디</span>
+        <img class="brand-logo" src="./assets/images/Todayway_main.svg" alt="" aria-hidden="true">
+        <img class="brand-wordmark" src="./assets/images/Todayway_black-none.svg" alt="오늘어디">
       </a>
       <div class="nav-links">
         <a href="#program">프로그램 소개</a>
@@ -465,30 +366,21 @@
     <section class="hero" aria-labelledby="hero-title">
       <div class="hero-inner">
         <div>
-          <p class="eyebrow">2026 Capstone Design</p>
-          <h1 id="hero-title">오늘어디</h1>
+          <p class="eyebrow">2026 KMU Capstone Design</p>
+          <h1 id="hero-title">
+            <img class="hero-wordmark" src="./assets/images/Todayway_black.svg" alt="오늘어디" onerror="this.hidden=true; this.parentElement.textContent='오늘어디'">
+          </h1>
           <p class="lead">프로젝트 소개 문구가 들어갈 영역입니다.</p>
           <div class="hero-actions" aria-label="페이지 섹션 바로가기">
-            <a class="jump-link" href="#program">
-              <strong>프로그램 소개</strong>
-              <span>프로젝트 개요 영역</span>
-            </a>
-            <a class="jump-link" href="#examples">
-              <strong>예시</strong>
-              <span>이미지와 화면 자료</span>
-            </a>
-            <a class="jump-link" href="#operation">
-              <strong>동작</strong>
-              <span>흐름 설명 영역</span>
-            </a>
+            <a class="jump-link" href="#program"><strong>프로그램 소개</strong><span>프로젝트 개요 영역</span></a>
+            <a class="jump-link" href="#examples"><strong>예시</strong><span>이미지와 화면 자료</span></a>
+            <a class="jump-link" href="#operation"><strong>동작</strong><span>흐름 설명 영역</span></a>
           </div>
         </div>
 
         <div class="hero-media">
           <img src="./assets/images/hero.svg" alt="대표 이미지" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
-          <div class="asset-fallback" hidden>
-            assets/images/hero.svg
-          </div>
+          <div class="asset-fallback" hidden>assets/images/hero.svg</div>
         </div>
       </div>
     </section>
@@ -501,26 +393,17 @@
       </div>
       <div class="grid">
         <article class="card">
-          <div class="card-media">
-            <img src="./assets/images/overview-01.svg" alt="개요 이미지 1" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
-            <div class="asset-fallback" hidden>assets/images/overview-01.svg</div>
-          </div>
+          <div class="card-media"><img src="./assets/images/overview-01.svg" alt="개요 이미지 1" onerror="this.hidden=true; this.nextElementSibling.hidden=false"><div class="asset-fallback" hidden>assets/images/overview-01.svg</div></div>
           <h3>소개 영역</h3>
           <p>프로젝트 설명이 들어갈 영역입니다.</p>
         </article>
         <article class="card">
-          <div class="card-media">
-            <img src="./assets/images/overview-02.svg" alt="개요 이미지 2" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
-            <div class="asset-fallback" hidden>assets/images/overview-02.svg</div>
-          </div>
+          <div class="card-media"><img src="./assets/images/overview-02.svg" alt="개요 이미지 2" onerror="this.hidden=true; this.nextElementSibling.hidden=false"><div class="asset-fallback" hidden>assets/images/overview-02.svg</div></div>
           <h3>기능 영역</h3>
           <p>주요 기능 설명이 들어갈 영역입니다.</p>
         </article>
         <article class="card">
-          <div class="card-media">
-            <img src="./assets/images/overview-03.svg" alt="개요 이미지 3" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
-            <div class="asset-fallback" hidden>assets/images/overview-03.svg</div>
-          </div>
+          <div class="card-media"><img src="./assets/images/overview-03.svg" alt="개요 이미지 3" onerror="this.hidden=true; this.nextElementSibling.hidden=false"><div class="asset-fallback" hidden>assets/images/overview-03.svg</div></div>
           <h3>시연 영역</h3>
           <p>시연 자료 설명이 들어갈 영역입니다.</p>
         </article>
@@ -534,14 +417,8 @@
         <p>스크린샷, 로고, 예시 이미지 파일을 SVG 또는 정적 이미지로 연결합니다.</p>
       </div>
       <div class="gallery">
-        <div class="gallery-item">
-          <img src="./assets/images/screenshot-01.svg" alt="화면 이미지 1" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
-          <div class="asset-fallback" hidden>assets/images/screenshot-01.svg</div>
-        </div>
-        <div class="gallery-item">
-          <img src="./assets/images/screenshot-02.svg" alt="화면 이미지 2" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
-          <div class="asset-fallback" hidden>assets/images/screenshot-02.svg</div>
-        </div>
+        <div class="gallery-item"><img src="./assets/images/screenshot-01.svg" alt="화면 이미지 1" onerror="this.hidden=true; this.nextElementSibling.hidden=false"><div class="asset-fallback" hidden>assets/images/screenshot-01.svg</div></div>
+        <div class="gallery-item"><img src="./assets/images/screenshot-02.svg" alt="화면 이미지 2" onerror="this.hidden=true; this.nextElementSibling.hidden=false"><div class="asset-fallback" hidden>assets/images/screenshot-02.svg</div></div>
       </div>
     </section>
 
@@ -554,18 +431,9 @@
         </div>
         <div class="panel">
           <ul class="asset-list">
-            <li>
-              <strong>Step 1</strong>
-              <span>첫 번째 동작 설명이 들어갈 영역입니다.</span>
-            </li>
-            <li>
-              <strong>Step 2</strong>
-              <span>두 번째 동작 설명이 들어갈 영역입니다.</span>
-            </li>
-            <li>
-              <strong>Step 3</strong>
-              <span>세 번째 동작 설명이 들어갈 영역입니다.</span>
-            </li>
+            <li><strong>Step 1</strong><span>첫 번째 동작 설명이 들어갈 영역입니다.</span></li>
+            <li><strong>Step 2</strong><span>두 번째 동작 설명이 들어갈 영역입니다.</span></li>
+            <li><strong>Step 3</strong><span>세 번째 동작 설명이 들어갈 영역입니다.</span></li>
           </ul>
         </div>
       </div>
@@ -580,26 +448,13 @@
         </div>
         <div class="panel">
           <ul class="asset-list">
-            <li>
-              <strong><code>index.html</code></strong>
-              <span>페이지 본문과 레이아웃</span>
-            </li>
-            <li>
-              <strong><code>assets/images/logo.svg</code></strong>
-              <span>헤더 로고</span>
-            </li>
-            <li>
-              <strong><code>assets/images/hero.svg</code></strong>
-              <span>첫 화면 대표 이미지</span>
-            </li>
-            <li>
-              <strong><code>assets/images/screenshot-01.svg</code></strong>
-              <span>소개 또는 시연 이미지</span>
-            </li>
-            <li>
-              <strong><code>assets/images/screenshot-02.svg</code></strong>
-              <span>추가 소개 또는 시연 이미지</span>
-            </li>
+            <li><strong><code>index.html</code></strong><span>페이지 본문과 레이아웃</span></li>
+            <li><strong><code>assets/images/Todayway_main.svg</code></strong><span>헤더 로고</span></li>
+            <li><strong><code>assets/images/Todayway_black-none.svg</code></strong><span>헤더 워드마크</span></li>
+            <li><strong><code>assets/images/Todayway_black.svg</code></strong><span>오늘어디 워드마크</span></li>
+            <li><strong><code>assets/images/hero.svg</code></strong><span>첫 화면 대표 이미지</span></li>
+            <li><strong><code>assets/images/screenshot-01.svg</code></strong><span>소개 또는 시연 이미지</span></li>
+            <li><strong><code>assets/images/screenshot-02.svg</code></strong><span>추가 소개 또는 시연 이미지</span></li>
           </ul>
         </div>
       </div>
@@ -608,7 +463,7 @@
 
   <footer class="footer">
     <div class="footer-inner">
-      <span>오늘어디 · 2026 Capstone Design</span>
+      <span>오늘어디 · 2026 KMU Capstone Design</span>
       <span>GitHub Pages prototype</span>
     </div>
   </footer>
