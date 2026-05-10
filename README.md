@@ -67,6 +67,7 @@
 <!-- <img src="assets/README/section-4.png" alt="4" width="48"> -->
 
 | 사진 | <!-- ![팀원 1](assets/README/member-1.png) --> | <!-- ![팀원 2](assets/README/member-2.png) --> | <!-- ![팀원 3](assets/README/member-3.png) --> | <!-- ![팀원 4](assets/README/member-4.png) --> |
+|---|---|---|---|
 | 이름 | 원수현 | 임채연 | 이상진 | 황찬우 |
 | 학번 | 20203102 | 20210481 | 00000000 | 20212667 |
 | 담당 업무 | TR, DevOps, 기획, 디자인 | Frontend | Backend | Backend |
