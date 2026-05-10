@@ -161,7 +161,17 @@ export default function MapPage() {
           <span className="mp-topbar-title">경로 지도</span>
         </div>
         <div style={{ paddingTop: 80 }}>
-          <ErrorState onRetry={() => fetchRoute()} />
+          {!scheduleId ? (
+            <div className="state-box">
+              <p className="state-box__title">일정이 선택되지 않았어요</p>
+              <p className="state-box__desc">캘린더에서 일정을 선택해주세요</p>
+              <button className="state-box__btn state-box__btn--outline" onClick={() => navigate('/calendar')}>
+                캘린더로 돌아가기
+              </button>
+            </div>
+          ) : (
+            <ErrorState onRetry={() => fetchRoute()} />
+          )}
         </div>
       </div>
     );

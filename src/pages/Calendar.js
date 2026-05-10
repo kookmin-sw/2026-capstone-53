@@ -265,10 +265,11 @@ const EMPTY_FORM = {
   repeatDays: [],
 };
 
-function BottomSheet({ editingSchedule, onClose, onSave }) {
+function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
   const [form, setForm]             = useState(EMPTY_FORM);
   const [placeField, setPlaceField] = useState(null);    // 'origin' | 'destination' | null
   const [activePicker, setActivePicker] = useState(null); // 'usualDepartureTime' | 'arrivalTime' | null
+  const [formError, setFormError]   = useState('');
   const sheetRef = useRef(null);
 
   useEffect(() => {
@@ -330,7 +331,8 @@ function BottomSheet({ editingSchedule, onClose, onSave }) {
   };
 
   const handleSave = () => {
-    if (!form.title.trim()) { alert('일정 이름을 입력해주세요'); return; }
+    if (!form.title.trim()) { setFormError('일정 이름을 입력해주세요'); return; }
+    setFormError('');
     onSave(form);
   };
 
@@ -484,10 +486,14 @@ function BottomSheet({ editingSchedule, onClose, onSave }) {
           </div>
         </div>
 
+        {formError && (
+          <p style={{ color: '#EF4444', fontSize: 12, fontWeight: 500, padding: '0 22px 8px', margin: 0 }}>{formError}</p>
+        )}
+
         <div className="sheet__footer">
-          <button className="sheet__btn sheet__btn--cancel" onClick={onClose}>취소</button>
-          <button className="sheet__btn sheet__btn--save"   onClick={handleSave}>
-            {isEditing ? '수정 완료' : '저장'}
+          <button className="sheet__btn sheet__btn--cancel" onClick={onClose} disabled={isSaving}>취소</button>
+          <button className="sheet__btn sheet__btn--save" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? '저장 중...' : isEditing ? '수정 완료' : '저장'}
           </button>
         </div>
       </div>
@@ -782,6 +788,8 @@ function CalendarPage() {
   const [schedules, setSchedules] = useState([]);
   const [showSheet, setShowSheet]   = useState(false);
   const [editingSch, setEditingSch] = useState(null);
+  const [isSaving, setIsSaving]     = useState(false);
+  const [toast, setToast]           = useState('');
   const todayDow = today.getDay();
 
   const [searchParams] = useSearchParams();
@@ -838,6 +846,8 @@ function CalendarPage() {
   const daySchedules = getSchedulesForDate(schedules, year, month, selDay);
   const selDow = new Date(year, month, selDay).getDay();
 
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2000); };
+
   const openAdd = () => { setEditingSch(null); setShowSheet(true); };
   const openEdit = (sch) => { setEditingSch(sch); setShowSheet(true); };
   const closeSheet = () => { setShowSheet(false); setEditingSch(null); };
@@ -869,18 +879,25 @@ function CalendarPage() {
         : null,
     };
 
+    setIsSaving(true);
     try {
       if (editingSch) {
         const updated = await api.schedules.update(editingSch.scheduleId, body);
         setSchedules(s => s.map(x => x.scheduleId === updated.scheduleId ? updated : x));
+        showToast('일정이 수정되었어요');
       } else {
         const created = await api.schedules.create(body);
         setSchedules(s => [...s, created]);
+        showToast(created.routeStatus === 'PENDING_RETRY'
+          ? '일정은 등록됐어요. 경로 계산이 지연되고 있어요'
+          : '일정이 등록되었어요');
       }
       closeSheet();
     } catch (err) {
       console.error('[Calendar] 일정 저장 실패', err);
-      alert(err.message || '일정 저장에 실패했어요');
+      showToast(err.message || '일정 저장에 실패했어요');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -888,11 +905,12 @@ function CalendarPage() {
     try {
       await api.schedules.delete(id);
       setSchedules(s => s.filter(x => x.scheduleId !== id));
+      showToast('일정이 삭제되었어요');
     } catch (err) {
       console.error('[Calendar] 일정 삭제 실패', err);
-      alert(err.message || '일정 삭제에 실패했어요');
+      showToast(err.message || '일정 삭제에 실패했어요');
     }
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const monthLabel = `${year}년 ${month + 1}월`;
   const selLabel   = `${month + 1}월 ${selDay}일 (${DAY_LABELS[selDow]})`;
@@ -1012,9 +1030,11 @@ function CalendarPage() {
           editingSchedule={editingSch}
           onClose={closeSheet}
           onSave={handleSave}
+          isSaving={isSaving}
         />
       )}
 
+      {toast && <div className="st-toast">{toast}</div>}
     </div>
   );
 }

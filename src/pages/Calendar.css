@@ -1578,3 +1578,27 @@
 
 [data-theme="dark"] .tpw__item       { color: #4a4a4a; }
 [data-theme="dark"] .tpw__item--sel  { color: var(--color-point); }
+
+/* ── 토스트 (Settings와 동일) ── */
+.st-toast {
+  position: fixed;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #1C1C1E;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 10px 22px;
+  border-radius: 20px;
+  white-space: nowrap;
+  z-index: 9999;
+  animation: st-toast-in 0.2s ease;
+}
+
+@keyframes st-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+[data-theme="dark"] .st-toast { background: #e8e4dc; color: #1a1917; }

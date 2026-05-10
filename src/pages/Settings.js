@@ -40,6 +40,8 @@ function ProfileEditSheet({ member, onClose, onSaved, onPasswordChanged }) {
   const [newPw, setNewPw]           = useState('');
   const [newPwConfirm, setNewPwConfirm] = useState('');
   const [touched, setTouched]       = useState({});
+  const [isSaving, setIsSaving]     = useState(false);
+  const [saveError, setSaveError]   = useState('');
 
   const pwFilled    = newPw.length > 0 || newPwConfirm.length > 0;
   const pwTooShort  = touched.newPw && newPw.length > 0 && newPw.length < 8;
@@ -52,7 +54,9 @@ function ProfileEditSheet({ member, onClose, onSaved, onPasswordChanged }) {
     (!pwFilled || (newPw.length >= 8 && newPw === newPwConfirm && curPw.length > 0));
 
   const handleSave = async () => {
-    if (!canSave) return;
+    if (!canSave || isSaving) return;
+    setSaveError('');
+    setIsSaving(true);
     try {
       const body = { nickname };
       if (pwFilled) body.password = newPw;
@@ -63,7 +67,9 @@ function ProfileEditSheet({ member, onClose, onSaved, onPasswordChanged }) {
         onSaved();
       }
     } catch (err) {
-      alert(err.message || '수정에 실패했어요');
+      setSaveError(err.message || '수정에 실패했어요');
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -124,14 +130,17 @@ function ProfileEditSheet({ member, onClose, onSaved, onPasswordChanged }) {
           </div>
         </div>
 
+        {saveError && (
+          <p style={{ color: '#EF4444', fontSize: 12, fontWeight: 500, padding: '0 22px 8px', margin: 0 }}>{saveError}</p>
+        )}
         <div className="st-edit-sheet__footer">
-          <button className="st-edit-sheet__btn st-edit-sheet__btn--cancel" onClick={onClose}>취소</button>
+          <button className="st-edit-sheet__btn st-edit-sheet__btn--cancel" onClick={onClose} disabled={isSaving}>취소</button>
           <button
-            className={`st-edit-sheet__btn st-edit-sheet__btn--save${!canSave ? ' st-edit-sheet__btn--disabled' : ''}`}
+            className={`st-edit-sheet__btn st-edit-sheet__btn--save${(!canSave || isSaving) ? ' st-edit-sheet__btn--disabled' : ''}`}
             onClick={handleSave}
-            disabled={!canSave}
+            disabled={!canSave || isSaving}
           >
-            저장
+            {isSaving ? '저장 중...' : '저장'}
           </button>
         </div>
       </div>
@@ -198,6 +207,7 @@ function Settings() {
   const [showLogout, setShowLogout]   = React.useState(false);
   const [showDelete, setShowDelete]   = React.useState(false);
   const [showProfile, setShowProfile] = React.useState(false);
+  const [isDeleting, setIsDeleting]   = React.useState(false);
   const [toast, setToast]             = React.useState('');
   const [uiState, setUiState]         = React.useState('loading');
   const [member, setMember]           = React.useState(null);
@@ -239,20 +249,18 @@ function Settings() {
 
   const BUFFERS = [5, 10, 20, 30];
 
-  const sendTestNotification = async () => {
-    alert('1. 버튼 클릭됨');
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2000); };
 
+  const sendTestNotification = async () => {
     if (!('Notification' in window)) {
-      alert('이 브라우저는 알림을 지원하지 않아요');
+      showToast('이 브라우저는 알림을 지원하지 않아요');
       return;
     }
 
     let permission = Notification.permission;
-    alert('2. 권한 상태: ' + permission);
 
     if (permission === 'default') {
       permission = await Notification.requestPermission();
-      alert('3. 요청 결과: ' + permission);
     }
 
     if (permission === 'granted') {
@@ -260,9 +268,9 @@ function Settings() {
         body: '08:18에 출발하세요 (국민대 등교, 예상 42분)',
         icon: '/logo192.png',
       });
-      alert('4. 알림 발송 완료');
+      showToast('테스트 알림을 보냈어요');
     } else {
-      alert('알림이 차단되어 있어요. 브라우저 설정에서 허용해주세요.');
+      showToast('알림이 차단되어 있어요. 브라우저 설정에서 허용해주세요.');
     }
   };
 
@@ -392,10 +400,12 @@ function Settings() {
           }}
           onPasswordChanged={async () => {
             setShowProfile(false);
-            alert('비밀번호가 변경되어 다시 로그인해주세요');
+            showToast('비밀번호가 변경되었어요. 다시 로그인해주세요');
             try { await api.auth.logout(); } catch {}
-            localStorage.clear();
-            navigate('/login');
+            setTimeout(() => {
+              localStorage.clear();
+              navigate('/login');
+            }, 1500);
           }}
         />
       )}
@@ -417,22 +427,25 @@ function Settings() {
               탈퇴하면 모든 일정과 데이터가 삭제되며<br/>복구할 수 없습니다. 정말 탈퇴하시겠습니까?
             </p>
             <div className="st-dialog__btns">
-              <button className="st-dialog__btn st-dialog__btn--cancel" onClick={() => setShowDelete(false)}>취소</button>
+              <button className="st-dialog__btn st-dialog__btn--cancel" onClick={() => setShowDelete(false)} disabled={isDeleting}>취소</button>
               <button
                 className="st-dialog__btn st-dialog__btn--confirm"
+                disabled={isDeleting}
                 onClick={async () => {
+                  setIsDeleting(true);
                   try {
                     await api.members.delete();
                   } catch (e) {
                     console.warn('[Settings] 회원 탈퇴 API 실패:', e);
                   } finally {
+                    setIsDeleting(false);
                     setShowDelete(false);
                     localStorage.clear();
                     navigate('/login');
                   }
                 }}
               >
-                탈퇴하기
+                {isDeleting ? '탈퇴 처리 중...' : '탈퇴하기'}
               </button>
             </div>
           </div>
