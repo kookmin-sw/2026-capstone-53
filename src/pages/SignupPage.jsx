@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../api';
 import './AuthPage.css';
 
 export default function SignupPage() {
@@ -9,7 +10,9 @@ export default function SignupPage() {
   const [pwConfirm, setPwConfirm] = useState('');
   const [nickname, setNickname] = useState('');
   const [touched, setTouched] = useState({});
-  const [toast, setToast] = useState(false);
+  const [toast, setToast] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
   const idError = touched.id && id.length > 0 && id.length < 4;
   const pwError = touched.pwConfirm && pwConfirm.length > 0 && pw !== pwConfirm;
@@ -20,13 +23,29 @@ export default function SignupPage() {
     pw === pwConfirm &&
     nickname.length > 0;
 
-  const handleSignup = () => {
+  const handleSignup = async () => {
     if (!isValid) return;
-    setToast(true);
-    setTimeout(() => {
-      setToast(false);
-      navigate('/login');
-    }, 1500);
+    setError('');
+    setSubmitting(true);
+    try {
+      await api.auth.signup({ loginId: id, password: pw, nickname });
+      localStorage.setItem('isLoggedIn', 'true');
+      setToast('환영합니다!');
+      setTimeout(() => {
+        setToast('');
+        navigate('/');
+      }, 1500);
+    } catch (err) {
+      if (err.code === 'LOGIN_ID_DUPLICATED') {
+        setError('이미 사용 중인 아이디예요');
+      } else if (err.code === 'VALIDATION_ERROR') {
+        setError('입력 정보를 확인해주세요');
+      } else {
+        setError('회원가입 중 문제가 발생했어요');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const blur = (field) => setTouched(prev => ({ ...prev, [field]: true }));
@@ -100,13 +119,15 @@ export default function SignupPage() {
           </div>
         </div>
 
+        {error && <p className="auth__error" style={{ textAlign: 'center', marginTop: 10 }}>{error}</p>}
+
         {/* 가입 버튼 */}
         <button
-          className={`auth__btn${!isValid ? ' auth__btn--disabled' : ''}`}
+          className={`auth__btn${(!isValid || submitting) ? ' auth__btn--disabled' : ''}`}
           onClick={handleSignup}
-          disabled={!isValid}
+          disabled={!isValid || submitting}
         >
-          가입하기
+          {submitting ? '가입 중...' : '가입하기'}
         </button>
 
         {/* 로그인 링크 */}
@@ -120,7 +141,7 @@ export default function SignupPage() {
 
       <p className="auth__copyright">© 2026 오늘어디</p>
 
-      {toast && <div className="auth__toast">가입 완료!</div>}
+      {toast && <div className="auth__toast">{toast}</div>}
     </div>
   );
 }

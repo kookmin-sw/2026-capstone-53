@@ -51,13 +51,19 @@ function ProfileEditSheet({ member, onClose, onSaved, onPasswordChanged }) {
     nickname.trim().length > 0 &&
     (!pwFilled || (newPw.length >= 8 && newPw === newPwConfirm && curPw.length > 0));
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!canSave) return;
-    // TODO: await api.updateMe({ nickname, ...(pwFilled && { password: newPw }) })
-    if (pwFilled) {
-      onPasswordChanged();
-    } else {
-      onSaved();
+    try {
+      const body = { nickname };
+      if (pwFilled) body.password = newPw;
+      await api.members.update(body);
+      if (pwFilled) {
+        onPasswordChanged();
+      } else {
+        onSaved();
+      }
+    } catch (err) {
+      alert(err.message || '수정에 실패했어요');
     }
   };
 
@@ -220,14 +226,15 @@ function Settings() {
 
   const retry = () => fetchMember();
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate('/login');
-  };
-
-  const handleLogoutConfirm = () => {
-    setShowLogout(false);
-    alert('로그아웃되었습니다.');
+  const handleLogout = async () => {
+    try {
+      await api.auth.logout();
+    } catch (e) {
+      console.warn('[Settings] 서버 로그아웃 실패, 클라이언트만 정리:', e);
+    } finally {
+      localStorage.clear();
+      navigate('/login');
+    }
   };
 
   const BUFFERS = [5, 10, 20, 30];
@@ -369,7 +376,7 @@ function Settings() {
 
       {showLogout && (
         <LogoutDialog
-          onConfirm={handleLogoutConfirm}
+          onConfirm={() => { setShowLogout(false); handleLogout(); }}
           onCancel={() => setShowLogout(false)}
         />
       )}
@@ -383,9 +390,10 @@ function Settings() {
             setToast('수정 완료');
             setTimeout(() => setToast(''), 2000);
           }}
-          onPasswordChanged={() => {
+          onPasswordChanged={async () => {
             setShowProfile(false);
             alert('비밀번호가 변경되어 다시 로그인해주세요');
+            try { await api.auth.logout(); } catch {}
             localStorage.clear();
             navigate('/login');
           }}
@@ -412,11 +420,16 @@ function Settings() {
               <button className="st-dialog__btn st-dialog__btn--cancel" onClick={() => setShowDelete(false)}>취소</button>
               <button
                 className="st-dialog__btn st-dialog__btn--confirm"
-                onClick={() => {
-                  setShowDelete(false);
-                  // TODO: await api.deleteMe()
-                  localStorage.clear();
-                  navigate('/login');
+                onClick={async () => {
+                  try {
+                    await api.members.delete();
+                  } catch (e) {
+                    console.warn('[Settings] 회원 탈퇴 API 실패:', e);
+                  } finally {
+                    setShowDelete(false);
+                    localStorage.clear();
+                    navigate('/login');
+                  }
                 }}
               >
                 탈퇴하기

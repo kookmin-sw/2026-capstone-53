@@ -84,12 +84,18 @@ export async function apiFetch(path, options = {}) {
     return undefined;
   }
 
-  // ── 401 → 토큰 만료 / 미인증 ──
+  // ── 401 처리 ──
   if (res.status === 401) {
-    tokenStorage.clear();
-    window.location.href = '/login';
-    // 반환 방지 (리다이렉트 후 코드 흐름 차단)
-    return new Promise(() => {});
+    // 인증된 호출(Authorization 헤더 있었음) → 세션 만료 → 자동 로그아웃
+    if (headers['Authorization']) {
+      tokenStorage.clear();
+      localStorage.removeItem('isLoggedIn');
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
+      return new Promise(() => {});
+    }
+    // 인증 안 한 호출(login, signup 등)의 401 → 일반 에러로 fall through
   }
 
   // ── JSON 파싱 ──

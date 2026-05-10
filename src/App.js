@@ -20,7 +20,11 @@ const HIDE_NAV_PATHS = ['/map', '/login', '/signup', '/notifications', '/smoke-t
 
 function RequireAuth({ children }) {
   const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
-  return isLoggedIn ? children : <Navigate to="/login" replace />;
+  const hasToken   = !!localStorage.getItem('accessToken');
+  if (!isLoggedIn || !hasToken) {
+    return <Navigate to="/login" replace />;
+  }
+  return children;
 }
 
 function AppLayout() {
