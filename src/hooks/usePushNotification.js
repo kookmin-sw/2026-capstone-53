@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from 'react';
-import { subscribePush } from '../api/client';
+import { api } from '../api';
 
 const VAPID_KEY = process.env.REACT_APP_VAPID_PUBLIC_KEY;
 
@@ -29,7 +29,7 @@ async function registerPushSubscription() {
     });
 
     const json = subscription.toJSON();
-    await subscribePush({
+    await api.push.subscribe({
       endpoint: json.endpoint,
       keys: {
         p256dh: json.keys.p256dh,

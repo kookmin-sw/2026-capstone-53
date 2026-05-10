@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { seedMember, issueTokens, resetTokens } from '../data/members';
+import { seedMember, SEED_ACCESS_TOKEN, SEED_REFRESH_TOKEN } from '../data/members';
 
 const API = 'http://localhost:8080/api/v1';
 
@@ -19,14 +19,13 @@ export const authHandlers = [
         { status: 409 },
       );
     }
-    const tokens = issueTokens();
     return HttpResponse.json({
       data: {
         memberId: `mem_01HNEW${Date.now()}`,
         loginId:  body.loginId,
         nickname: body.nickname,
-        accessToken:  tokens.access,
-        refreshToken: tokens.refresh,
+        accessToken:  SEED_ACCESS_TOKEN,
+        refreshToken: SEED_REFRESH_TOKEN,
       },
     }, { status: 201 });
   }),
@@ -40,19 +39,17 @@ export const authHandlers = [
         { status: 401 },
       );
     }
-    const tokens = issueTokens();
     return HttpResponse.json({
       data: {
         memberId:     seedMember.memberId,
-        accessToken:  tokens.access,
-        refreshToken: tokens.refresh,
+        accessToken:  SEED_ACCESS_TOKEN,
+        refreshToken: SEED_REFRESH_TOKEN,
       },
     });
   }),
 
   // POST /auth/logout
   http.post(`${API}/auth/logout`, () => {
-    resetTokens();
     return new HttpResponse(null, { status: 204 });
   }),
 ];

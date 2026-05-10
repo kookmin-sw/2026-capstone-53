@@ -9,19 +9,6 @@ export const seedMember = {
   createdAt: '2026-04-20T10:00:00+09:00',
 };
 
-// 발급된 토큰 (메모리 스토어)
-export let activeTokens = {
-  access:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtZW1fMDFIU0VFRCIsImlhdCI6MTcxNjAwMDAwMH0.mock-access',
-  refresh: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJtZW1fMDFIU0VFRCIsImlhdCI6MTcxNjAwMDAwMH0.mock-refresh',
-};
-
-export function resetTokens() {
-  activeTokens.access  = null;
-  activeTokens.refresh = null;
-}
-
-export function issueTokens() {
-  activeTokens.access  = `eyJ-access-${Date.now()}`;
-  activeTokens.refresh = `eyJ-refresh-${Date.now()}`;
-  return { ...activeTokens };
-}
+// 고정 시드 토큰 — 새로고침해도 항상 동일
+export const SEED_ACCESS_TOKEN  = 'eyJtb2NrLWFjY2Vzcy10b2tlbi1zZWVkJ30';
+export const SEED_REFRESH_TOKEN = 'eyJtb2NrLXJlZnJlc2gtdG9rZW4tc2VlZCJ9';

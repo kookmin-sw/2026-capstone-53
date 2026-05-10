@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockNotifications } from '../data/mockData';
+import { mockNotifications } from '../data/notifications';
 import './NotificationPage.css';
 
 /* 날짜 레이블 포매터: "오늘", "어제", "5월 2일 금요일" */

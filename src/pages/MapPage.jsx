@@ -1,18 +1,20 @@
-import React, { useRef, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { mockRouteData } from '../data/mockData';
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import { api } from '../api';
+import { ErrorState } from '../components/StateUI';
 import './MapPage.css';
-
-const SEGMENTS = mockRouteData.data.candidates[0].segments;
 
 export default function MapPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { theme } = useTheme();
   const pointColor = '#2563EB';
   const mapRef   = useRef(null);
   const sheetRef = useRef(null);
 
+  const [uiState, setUiState]   = useState('loading');
+  const [routeData, setRouteData] = useState(null);
   const [expanded, setExpanded] = useState(false);
   const [dragging, setDragging] = useState(false);
   const dragStartY  = useRef(null);
@@ -22,14 +24,39 @@ export default function MapPage() {
   const COLLAPSED = 108;
   const EXPANDED  = 384;
 
+  const scheduleId = searchParams.get('scheduleId');
+
+  /* ── 경로 데이터 로드 ── */
+  const fetchRoute = useCallback(async () => {
+    if (!scheduleId) {
+      setUiState('error');
+      return;
+    }
+    setUiState('loading');
+    try {
+      const data = await api.route.get(scheduleId);
+      setRouteData(data);
+      setUiState('ready');
+    } catch (err) {
+      console.error('[MapPage] 경로 로드 실패', err);
+      setUiState('error');
+    }
+  }, [scheduleId]);
+
+  useEffect(() => {
+    fetchRoute();
+  }, [fetchRoute]);
+
+  const segments = routeData?.route?.segments ?? [];
+
   /* ── 지도 초기화 ── */
   useEffect(() => {
-    if (!mapRef.current || !window.kakao?.maps) return;
+    if (uiState !== 'ready' || !mapRef.current || !window.kakao?.maps || segments.length === 0) return;
 
     window.kakao.maps.load(() => {
       const { maps } = window.kakao;
 
-      const allPoints = SEGMENTS.flatMap(seg =>
+      const allPoints = segments.flatMap(seg =>
         seg.path.map(([lng, lat]) => new maps.LatLng(lat, lng))
       );
 
@@ -39,7 +66,7 @@ export default function MapPage() {
       });
 
       /* 폴리라인 */
-      SEGMENTS.forEach(seg => {
+      segments.forEach(seg => {
         const path = seg.path.map(([lng, lat]) => new maps.LatLng(lat, lng));
         new maps.Polyline({
           map,
@@ -68,7 +95,7 @@ export default function MapPage() {
       allPoints.forEach(p => bounds.extend(p));
       map.setBounds(bounds, 60);
     });
-  }, []);
+  }, [uiState, segments, pointColor]);
 
   /* ── 바텀시트 드래그 ── */
   const onPointerDown = e => {
@@ -97,10 +124,48 @@ export default function MapPage() {
   };
 
   /* ── 경로 구간 목록 ── */
-  const stops = [
-    { label: SEGMENTS[0].from, type: 'origin' },
-    ...SEGMENTS.map(seg => ({ label: seg.to, mode: seg.mode, line: seg.lineName })),
-  ];
+  const stops = segments.length > 0
+    ? [
+        { label: segments[0].from, type: 'origin' },
+        ...segments.map(seg => ({ label: seg.to, mode: seg.mode, line: seg.lineName })),
+      ]
+    : [];
+
+  const totalMin = routeData?.route?.totalDurationMinutes;
+
+  /* ── 로딩 / 에러 ── */
+  if (uiState === 'loading') {
+    return (
+      <div className="mp">
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100vh' }}>
+          <div style={{
+            width: 32, height: 32, border: '3px solid #EAE2D8',
+            borderTopColor: 'var(--color-point)', borderRadius: '50%',
+            animation: 'spin 0.7s linear infinite',
+          }} />
+        </div>
+      </div>
+    );
+  }
+
+  if (uiState === 'error') {
+    return (
+      <div className="mp">
+        <div className="mp-topbar">
+          <button className="mp-back" onClick={() => navigate(-1)} aria-label="뒤로">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+              <path d="M15 18l-6-6 6-6" stroke="#1C1C1E" strokeWidth="2.2"
+                strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+          <span className="mp-topbar-title">경로 지도</span>
+        </div>
+        <div style={{ paddingTop: 80 }}>
+          <ErrorState onRetry={() => fetchRoute()} />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mp">
@@ -116,7 +181,7 @@ export default function MapPage() {
           </svg>
         </button>
         <span className="mp-topbar-title">경로 지도</span>
-        <span className="mp-topbar-dur">약 30분</span>
+        {totalMin && <span className="mp-topbar-dur">약 {totalMin}분</span>}
       </div>
 
       {/* 바텀시트 */}
@@ -137,14 +202,16 @@ export default function MapPage() {
         </div>
 
         {/* 요약 행 */}
-        <div className="mp-summary">
-          <span className="mp-summary-from">{SEGMENTS[0].from}</span>
-          <svg width="20" height="10" viewBox="0 0 20 10" fill="none">
-            <path d="M1 5H17M13 1l4 4-4 4" stroke="#C5BFB8" strokeWidth="1.8"
-              strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <span className="mp-summary-to">{SEGMENTS[SEGMENTS.length - 1].to}</span>
-        </div>
+        {segments.length > 0 && (
+          <div className="mp-summary">
+            <span className="mp-summary-from">{segments[0].from}</span>
+            <svg width="20" height="10" viewBox="0 0 20 10" fill="none">
+              <path d="M1 5H17M13 1l4 4-4 4" stroke="#C5BFB8" strokeWidth="1.8"
+                strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            <span className="mp-summary-to">{segments[segments.length - 1].to}</span>
+          </div>
+        )}
 
         {/* 상세 타임라인 (펼쳐졌을 때) */}
         <div className="mp-timeline">

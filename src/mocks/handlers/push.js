@@ -1,5 +1,5 @@
 import { http, HttpResponse } from 'msw';
-import { activeTokens } from '../data/members';
+import { SEED_ACCESS_TOKEN } from '../data/members';
 import { isScenario } from '../scenarios';
 
 const API = 'http://localhost:8080/api/v1';
@@ -14,7 +14,7 @@ function requireAuth(request) {
     );
   }
   const auth = request.headers.get('Authorization');
-  if (!auth || !activeTokens.access || auth !== `Bearer ${activeTokens.access}`) {
+  if (auth !== `Bearer ${SEED_ACCESS_TOKEN}`) {
     return HttpResponse.json(
       { error: { code: 'UNAUTHORIZED', message: '인증 필요', details: null } },
       { status: 401 },

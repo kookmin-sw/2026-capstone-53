@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { mockMember } from '../data/mockData';
+import { api } from '../api';
 import { useTheme } from '../contexts/ThemeContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { usePushNotification } from '../hooks/usePushNotification';
@@ -194,22 +194,31 @@ function Settings() {
   const [showProfile, setShowProfile] = React.useState(false);
   const [toast, setToast]             = React.useState('');
   const [uiState, setUiState]         = React.useState('loading');
+  const [member, setMember]           = React.useState(null);
   const { theme, toggleTheme } = useTheme();
   const { settings: cfg, updateSetting: update } = useSettings();
   const { permission: notifPermission } = usePushNotification();
+
+  const fetchMember = React.useCallback(async () => {
+    setUiState('loading');
+    try {
+      const data = await api.members.me();
+      setMember(data);
+      setUiState('ready');
+    } catch (err) {
+      console.error('[Settings] 회원 정보 로드 실패', err);
+      setUiState('error');
+    }
+  }, []);
 
   useEffect(() => {
     const forced = searchParams.get('state');
     if (forced === 'loading') return;
     if (forced === 'error') { setUiState('error'); return; }
-    const t = setTimeout(() => setUiState('ready'), 1000);
-    return () => clearTimeout(t);
-  }, [searchParams]);
+    fetchMember();
+  }, [searchParams, fetchMember]);
 
-  const retry = () => {
-    setUiState('loading');
-    setTimeout(() => setUiState('ready'), 1000);
-  };
+  const retry = () => fetchMember();
 
   const handleLogout = () => {
     localStorage.clear();
@@ -263,8 +272,8 @@ function Settings() {
           {/* ── 프로필 섹션 ── */}
           <div className="st-profile" onClick={() => setShowProfile(true)}>
             <div className="st-profile__info">
-              <span className="st-profile__nickname">{mockMember.data.nickname}</span>
-              <span className="st-profile__loginid">{mockMember.data.loginId}</span>
+              <span className="st-profile__nickname">{member?.nickname}</span>
+              <span className="st-profile__loginid">{member?.loginId}</span>
             </div>
             <div className="st-profile__actions">
               <button className="st-profile__action-btn" onClick={e => { e.stopPropagation(); setShowProfile(true); }}>
@@ -367,7 +376,7 @@ function Settings() {
 
       {showProfile && (
         <ProfileEditSheet
-          member={mockMember.data}
+          member={member}
           onClose={() => setShowProfile(false)}
           onSaved={() => {
             setShowProfile(false);
