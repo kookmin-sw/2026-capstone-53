@@ -70,4 +70,4 @@
 |---|---|---|---|---|
 | 이름 | 원수현 | 임채연 | 이상진 | 황찬우 |
 | 학번 | 20203102 | 20210481 | 00000000 | 20212667 |
-| 담당 업무 | DevOps, 기획, 디자인 | Frontend | Backend | Backend |
+| 담당 업무 | DevOps, 기획, 디자인 | Frontend, UI/UX | Backend, DB | Backend, DB |
