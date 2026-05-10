@@ -3,22 +3,30 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>오늘어디</title>
-  <meta name="description" content="프로젝트 소개 페이지를 준비 중입니다.">
+  <title>오늘어디 | 프로젝트 소개</title>
+  <meta name="description" content="오늘어디 프로젝트 소개 페이지">
   <style>
     :root {
       color-scheme: light;
       --ink: #17202a;
-      --muted: #586575;
-      --line: #d9e0e8;
-      --accent: #1f7a64;
-      --accent-strong: #135947;
-      --surface: #f7f9fb;
-      --white: #ffffff;
+      --muted: #687684;
+      --line: #dce4ec;
+      --panel: #ffffff;
+      --surface: #f6f8fa;
+      --accent: #2563EB;
+      --accent-dark: #1D4ED8;
+      --accent-soft: #EFF6FF;
+      --blue: #3267a8;
+      --coral: #e86f51;
+      --shadow: 0 18px 45px rgba(23, 32, 42, 0.08);
     }
 
     * {
       box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
     }
 
     body {
@@ -29,53 +37,79 @@
       line-height: 1.6;
     }
 
-    main {
-      min-height: 100vh;
-      display: grid;
-      place-items: center;
-      padding: 40px 20px;
-    }
-
-    .page {
-      width: min(920px, 100%);
-      background: var(--white);
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      padding: clamp(28px, 5vw, 56px);
-      box-shadow: 0 18px 45px rgba(23, 32, 42, 0.08);
-    }
-
-    .eyebrow {
-      margin: 0 0 14px;
-      color: var(--accent);
-      font-size: 14px;
-      font-weight: 700;
-      letter-spacing: 0;
-    }
-
-    h1 {
-      margin: 0;
-      font-size: clamp(36px, 7vw, 68px);
-      line-height: 1.05;
-      letter-spacing: 0;
-    }
-
-    .lead {
-      max-width: 620px;
-      margin: 22px 0 0;
-      color: var(--muted);
-      font-size: clamp(17px, 2.5vw, 21px);
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin-top: 34px;
+    img {
+      max-width: 100%;
+      display: block;
     }
 
     a {
       color: inherit;
+    }
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      border-bottom: 1px solid rgba(220, 228, 236, 0.9);
+      background: rgba(255, 255, 255, 0.94);
+      backdrop-filter: blur(12px);
+    }
+
+    .nav {
+      width: min(1120px, calc(100% - 40px));
+      min-height: 68px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-weight: 800;
+      text-decoration: none;
+    }
+
+    .brand-logo {
+      width: 36px;
+      height: 36px;
+      object-fit: contain;
+    }
+
+    .asset-fallback {
+      display: grid;
+      place-items: center;
+      border: 1px dashed #aab7c4;
+      border-radius: 8px;
+      background:
+        linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(50, 103, 168, 0.07)),
+        #fff;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+    }
+
+    .brand .asset-fallback {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .nav-links a {
+      text-decoration: none;
     }
 
     .button {
@@ -84,75 +118,499 @@
       justify-content: center;
       min-height: 44px;
       padding: 10px 16px;
-      border-radius: 6px;
+      border-radius: 7px;
       border: 1px solid var(--accent);
       background: var(--accent);
-      color: var(--white);
-      font-weight: 700;
+      color: #fff;
+      font-weight: 750;
       text-decoration: none;
+      white-space: nowrap;
     }
 
-    .meta {
+    .button.secondary {
+      background: #fff;
+      color: var(--accent-dark);
+    }
+
+    main {
+      overflow: hidden;
+    }
+
+    .hero {
+      background: #fff;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .hero-inner {
+      width: min(1120px, calc(100% - 40px));
+      min-height: calc(100vh - 68px);
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(360px, 1.05fr);
+      align-items: center;
+      gap: 54px;
+      padding: 64px 0;
+    }
+
+    .eyebrow {
+      margin: 0 0 14px;
+      color: var(--accent-dark);
+      font-size: 14px;
+      font-weight: 800;
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      margin-top: 0;
+    }
+
+    h1 {
+      max-width: 760px;
+      margin-bottom: 22px;
+      font-size: clamp(42px, 7vw, 78px);
+      line-height: 1.04;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 660px;
+      margin-bottom: 30px;
+      color: var(--muted);
+      font-size: clamp(18px, 2.1vw, 22px);
+    }
+
+    .hero-actions {
       display: grid;
       grid-template-columns: repeat(3, minmax(0, 1fr));
       gap: 12px;
-      margin-top: 42px;
-      padding-top: 28px;
-      border-top: 1px solid var(--line);
+      max-width: 720px;
     }
 
-    .meta div {
-      min-height: 88px;
-      padding: 16px;
+    .jump-link {
+      min-height: 76px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 4px;
+      padding: 14px 16px;
       border: 1px solid var(--line);
       border-radius: 8px;
-      background: #fbfcfd;
+      background: #fff;
+      color: var(--ink);
+      text-decoration: none;
+      box-shadow: 0 10px 28px rgba(23, 32, 42, 0.04);
     }
 
-    .meta strong {
-      display: block;
-      margin-bottom: 4px;
-      font-size: 14px;
+    .jump-link strong {
+      color: var(--accent-dark);
+      font-size: 16px;
     }
 
-    .meta span {
+    .jump-link span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .jump-link:hover {
+      border-color: rgba(37, 99, 235, 0.55);
+      background: var(--accent-soft);
+    }
+
+    .hero-media {
+      min-height: 460px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--surface);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .hero-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .hero-media .asset-fallback {
+      width: calc(100% - 48px);
+      height: calc(100% - 48px);
+      min-height: 380px;
+    }
+
+    .section {
+      width: min(1120px, calc(100% - 40px));
+      margin: 0 auto;
+      padding: 84px 0;
+    }
+
+    .section-head {
+      max-width: 740px;
+      margin-bottom: 34px;
+    }
+
+    h2 {
+      margin-bottom: 12px;
+      font-size: clamp(30px, 4.2vw, 48px);
+      line-height: 1.12;
+      letter-spacing: 0;
+    }
+
+    .section-head p {
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      min-height: 250px;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      box-shadow: 0 10px 28px rgba(23, 32, 42, 0.04);
+    }
+
+    .card-media {
+      height: 132px;
+      margin-bottom: 20px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: var(--surface);
+    }
+
+    .card-media img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .card-media .asset-fallback {
+      width: 100%;
+      height: 100%;
+    }
+
+    .card h3 {
+      margin-bottom: 8px;
+      font-size: 20px;
+    }
+
+    .card p {
+      margin-bottom: 0;
+      color: var(--muted);
+    }
+
+    .split {
+      display: grid;
+      grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
+      gap: 26px;
+      align-items: stretch;
+    }
+
+    .panel {
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: var(--shadow);
+    }
+
+    .asset-list {
+      display: grid;
+      gap: 12px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .asset-list li {
+      display: grid;
+      grid-template-columns: 170px minmax(0, 1fr);
+      gap: 14px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+    }
+
+    .asset-list li:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    code {
+      color: var(--accent-dark);
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.95em;
+    }
+
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .gallery-item {
+      min-height: 260px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .gallery-item img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .gallery-item .asset-fallback {
+      width: 100%;
+      height: 100%;
+      min-height: 260px;
+    }
+
+    .footer {
+      border-top: 1px solid var(--line);
+      background: #fff;
+    }
+
+    .footer-inner {
+      width: min(1120px, calc(100% - 40px));
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 30px 0;
       color: var(--muted);
       font-size: 14px;
     }
 
-    @media (max-width: 720px) {
-      .meta {
+    @media (max-width: 880px) {
+      .nav {
+        width: min(100% - 28px, 1120px);
+      }
+
+      .nav-links {
+        display: none;
+      }
+
+      .hero-inner,
+      .split,
+      .grid,
+      .gallery {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-inner {
+        min-height: auto;
+        gap: 36px;
+        padding: 48px 0;
+      }
+
+      .hero-media {
+        min-height: 340px;
+      }
+
+      .section {
+        width: min(100% - 28px, 1120px);
+        padding: 62px 0;
+      }
+
+      .asset-list li {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-inner {
+        width: min(100% - 28px, 1120px);
+        align-items: flex-start;
+        flex-direction: column;
+      }
+    }
+
+    @media (max-width: 520px) {
+      .hero-actions {
         grid-template-columns: 1fr;
       }
     }
   </style>
 </head>
 <body>
-  <main>
-    <section class="page" aria-labelledby="page-title">
-      <p class="eyebrow">2026 Capstone Design</p>
-      <h1 id="page-title">오늘어디</h1>
-      <p class="lead">프로젝트 소개 페이지를 준비 중입니다. 서비스 소개와 시연 자료는 추후 업데이트됩니다.</p>
-
-      <div class="actions" aria-label="관련 링크">
-        <a class="button" href="https://github.com/kookmin-sw/2026-capstone-53">GitHub 보기</a>
+  <header class="site-header">
+    <nav class="nav" aria-label="주요 메뉴">
+      <a class="brand" href="#top">
+        <img class="brand-logo" src="./assets/images/logo.svg" alt="오늘어디 로고" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+        <span class="asset-fallback" hidden>Logo</span>
+        <span>오늘어디</span>
+      </a>
+      <div class="nav-links">
+        <a href="#program">프로그램 소개</a>
+        <a href="#examples">예시</a>
+        <a href="#operation">동작</a>
+        <a href="#assets">이미지 파일</a>
+        <a class="button secondary" href="https://github.com/kookmin-sw/2026-capstone-53">GitHub</a>
       </div>
+    </nav>
+  </header>
 
-      <div class="meta" aria-label="페이지 상태">
+  <main id="top">
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="hero-inner">
         <div>
-          <strong>소개</strong>
-          <span>준비 중</span>
+          <p class="eyebrow">2026 Capstone Design</p>
+          <h1 id="hero-title">오늘어디</h1>
+          <p class="lead">프로젝트 소개 문구가 들어갈 영역입니다.</p>
+          <div class="hero-actions" aria-label="페이지 섹션 바로가기">
+            <a class="jump-link" href="#program">
+              <strong>프로그램 소개</strong>
+              <span>프로젝트 개요 영역</span>
+            </a>
+            <a class="jump-link" href="#examples">
+              <strong>예시</strong>
+              <span>이미지와 화면 자료</span>
+            </a>
+            <a class="jump-link" href="#operation">
+              <strong>동작</strong>
+              <span>흐름 설명 영역</span>
+            </a>
+          </div>
         </div>
-        <div>
-          <strong>시연</strong>
-          <span>준비 중</span>
+
+        <div class="hero-media">
+          <img src="./assets/images/hero.svg" alt="대표 이미지" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+          <div class="asset-fallback" hidden>
+            assets/images/hero.svg
+          </div>
         </div>
-        <div>
-          <strong>팀 정보</strong>
-          <span>준비 중</span>
+      </div>
+    </section>
+
+    <section class="section" id="program" aria-labelledby="program-title">
+      <div class="section-head">
+        <p class="eyebrow">Program</p>
+        <h2 id="program-title">프로그램 소개</h2>
+        <p>실제 소개 내용과 이미지가 확정되면 아래 영역을 교체합니다.</p>
+      </div>
+      <div class="grid">
+        <article class="card">
+          <div class="card-media">
+            <img src="./assets/images/overview-01.svg" alt="개요 이미지 1" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+            <div class="asset-fallback" hidden>assets/images/overview-01.svg</div>
+          </div>
+          <h3>소개 영역</h3>
+          <p>프로젝트 설명이 들어갈 영역입니다.</p>
+        </article>
+        <article class="card">
+          <div class="card-media">
+            <img src="./assets/images/overview-02.svg" alt="개요 이미지 2" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+            <div class="asset-fallback" hidden>assets/images/overview-02.svg</div>
+          </div>
+          <h3>기능 영역</h3>
+          <p>주요 기능 설명이 들어갈 영역입니다.</p>
+        </article>
+        <article class="card">
+          <div class="card-media">
+            <img src="./assets/images/overview-03.svg" alt="개요 이미지 3" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+            <div class="asset-fallback" hidden>assets/images/overview-03.svg</div>
+          </div>
+          <h3>시연 영역</h3>
+          <p>시연 자료 설명이 들어갈 영역입니다.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="examples" aria-labelledby="examples-title">
+      <div class="section-head">
+        <p class="eyebrow">Examples</p>
+        <h2 id="examples-title">예시</h2>
+        <p>스크린샷, 로고, 예시 이미지 파일을 SVG 또는 정적 이미지로 연결합니다.</p>
+      </div>
+      <div class="gallery">
+        <div class="gallery-item">
+          <img src="./assets/images/screenshot-01.svg" alt="화면 이미지 1" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+          <div class="asset-fallback" hidden>assets/images/screenshot-01.svg</div>
+        </div>
+        <div class="gallery-item">
+          <img src="./assets/images/screenshot-02.svg" alt="화면 이미지 2" onerror="this.hidden=true; this.nextElementSibling.hidden=false">
+          <div class="asset-fallback" hidden>assets/images/screenshot-02.svg</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="operation" aria-labelledby="operation-title">
+      <div class="split">
+        <div class="section-head">
+          <p class="eyebrow">Operation</p>
+          <h2 id="operation-title">동작</h2>
+          <p>실제 동작 방식이 확정되면 이 영역에 순서와 설명을 배치합니다.</p>
+        </div>
+        <div class="panel">
+          <ul class="asset-list">
+            <li>
+              <strong>Step 1</strong>
+              <span>첫 번째 동작 설명이 들어갈 영역입니다.</span>
+            </li>
+            <li>
+              <strong>Step 2</strong>
+              <span>두 번째 동작 설명이 들어갈 영역입니다.</span>
+            </li>
+            <li>
+              <strong>Step 3</strong>
+              <span>세 번째 동작 설명이 들어갈 영역입니다.</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="assets" aria-labelledby="assets-title">
+      <div class="split">
+        <div class="section-head">
+          <p class="eyebrow">Assets</p>
+          <h2 id="assets-title">이미지 파일</h2>
+          <p>GitHub Pages 브랜치 안에서 페이지와 이미지 파일을 같이 관리합니다.</p>
+        </div>
+        <div class="panel">
+          <ul class="asset-list">
+            <li>
+              <strong><code>index.html</code></strong>
+              <span>페이지 본문과 레이아웃</span>
+            </li>
+            <li>
+              <strong><code>assets/images/logo.svg</code></strong>
+              <span>헤더 로고</span>
+            </li>
+            <li>
+              <strong><code>assets/images/hero.svg</code></strong>
+              <span>첫 화면 대표 이미지</span>
+            </li>
+            <li>
+              <strong><code>assets/images/screenshot-01.svg</code></strong>
+              <span>소개 또는 시연 이미지</span>
+            </li>
+            <li>
+              <strong><code>assets/images/screenshot-02.svg</code></strong>
+              <span>추가 소개 또는 시연 이미지</span>
+            </li>
+          </ul>
         </div>
       </div>
     </section>
   </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+      <span>오늘어디 · 2026 Capstone Design</span>
+      <span>GitHub Pages prototype</span>
+    </div>
+  </footer>
 </body>
 </html>
