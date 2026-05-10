@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { mockSchedules, mockRouteInfo, mockGeocodeResults } from '../data/mockData';
+import { api } from '../api';
 import { CalendarSkeletons, ErrorState } from '../components/StateUI';
 import './Calendar.css';
 
@@ -23,16 +23,19 @@ function getCalendarDays(year, month) {
 }
 
 function scheduleActiveOnDate(sch, year, month, day) {
-  if (sch.status !== 'ACTIVE') return false;
+  const days = sch.repeatDays ?? sch.routineRule?.daysOfWeek ?? [];
+  if (days.length === 0) return true; // 단발성 일정 — 모든 날에 표시
   const target = new Date(year, month, day);
-  const [sy, sm, sd] = sch.startDate.split('-').map(Number);
-  if (target < new Date(sy, sm - 1, sd)) return false;
+  if (sch.startDate) {
+    const [sy, sm, sd] = sch.startDate.split('-').map(Number);
+    if (target < new Date(sy, sm - 1, sd)) return false;
+  }
   if (sch.endDate) {
     const [ey, em, ed] = sch.endDate.split('-').map(Number);
     if (target > new Date(ey, em - 1, ed)) return false;
   }
   const dow = target.getDay();
-  return sch.repeatDays.some(d => DAY_NUM[d] === dow);
+  return days.some(d => DAY_NUM[d] === dow);
 }
 
 function getSchedulesForDate(schedules, year, month, day) {
@@ -49,35 +52,18 @@ function padTwo(n) { return String(n).padStart(2, '0'); }
    PlaceSearchOverlay — 장소 검색 (mock geocode / 실제 API 교체 가능)
    ================================================================ */
 
-function searchMockGeocode(query) {
-  const q = query.trim().toLowerCase();
-  if (!q) return [];
-  const matched = [];
-  for (const [key, data] of Object.entries(mockGeocodeResults)) {
-    if (
-      key.toLowerCase().includes(q) ||
-      q.includes(key.toLowerCase()) ||
-      data.name.toLowerCase().includes(q) ||
-      data.address.toLowerCase().includes(q)
-    ) {
-      matched.push(data);
-    }
-  }
-  return matched;
-}
-
 function PlaceSearchOverlay({ field, onSelect, onClose }) {
   const [query, setQuery]     = useState('');
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
+  const [searchError, setSearchError] = useState('');
   const [closing, setClosing]   = useState(false);
   const timerRef  = useRef(null);
   const inputRef  = useRef(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
-  // 닫힘 애니메이션 후 콜백 실행
   const dismiss = useCallback((cb) => {
     setClosing(true);
     setTimeout(cb, 200);
@@ -86,27 +72,37 @@ function PlaceSearchOverlay({ field, onSelect, onClose }) {
   const handleClose  = () => dismiss(onClose);
   const handleSelect = (place) => dismiss(() => onSelect(place));
 
-  const runSearch = useCallback((q) => {
+  const runSearch = useCallback(async (q) => {
     if (!q.trim()) {
       setResults([]);
       setLoading(false);
       setSearched(false);
+      setSearchError('');
       return;
     }
     setLoading(true);
-    // TODO: 실제 API 연동 시 아래를 geocode(q) 호출로 교체
-    timerRef.current = setTimeout(() => {
-      setResults(searchMockGeocode(q));
-      setLoading(false);
+    setSearchError('');
+    try {
+      const data = await api.geocode.search({ query: q });
+      setResults(data.matched ? [data] : []);
       setSearched(true);
-    }, 500);
+    } catch (err) {
+      if (err.code === 'GEOCODE_NO_MATCH') {
+        setResults([]);
+        setSearched(true);
+      } else {
+        setSearchError('검색 중 문제가 발생했어요');
+      }
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   const handleChange = (e) => {
     const q = e.target.value;
     setQuery(q);
     clearTimeout(timerRef.current);
-    runSearch(q);
+    timerRef.current = setTimeout(() => runSearch(q), 500);
   };
 
   const clearQuery = () => {
@@ -162,10 +158,13 @@ function PlaceSearchOverlay({ field, onSelect, onClose }) {
             검색 중...
           </div>
         )}
-        {!loading && searched && results.length === 0 && (
+        {!loading && searchError && (
+          <div className="place-overlay__status">{searchError}</div>
+        )}
+        {!loading && !searchError && searched && results.length === 0 && (
           <div className="place-overlay__status">검색 결과가 없어요</div>
         )}
-        {!loading && !query && (
+        {!loading && !query && !searchError && (
           <div className="place-overlay__hint">장소명, 주소, 건물명으로 검색하세요</div>
         )}
         {!loading && results.map(place => (
@@ -563,8 +562,29 @@ function DayTimeline({ schedules }) {
    ================================================================ */
 
 function RoutePreviewSheet({ schedule, onClose }) {
-  const r = mockRouteInfo;
-  const walkMins = Math.max(1, Math.round(r.route.boardingStop.walkingTimeSeconds / 60));
+  const [routeState, setRouteState] = useState('loading'); // 'loading' | 'ready' | 'error'
+  const [routeData, setRouteData]   = useState(null);
+
+  useEffect(() => {
+    if (!schedule?.scheduleId) { setRouteState('error'); return; }
+    let cancelled = false;
+    setRouteState('loading');
+    api.route.get(schedule.scheduleId)
+      .then(data => { if (!cancelled) { setRouteData(data); setRouteState('ready'); } })
+      .catch(err => { if (!cancelled) { console.error('[RoutePreview]', err); setRouteState('error'); } });
+    return () => { cancelled = true; };
+  }, [schedule?.scheduleId]);
+
+  const route = routeData?.route;
+  const segments = route?.segments ?? [];
+
+  // 도보 구간 총 시간
+  const walkMins = segments
+    .filter(s => s.mode === 'WALK')
+    .reduce((sum, s) => sum + s.durationMinutes, 0);
+
+  // 대중교통 구간 (첫 번째)
+  const transitSeg = segments.find(s => s.mode !== 'WALK');
 
   return (
     <>
@@ -581,46 +601,58 @@ function RoutePreviewSheet({ schedule, onClose }) {
         </div>
 
         <div className="cal-route-sheet__body">
-          {/* 경로 요약 */}
-          <div className="cal-rp__row">
-            <div className="cal-rp__cell">
-              <span className="cal-rp__label">승차 정류장</span>
-              <span className="cal-rp__val">{r.route.boardingStop.stopName}</span>
-              <span className="cal-rp__sub">도보 {walkMins}분</span>
+          {routeState === 'loading' && (
+            <div className="place-overlay__status">
+              <div className="place-overlay__spinner" />
+              경로 불러오는 중...
             </div>
-            <div className="cal-rp__divider" />
-            <div className="cal-rp__cell">
-              <span className="cal-rp__label">이용 노선</span>
-              <span className="cal-rp__val">{r.route.busRoute.routeName}번</span>
-              <span className="cal-rp__sub">{r.route.busRoute.busTripMinutes}분 소요</span>
-            </div>
-          </div>
+          )}
+          {routeState === 'error' && (
+            <div className="place-overlay__status">경로 정보를 불러올 수 없어요</div>
+          )}
+          {routeState === 'ready' && route && (
+            <>
+              {/* 경로 요약 */}
+              <div className="cal-rp__row">
+                <div className="cal-rp__cell">
+                  <span className="cal-rp__label">총 소요</span>
+                  <span className="cal-rp__val">{route.totalDurationMinutes}분</span>
+                  <span className="cal-rp__sub">도보 {walkMins}분</span>
+                </div>
+                <div className="cal-rp__divider" />
+                <div className="cal-rp__cell">
+                  <span className="cal-rp__label">{transitSeg ? (transitSeg.mode === 'SUBWAY' ? '지하철' : '버스') : '경로'}</span>
+                  <span className="cal-rp__val">{transitSeg?.lineName || '—'}</span>
+                  <span className="cal-rp__sub">{transitSeg ? `${transitSeg.durationMinutes}분 소요` : ''}</span>
+                </div>
+              </div>
 
-          {/* 소요 시간 */}
-          <div className="cal-rp__timeline">
-            <div className="cal-rp__tl-item">
-              <span className="cal-rp__tl-icon">🚶</span>
-              <span className="cal-rp__tl-val">{walkMins}분</span>
-              <span className="cal-rp__tl-sub">도보</span>
-            </div>
-            <span className="cal-rp__tl-arrow">→</span>
-            <div className="cal-rp__tl-item">
-              <span className="cal-rp__tl-icon">🚌</span>
-              <span className="cal-rp__tl-val">{r.route.busRoute.busTripMinutes}분</span>
-              <span className="cal-rp__tl-sub">버스</span>
-            </div>
-            <span className="cal-rp__tl-arrow">=</span>
-            <div className="cal-rp__tl-item cal-rp__tl-item--total">
-              <span className="cal-rp__tl-val">총 {r.route.totalTripMinutes}분</span>
-              <span className="cal-rp__tl-sub">소요</span>
-            </div>
-          </div>
+              {/* 소요 시간 */}
+              <div className="cal-rp__timeline">
+                {segments.map((seg, i) => (
+                  <React.Fragment key={i}>
+                    <div className="cal-rp__tl-item">
+                      <span className="cal-rp__tl-icon">{seg.mode === 'WALK' ? '🚶' : seg.mode === 'SUBWAY' ? '🚇' : '🚌'}</span>
+                      <span className="cal-rp__tl-val">{seg.durationMinutes}분</span>
+                      <span className="cal-rp__tl-sub">{seg.mode === 'WALK' ? '도보' : seg.lineName || '대중교통'}</span>
+                    </div>
+                    {i < segments.length - 1 && <span className="cal-rp__tl-arrow">→</span>}
+                  </React.Fragment>
+                ))}
+                <span className="cal-rp__tl-arrow">=</span>
+                <div className="cal-rp__tl-item cal-rp__tl-item--total">
+                  <span className="cal-rp__tl-val">총 {route.totalDurationMinutes}분</span>
+                  <span className="cal-rp__tl-sub">소요</span>
+                </div>
+              </div>
 
-          {/* 메타 */}
-          <div className="cal-rp__meta">
-            <span className="cal-rp__chip">환승 없음</span>
-            <span className="cal-rp__chip">여유시간 {r.departureInfo.bufferMinutes}분 포함</span>
-          </div>
+              {/* 메타 */}
+              <div className="cal-rp__meta">
+                <span className="cal-rp__chip">환승 {route.transferCount === 0 ? '없음' : `${route.transferCount}회`}</span>
+                <span className="cal-rp__chip">요금 {route.payment?.toLocaleString() ?? '—'}원</span>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </>
@@ -643,7 +675,15 @@ function calcDepTime(arrivalTime, durationMin) {
 
 function ScheduleAccordion({ schedule, onEdit, onDelete, todayDow }) {
   const [open, setOpen] = useState(false);
-  const depTime = calcDepTime(schedule.arrivalTime, schedule.averageDurationMinutes);
+
+  // API 응답: arrivalTime이 ISO datetime일 수 있으므로 "HH:mm" 추출
+  const rawArr = schedule.arrivalTime || '';
+  const displayArr = rawArr.includes('T') ? rawArr.split('T')[1]?.substring(0, 5) : rawArr;
+
+  const depTime = calcDepTime(displayArr, schedule.estimatedDurationMinutes ?? schedule.averageDurationMinutes);
+  const days = schedule.repeatDays ?? schedule.routineRule?.daysOfWeek ?? [];
+  const originName = schedule.originName ?? schedule.origin?.name ?? '';
+  const destName   = schedule.destinationName ?? schedule.destination?.name ?? '';
 
   return (
     <div className="sac" onClick={() => setOpen(o => !o)}>
@@ -651,7 +691,7 @@ function ScheduleAccordion({ schedule, onEdit, onDelete, todayDow }) {
       {/* 1줄: 제목 + 도착시간 */}
       <div className="sac-row1">
         <span className="sac-title">{schedule.title}</span>
-        <span className="sac-arr">{schedule.arrivalTime}</span>
+        <span className="sac-arr">{displayArr}</span>
       </div>
 
       {/* 2줄: 출발 → 도착 시간 */}
@@ -662,13 +702,13 @@ function ScheduleAccordion({ schedule, onEdit, onDelete, todayDow }) {
             <span className="sac-times__label"> 출발 </span>
             <span className="sac-times__arrow">→</span>
             <span className="sac-times__label"> </span>
-            <span className="sac-times__num">{schedule.arrivalTime}</span>
+            <span className="sac-times__num">{displayArr}</span>
             <span className="sac-times__label"> 도착</span>
           </span>
         ) : (
           <span className="sac-times">
             <span className="sac-times__label">도착 </span>
-            <span className="sac-times__num">{schedule.arrivalTime}</span>
+            <span className="sac-times__num">{displayArr}</span>
           </span>
         )}
       </div>
@@ -676,7 +716,7 @@ function ScheduleAccordion({ schedule, onEdit, onDelete, todayDow }) {
       {/* 3줄: 요일 텍스트 */}
       <div className="sac-days">
         {DAY_KEYS.map(key => {
-          const isOn    = schedule.repeatDays?.includes(key);
+          const isOn    = days.includes(key);
           const isToday = DAY_NUM[key] === todayDow;
           return (
             <span
@@ -698,10 +738,10 @@ function ScheduleAccordion({ schedule, onEdit, onDelete, todayDow }) {
         <div className="sac-expand__inner">
           <div className="sac-divider" />
           <p className="sac-expand__route">
-            {schedule.originName} → {schedule.destinationName}
+            {originName} → {destName}
           </p>
           <p className="sac-depart__sub">
-            {schedule.averageDurationMinutes ? `${schedule.averageDurationMinutes}분 · ` : ''}환승 1회 · 여유 30분
+            {schedule.estimatedDurationMinutes ? `${schedule.estimatedDurationMinutes}분` : '경로 계산 중'}
           </p>
           <div className="sac-actions">
             <button className="sac-btn sac-btn--edit"
@@ -739,7 +779,7 @@ function CalendarPage() {
   const [year, setYear]         = useState(todayY);
   const [month, setMonth]       = useState(todayM);
   const [selDay, setSelDay]     = useState(todayD);
-  const [schedules, setSchedules] = useState(mockSchedules);
+  const [schedules, setSchedules] = useState([]);
   const [showSheet, setShowSheet]   = useState(false);
   const [editingSch, setEditingSch] = useState(null);
   const todayDow = today.getDay();
@@ -747,18 +787,26 @@ function CalendarPage() {
   const [searchParams] = useSearchParams();
   const [uiState, setUiState] = useState('loading');
 
+  const fetchSchedules = useCallback(async () => {
+    setUiState('loading');
+    try {
+      const data = await api.schedules.list();
+      setSchedules(data.items);
+      setUiState('ready');
+    } catch (err) {
+      console.error('[Calendar] 일정 로드 실패', err);
+      setUiState('error');
+    }
+  }, []);
+
   useEffect(() => {
     const forced = searchParams.get('state');
     if (forced === 'loading') return;
     if (forced === 'error') { setUiState('error'); return; }
-    const t = setTimeout(() => setUiState('ready'), 1000);
-    return () => clearTimeout(t);
-  }, [searchParams]);
+    fetchSchedules();
+  }, [searchParams, fetchSchedules]);
 
-  const retry = () => {
-    setUiState('loading');
-    setTimeout(() => setUiState('ready'), 1000);
-  };
+  const retry = () => fetchSchedules();
 
   // 이번 주 일정 수
   const thisWeekCount = useMemo(() => {
@@ -794,9 +842,8 @@ function CalendarPage() {
   const openEdit = (sch) => { setEditingSch(sch); setShowSheet(true); };
   const closeSheet = () => { setShowSheet(false); setEditingSch(null); };
 
-  const handleSave = (form) => {
-    // POST /schedules 요청 형식 (API 명세 v0.3 §5.1)
-    const apiRequest = {
+  const handleSave = async (form) => {
+    const body = {
       title: form.title,
       origin: {
         name:     form.originPlace?.name     ?? form.originName,
@@ -814,44 +861,37 @@ function CalendarPage() {
         placeId:  form.destinationPlace?.placeId  ?? null,
         provider: form.destinationPlace?.provider ?? 'KAKAO',
       },
+      userDepartureTime: `${year}-${padTwo(month + 1)}-${padTwo(selDay)}T${form.usualDepartureTime || '08:00'}:00+09:00`,
       arrivalTime: `${year}-${padTwo(month + 1)}-${padTwo(selDay)}T${form.arrivalTime}:00+09:00`,
-      reminderOffsetMinutes: 30,
+      reminderOffsetMinutes: 5,
       routineRule: form.repeatDays.length > 0
         ? { type: 'WEEKLY', daysOfWeek: form.repeatDays }
         : null,
     };
 
-    // TODO: await api.post('/schedules', apiRequest)
-    // 응답을 받으면 scheduleId / reminderAt / averageDurationMinutes 서버가 채워줌
-    // 로컬 상태용 Calendar 표시 형식으로 변환
-    const scheduleId = editingSch?.scheduleId ?? `sch-${Date.now()}`;
-    const calEntry = {
-      scheduleId,
-      title:           apiRequest.title,
-      originName:      apiRequest.origin.name,
-      originPlace:     form.originPlace,
-      destinationName: apiRequest.destination.name,
-      destinationPlace:form.destinationPlace,
-      arrivalTime:     form.arrivalTime,       // "09:00" 표시용
-      departureTime:   null,                   // 서버 계산 (reminderAt)
-      repeatDays:      apiRequest.routineRule?.daysOfWeek ?? [],
-      routineRule:     apiRequest.routineRule,
-      startDate:       `${year}-${padTwo(month + 1)}-${padTwo(selDay)}`,
-      endDate:         null,
-      status:          'ACTIVE',
-      averageDurationMinutes: null,            // 서버 계산
-    };
-
-    if (editingSch) {
-      setSchedules(s => s.map(x => x.scheduleId === scheduleId ? calEntry : x));
-    } else {
-      setSchedules(s => [...s, calEntry]);
+    try {
+      if (editingSch) {
+        const updated = await api.schedules.update(editingSch.scheduleId, body);
+        setSchedules(s => s.map(x => x.scheduleId === updated.scheduleId ? updated : x));
+      } else {
+        const created = await api.schedules.create(body);
+        setSchedules(s => [...s, created]);
+      }
+      closeSheet();
+    } catch (err) {
+      console.error('[Calendar] 일정 저장 실패', err);
+      alert(err.message || '일정 저장에 실패했어요');
     }
-    closeSheet();
   };
 
-  const handleDelete = useCallback((id) => {
-    setSchedules(s => s.filter(x => x.scheduleId !== id));
+  const handleDelete = useCallback(async (id) => {
+    try {
+      await api.schedules.delete(id);
+      setSchedules(s => s.filter(x => x.scheduleId !== id));
+    } catch (err) {
+      console.error('[Calendar] 일정 삭제 실패', err);
+      alert(err.message || '일정 삭제에 실패했어요');
+    }
   }, []);
 
   const monthLabel = `${year}년 ${month + 1}월`;
