@@ -4,6 +4,7 @@ import org.springframework.stereotype.Component;
 
 import java.time.DayOfWeek;
 import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.Set;
 
 /**
@@ -12,11 +13,19 @@ import java.util.Set;
  *
  *  - ONCE: null
  *  - DAILY: current + 1일
- *  - WEEKLY: 다음 daysOfWeek 도래 (1~7일 탐색, 없으면 null)
+ *  - WEEKLY: 다음 daysOfWeek 도래 (1~7일 탐색, 없으면 null) — Asia/Seoul (KST) 기준 요일
  *  - CUSTOM: current + intervalDays
+ *
+ * <p><b>WEEKLY KST 기준 요일 평가 (이슈 #36, v1.1.25)</b>: {@link OffsetDateTime#getDayOfWeek()}
+ * 는 OffsetDateTime 의 displayed offset 기준 요일을 반환한다. {@code schedule.arrival_time}
+ * (DATETIME(3)) 영속화 후 Hibernate 가 OffsetDateTime 을 UTC offset 으로 reconstruct 하면
+ * KST 기준 요일과 다를 수 있음 (예: 5/12 01:24 KST = 5/11 16:24 UTC, 화요일 KST 인데 월요일 UTC).
+ * 명세는 사용자 입력 요일 (KST) 정합이라 KST zone 으로 변환 후 요일 비교한다.
  */
 @Component
 public class RoutineCalculator {
+
+    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     public OffsetDateTime calculateNextOccurrence(Schedule s) {
         OffsetDateTime current = s.getArrivalTime();
@@ -36,7 +45,7 @@ public class RoutineCalculator {
         if (days.isEmpty()) return null;
         for (int delta = 1; delta <= 7; delta++) {
             OffsetDateTime cand = current.plusDays(delta);
-            if (days.contains(cand.getDayOfWeek())) return cand;
+            if (days.contains(cand.atZoneSameInstant(KST).getDayOfWeek())) return cand;
         }
         return null;
     }
