@@ -1,7 +1,7 @@
 # 2026 Capstone Team 53
 
 <p align="center">
-  <img src="assets/images/todayway-typo.svg" alt="Todayway" width="180" />
+  <img src="assets/images/todayway-typo.svg" alt="Todayway" width="300" />
 </p>
 
 <p align="center">
