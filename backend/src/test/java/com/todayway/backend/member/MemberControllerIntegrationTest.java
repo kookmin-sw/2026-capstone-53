@@ -117,14 +117,14 @@ class MemberControllerIntegrationTest {
                         .content(objectMapper.writeValueAsString(new LogoutRequest(signupRefreshToken))))
                 .andExpect(status().isNoContent());
 
-        // (5) DELETE /members/me → 204 소프트 삭제 (명세 §3.3)
+        // (5) DELETE /members/me → 204 hard delete (명세 §3.3 v1.1.22 — 이슈 #31)
         mockMvc.perform(delete("/api/v1/members/me")
                         .header("Authorization", authHeader))
                 .andExpect(status().isNoContent());
 
-        // (A+ 2) 탈퇴 후 동일 access token 사용 시 → 401 UNAUTHORIZED (β PR 후 명세 §3.3 v1.1.7)
-        //   JWT 자체는 유효하지만 Service의 findByMemberUid가 @SQLRestriction("deleted_at IS NULL")로
-        //   None 반환 → throw BusinessException(UNAUTHORIZED). Resolver는 raw memberUid 반환만, DB 호출 X.
+        // (A+ 2) 탈퇴 후 동일 access token 사용 시 → 401 UNAUTHORIZED (명세 §3.3 v1.1.7 멱등성 유지)
+        //   JWT 자체는 유효하지만 Service의 findByMemberUid가 member row 자체가 사라져 empty 반환
+        //   → throw BusinessException(UNAUTHORIZED). Resolver는 raw memberUid 반환만, DB 호출 X.
         mockMvc.perform(get("/api/v1/members/me")
                         .header("Authorization", authHeader))
                 .andExpect(status().isUnauthorized())
@@ -205,8 +205,10 @@ class MemberControllerIntegrationTest {
     }
 
     @Test
-    void softDelete_cascadesScheduleDeletion() throws Exception {
-        // 회원가입 + 일정 1건 등록 (NoOpRouteService default → routeStatus PENDING_RETRY OK)
+    void hardDelete_cascadesScheduleDeletion() throws Exception {
+        // 명세 §3.3 v1.1.22 (이슈 #31) — 회원 hard delete cascade. 정밀 cascade 회귀 가드는
+        // MemberHardDeleteCascadeTest 가 refresh_token/schedule/push_subscription 동시 검증.
+        // 본 테스트는 member 도메인 통합 흐름 안에서 schedule cascade 만 가볍게 가드.
         SignupResult signup = signupNew("cascade01", "캐스케이드");
         String authHeader = "Bearer " + signup.accessToken();
 
@@ -229,15 +231,15 @@ class MemberControllerIntegrationTest {
                         .content(createBody))
                 .andExpect(status().isCreated());
 
-        // 등록 직후 active schedule 1건 확인 (@SQLRestriction 자동 deleted_at IS NULL 필터)
+        // 등록 직후 schedule 1건 확인
         assertThat(scheduleRepository.count()).isEqualTo(1L);
 
-        // 회원 탈퇴 → cascade로 schedule도 soft-delete
+        // 회원 탈퇴 → DB FK ON DELETE CASCADE 로 schedule row 자체 삭제
         mockMvc.perform(delete("/api/v1/members/me")
                         .header("Authorization", authHeader))
                 .andExpect(status().isNoContent());
 
-        // active schedule 0건 — Issue #8 회귀 가드
+        // schedule 0건 — FK CASCADE 회귀 가드
         assertThat(scheduleRepository.count()).isEqualTo(0L);
     }
 
