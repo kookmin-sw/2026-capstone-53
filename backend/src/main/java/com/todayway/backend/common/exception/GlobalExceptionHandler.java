@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 @Slf4j
 @RestControllerAdvice
@@ -93,6 +95,31 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException e) {
         ErrorCode code = ErrorCode.FORBIDDEN_RESOURCE;
+        return ResponseEntity.status(code.getStatus())
+                .body(ErrorResponse.of(code.name(), code.getMessage()));
+    }
+
+    /**
+     * 매핑되지 않은 URL 경로 호출 시 404 {@code RESOURCE_NOT_FOUND} 매핑 (명세 §1.6).
+     *
+     * <p>Spring 6.x default 흐름: {@link NoResourceFoundException}만 throw — static resource handler가
+     * 매핑 못 찾은 path 를 잡아 발생. {@link NoHandlerFoundException}은 {@code spring.mvc.throw-exception-if-no-handler-found}
+     * 활성화 시에만 발생하며 본 프로젝트 application.yml 에는 미설정이라 production 에서는 발생 X.
+     * 미래 설정 활성화 또는 다른 진입점 대비해 둘 다 매핑.
+     *
+     * <p>로그 레벨 WARN — 4xx 류는 클라이언트 측 오류라 ERROR 부적절 (catch-all 분기가 ERROR 로깅으로
+     * 5xx false alarm 유발한 이슈 #33 의 원인 자체). 스택 trace 는 {@code ResourceHttpRequestHandler}
+     * 내부 흐름이라 정보 가치 X — {@code resourcePath} 한 줄만 남겨 운영 가시성 (스캐닝/SPA bug/path drift
+     * 탐지) 확보.
+     */
+    @ExceptionHandler({NoResourceFoundException.class, NoHandlerFoundException.class})
+    public ResponseEntity<ErrorResponse> handleNoResourceFound(Exception e) {
+        if (e instanceof NoResourceFoundException nrfe) {
+            log.warn("NoResourceFound: path={}", nrfe.getResourcePath());
+        } else {
+            log.warn("NoHandlerFound: {}", e.getMessage());
+        }
+        ErrorCode code = ErrorCode.RESOURCE_NOT_FOUND;
         return ResponseEntity.status(code.getStatus())
                 .body(ErrorResponse.of(code.name(), code.getMessage()));
     }

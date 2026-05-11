@@ -86,6 +86,23 @@ class GlobalExceptionHandlerTest {
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
+    // ─────────── 이슈 #33 — NoResourceFoundException 404 회귀 가드 ───────────
+
+    @Test
+    void 매핑되지_않은_GET_경로는_404_RESOURCE_NOT_FOUND로_변환된다() throws Exception {
+        mockMvc.perform(get("/dummy/no-such-path"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"))
+                .andExpect(jsonPath("$.error.message").value("요청한 자원을 찾을 수 없습니다"));
+    }
+
+    @Test
+    void 매핑되지_않은_POST_경로는_404_RESOURCE_NOT_FOUND로_변환된다() throws Exception {
+        mockMvc.perform(post("/dummy/no-such-path"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("RESOURCE_NOT_FOUND"));
+    }
+
     @RestController
     static class DummyController {
         @GetMapping("/dummy/business")
