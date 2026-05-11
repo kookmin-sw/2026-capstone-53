@@ -390,7 +390,7 @@ export default function HomeNoMap() {
                         {transitSeg?.durationMinutes ?? '—'}분 소요
                       </span>
                       <div className="rc-transfer-chip">
-                        환승 {route.transferCount === 0 ? '없음' : `${route.transferCount}회`}
+                        환승 {Math.max(0, (route.transferCount ?? 0) - 1) === 0 ? '없음' : `${Math.max(0, (route.transferCount ?? 0) - 1)}회`}
                       </div>
                     </div>
 

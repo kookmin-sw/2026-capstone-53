@@ -140,7 +140,7 @@ export default function RouteCard({ route, departureInfo, routeStops, segments, 
           {busRoute.busArrivalMinutes}분 후
         </span>
         <div className="rc-transfer-chip">
-          환승 {transferCount === 0 ? '없음' : `${transferCount}회`}
+          환승 {Math.max(0, (transferCount ?? 0) - 1) === 0 ? '없음' : `${Math.max(0, (transferCount ?? 0) - 1)}회`}
         </div>
       </div>
 

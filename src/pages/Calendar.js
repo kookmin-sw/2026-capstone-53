@@ -654,7 +654,7 @@ function RoutePreviewSheet({ schedule, onClose }) {
 
               {/* 메타 */}
               <div className="cal-rp__meta">
-                <span className="cal-rp__chip">환승 {route.transferCount === 0 ? '없음' : `${route.transferCount}회`}</span>
+                <span className="cal-rp__chip">환승 {Math.max(0, (route.transferCount ?? 0) - 1) === 0 ? '없음' : `${Math.max(0, (route.transferCount ?? 0) - 1)}회`}</span>
                 <span className="cal-rp__chip">요금 {route.payment?.toLocaleString() ?? '—'}원</span>
               </div>
             </>
