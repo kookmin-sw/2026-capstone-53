@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.20-MVP
-> **최종 수정**: 2026-05-08 (이상진 — §6.1 transferCount 정의 확정 (이용 노선 수, 환승 횟수 = transferCount - 1) + §12 체크리스트 완료 표시. Step 6 PR #11 follow-up 1번 자체 판단 처리.)
+> **버전**: v1.1.21-MVP
+> **최종 수정**: 2026-05-08 (이상진 — §6.1 WALK 구간 path 출처 = TMAP 보행자 경로 (인도 곡선). 외부 API 의존성 추가, graceful fallback 으로 v1.1.9 합성 직선 보존.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -37,6 +37,7 @@
 | **v1.1.18** | **2026-05-07** | **§8.1 `GeocodeCacheCleanupScheduler` 추가 — 매일 04:00 KST `@Scheduled` 로 `cached_at < NOW() - INTERVAL 30 DAY` row 삭제. read filter TTL 과 같은 cutoff. 운영 1년+ 누적 시 row/UNIQUE 인덱스 비대화 차단. `geocode.cleanup.{enabled,cron}` 환경변수 외부화. PR #27 외부 리뷰 (황찬우) G3 흡수.** |
 | **v1.1.19** | **2026-05-08** | **§4.1 lat/lng XOR 검증 명시 — 둘 다 함께 또는 둘 다 누락만 허용. 한쪽만 채워 보낸 케이스는 400 VALIDATION_ERROR (silent default fallback 차단). NaN/±Infinity 도 400 명시. PR #27 review M2 코드 fix 의 명세 mirroring + 자체 review H1/L1/L3 (javadoc 운영 가정/XFF spoof 안내) 동반.** |
 | **v1.1.20** | **2026-05-08** | **§6.1 `transferCount` 정의 확정 — "이용 대중교통 노선 수 (= 탑승 횟수)". 응답 예시 (지하철 1노선 + 도보 = `transferCount: 1`) 와 정합. **환승 횟수 = `transferCount - 1`** 비고 추가 (0 노선 케이스는 `Math.max(0, n-1)` 권고). v1.1.4 의 "미확정" 표기 제거. 코드 동작 변경 X (현 합산 패턴 그대로 OK). §12 체크리스트 완료 표시 (push/map/geocode/ODsay 4행). Step 6 PR #11 follow-up 1번 자체 판단 처리 (이상진).** |
+| **v1.1.21** | **2026-05-08** | **§6.1 WALK 구간 `path` 출처 = TMAP 보행자 경로 (인도 곡선). 기존 v1.1.9 합성 직선 → `POST https://apis.openapi.sk.com/tmap/routes/pedestrian` 호출 결과(GeoJSON LineString features)로 승격 — 4차선 도로 가로지르는 비현실적 직선 시각화 차단. WALK 구간당 1회 추가 호출. 외부 API 의존성 +1 (`TMAP_APP_KEY` 환경변수). 모든 실패 (키 미설정 / 401/403 / timeout / 5xx / 응답 형식 위반) 는 graceful — v1.1.9 합성 직선 fallback. ErrorCode 신규 X. 시각 검증: `~/route-preview/odsay-tmap-walk.html` (이상진).** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -856,9 +857,27 @@ LIMIT ?
 | `stationStart` | `subPath.startName` (SUBWAY 한정) | BUS는 from과 중복이라 null |
 | `stationEnd` | `subPath.endName` (SUBWAY 한정) | |
 | `stationCount` | `subPath.stationCount` | |
-| `path` | (transit) `loadLane.result.lane[i].section[].graphPos[]` 평탄화 (도로 곡선)<br>(WALK) 좌표 키 없음 → 합성 (아래 알고리즘) | `[lng, lat]` 배열. loadLane 실패/누락 시 `passStopList` 직선으로 graceful fallback (v1.1.10) |
+| `path` | (transit) `loadLane.result.lane[i].section[].graphPos[]` 평탄화 (도로 곡선)<br>(WALK) **TMAP `routes/pedestrian` 호출 (인도 곡선, v1.1.21)** → 실패/미설정 시 v1.1.9 합성 직선 fallback | `[lng, lat]` 배열. loadLane 실패/누락 시 `passStopList` 직선으로 graceful fallback (v1.1.10) |
 
-🆕 **v1.1.9 — WALK 구간 path 보충 알고리즘** (ODsay WALK subPath는 `startX/Y`/`endX/Y` 키가 없음):
+🆕 **v1.1.21 — WALK 구간 `path` 출처 = TMAP 보행자 경로 (인도 곡선)**:
+
+```
+POST https://apis.openapi.sk.com/tmap/routes/pedestrian?version=1&format=json
+Header: appKey: {TMAP_APP_KEY}
+Body  : { "startX", "startY", "endX", "endY", "reqCoordType":"WGS84GEO", "resCoordType":"WGS84GEO", "startName", "endName" }
+```
+
+- 응답: GeoJSON `FeatureCollection` — `features[].geometry.type=="LineString"` 의 `coordinates[]` (이미 `[lng, lat]` 순서) 를 모든 LineString feature 에 대해 평탄화하여 한 WALK segment 의 path 로 합침.
+- 호출 빈도: WALK subPath 1개당 1회. 한 cache miss 사이클의 외부 API 호출 = ODsay × 2 (`searchPubTransPathT` + `loadLane`) + TMAP × N. N 은 환승 횟수에 비례: **환승 0회 → N=2** (출발 WALK + 도착 WALK) / **환승 1회 → N=3** (+ 환승 walk 1개) / **환승 2회 → N=4**.
+- 응답 지연 worst case (`tmap.timeout-seconds: 5` + 직렬 호출): 환승 0회 ≈ 20초 / 환승 1회 ≈ 25초 / 환승 2회 ≈ 30초. graceful fallback 으로 사용자에겐 직선 그려짐 정도지만 `GET /schedules/{id}/route` 동기 SLA 영향. P1 백로그: 첫 TMAP timeout 시 나머지 WALK 즉시 fallback (fail-fast) 또는 WALK 호출 비동기 fan-out (Java 21 Virtual Threads + `CompletableFuture.allOf`).
+- WALK 의 시작/끝 좌표는 v1.1.9 합성 알고리즘과 동일 (origin / 다음 transit `startX/Y` / 이전 transit `endX/Y` / destination). TMAP 응답 양 끝이 정확히 그 좌표와 일치하지 않을 수 있어 **양 끝에 시작/끝 좌표를 강제 prepend/append** — 정류장 좌표와 시각상 정확히 만나도록 보정.
+- **graceful fallback** — 다음 케이스에서 v1.1.9 합성 직선으로 fallback:
+  - `TMAP_APP_KEY` 미설정 (호출 자체 skip — 401 비용 + 노이즈 회피)
+  - TMAP 401/403/timeout/5xx
+  - 응답 본문 빈 / GeoJSON 형식 위반 / `features[]` 배열 없음 / LineString feature 0개
+- TMAP 보행자 경로안내 신청: SK Open API 콘솔 (`https://openapi.sk.com`) → 상품 마켓 → "보행자 경로안내 V1" 사용 신청 → 발급된 AppKey 를 `TMAP_APP_KEY` 환경변수로 주입.
+
+🆕 **v1.1.9 — WALK 구간 좌표 결정 알고리즘** (ODsay WALK subPath 는 `startX/Y`/`endX/Y` 키가 없음 — TMAP 호출 시작/끝 좌표 결정에 그대로 사용):
 
 - **첫 WALK** (subPath[0]이 WALK일 때): `origin` → 다음 transit subPath의 `startX/Y`
 - **중간 WALK**: 이전 transit subPath의 `endX/Y` → 다음 transit subPath의 `startX/Y`
