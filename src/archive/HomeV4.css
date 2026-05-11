@@ -1,0 +1,874 @@
+/* ================================================================
+   HomeV4 — 다크 네이비 플랫 (Outfit + Noto Sans KR)
+   ================================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@200;300;400;500;600;700&family=Noto+Sans+KR:wght@300;400;500&display=swap');
+
+/* ── 디자인 토큰 ─────────────────────────────────────────────── */
+
+.hv4 {
+  --outfit: 'Outfit', sans-serif;
+  --sans:   'Noto Sans KR', sans-serif;
+  --bg:     #0f1423;
+  --card:   #161d33;
+  --ink:    #e8eaf0;
+  --accent: #64B5F6;
+  --sub:    #5a6280;
+  --radius: 16px;
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ── 루트 ────────────────────────────────────────────────────── */
+
+.hv4 {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  font-family: var(--sans);
+  overscroll-behavior: none;
+}
+
+/* ── 헤더 ────────────────────────────────────────────────────── */
+
+.hv4-header {
+  padding: 28px 20px 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.hv4-header__left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.hv4-header__name {
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.hv4-header__online {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.hv4-header__right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.hv4-header__date-short {
+  font-family: var(--outfit);
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--sub);
+}
+
+.hv4-header__temp-sm {
+  font-family: var(--outfit);
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--sub);
+}
+
+/* ── 상태 요약 바 ────────────────────────────────────────────── */
+
+.hv4-status-bar {
+  padding: 0 20px 16px;
+  font-family: var(--sans);
+  font-size: 12px;
+  font-weight: 300;
+  color: var(--sub);
+  flex-shrink: 0;
+}
+
+/* ── 카드 컨테이너 ───────────────────────────────────────────── */
+
+.hv4-cards {
+  flex: 1;
+  padding: 0 16px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  /* 모바일에서는 카드 영역 내부 스크롤 없이 페이지 전체가 스크롤 */
+  min-height: 0;
+}
+
+/* ── 카드 공통 ───────────────────────────────────────────────── */
+
+.hv4-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  animation: hv4-card-in 0.4s ease-out both;
+}
+
+@keyframes hv4-card-in {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── 카드 1: 메인 ────────────────────────────────────────────── */
+
+.hv4-card--main {
+  padding: 24px;
+}
+
+/* 도착 시간 대형 숫자 — 포인트 1/3 */
+.hv4-big-time {
+  font-family: var(--outfit);
+  font-size: 56px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+  letter-spacing: -2px;
+  font-variant-numeric: tabular-nums;
+  transition: opacity 0.3s ease;
+}
+
+.hv4-big-time--fade {
+  opacity: 0.3;
+}
+
+.hv4-card__title {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--sub);
+  margin-top: 6px;
+}
+
+.hv4-card__route {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--sub);
+  margin-top: 2px;
+}
+
+/* ── 출발 블록 ───────────────────────────────────────────────── */
+
+.hv4-depart-block {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 14px;
+  padding: 20px;
+  margin-top: 20px;
+}
+
+.hv4-depart-block__left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hv4-depart-block__label {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 300;
+  color: var(--sub);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.hv4-depart-block__time {
+  font-family: var(--outfit);
+  font-size: 32px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -1px;
+}
+
+.hv4-depart-block__hint {
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--sub);
+  margin-top: 8px;
+}
+
+/* ── 카운트다운 원형 — 포인트 2/3 ───────────────────────────── */
+
+.hv4-circle {
+  position: relative;
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+}
+
+.hv4-circle__svg {
+  width: 64px;
+  height: 64px;
+  transform: rotate(-90deg);
+}
+
+.hv4-circle__track {
+  fill: rgba(255, 255, 255, 0.04);
+  stroke: rgba(255, 255, 255, 0.06);
+  stroke-width: 2;
+}
+
+.hv4-circle__ring {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 163.36;
+  transition: stroke-dashoffset 1.2s ease;
+}
+
+.hv4-circle__inner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 원형 숫자 — 포인트 2/3 */
+.hv4-circle__num {
+  font-family: var(--outfit);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
+}
+
+.hv4-circle__unit {
+  font-family: var(--outfit);
+  font-size: 9px;
+  font-weight: 400;
+  color: var(--sub);
+  line-height: 1.4;
+}
+
+/* ── 가로 경로 프로그레스 바 ─────────────────────────────────── */
+
+.hv4-progress {
+  margin-top: 20px;
+}
+
+.hv4-progress__bar {
+  display: flex;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.05);
+  margin-bottom: 12px;
+}
+
+.hv4-progress__seg {
+  height: 100%;
+  transform-origin: left center;
+  transform: scaleX(0);
+  animation: hv4-bar-grow 1.5s ease forwards;
+}
+
+@keyframes hv4-bar-grow {
+  to { transform: scaleX(1); }
+}
+
+.hv4-progress__seg--walk {
+  background: repeating-linear-gradient(
+    90deg,
+    #3a4060 0, #3a4060 3px,
+    transparent 3px, transparent 7px
+  );
+}
+
+.hv4-progress__seg--bus {
+  background: #64B5F6;
+}
+
+.hv4-progress__seg--subway {
+  background: #90CAF9;
+}
+
+.hv4-progress__labels {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.08) transparent;
+}
+
+.hv4-progress__labels::-webkit-scrollbar {
+  height: 2px;
+}
+
+.hv4-progress__labels::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 2px;
+}
+
+.hv4-seg {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  padding: 8px 12px;
+  flex-shrink: 0;
+  min-width: 56px;
+}
+
+.hv4-seg__top {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.hv4-seg__icon {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.hv4-seg__min {
+  font-family: var(--outfit);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.hv4-seg__line {
+  font-family: var(--sans);
+  font-size: 10px;
+  color: var(--sub);
+  margin-top: 2px;
+}
+
+.hv4-seg__arrow {
+  font-size: 12px;
+  color: var(--sub);
+  flex-shrink: 0;
+}
+
+/* ── 요약 카드 3칸 ───────────────────────────────────────────── */
+
+.hv4-stats {
+  display: flex;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.hv4-stat {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 12px;
+  padding: 12px 8px;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.hv4-stat__num {
+  font-family: var(--outfit);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.hv4-stat__label {
+  font-family: var(--sans);
+  font-size: 10px;
+  color: var(--sub);
+}
+
+/* ── 버튼 ────────────────────────────────────────────────────── */
+
+/* 경로 보기 버튼 — 포인트 3/3 */
+.hv4-btn-primary {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: var(--accent);
+  color: #0f1423;
+  border: none;
+  border-radius: 14px;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  margin-top: 20px;
+  transition: opacity 0.15s;
+}
+
+.hv4-btn-primary:hover {
+  opacity: 0.9;
+}
+
+.hv4-btn-primary:active {
+  opacity: 0.85;
+}
+
+.hv4-btn-text {
+  background: none;
+  border: none;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--sub);
+  cursor: pointer;
+  padding: 4px 0;
+  margin-top: 8px;
+  display: inline-block;
+}
+
+/* ── 배지 ────────────────────────────────────────────────────── */
+
+.hv4-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.06);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hv4-badge__h {
+  font-family: var(--outfit);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1;
+}
+
+.hv4-badge__m {
+  font-family: var(--outfit);
+  font-size: 9px;
+  font-weight: 300;
+  color: var(--sub);
+  line-height: 1.3;
+}
+
+/* ── 카드 2/3: 아코디언 ──────────────────────────────────────── */
+
+.hv4-card--collapsible {
+  overflow: hidden;
+}
+
+.hv4-trigger {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  gap: 12px;
+}
+
+.hv4-trigger__left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+}
+
+.hv4-trigger__info {
+  min-width: 0;
+}
+
+.hv4-card--collapsible .hv4-card__title {
+  font-family: var(--sans);
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--ink);
+  margin-top: 0;
+}
+
+.hv4-card__sub {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--sub);
+  margin-top: 2px;
+}
+
+.hv4-chevron {
+  display: inline-block;
+  width: 0;
+  height: 0;
+  border-top: 5px solid transparent;
+  border-bottom: 5px solid transparent;
+  border-left: 7px solid var(--sub);
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.hv4-chevron--open {
+  transform: rotate(90deg);
+}
+
+/* 펼쳐지는 패널 */
+.hv4-expand {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0 20px;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+
+.hv4-expand--open {
+  max-height: 400px;
+  opacity: 1;
+  padding-bottom: 20px;
+}
+
+.hv4-expand__depart {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.hv4-expand__time {
+  font-family: var(--outfit);
+  font-size: 20px;
+  font-weight: 500;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.hv4-expand__word {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink);
+}
+
+.hv4-expand__sub {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--sub);
+  margin-top: 6px;
+}
+
+/* ── 카드 3: 내일 일정 ───────────────────────────────────────── */
+
+.hv4-tomorrow-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.hv4-tomorrow-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hv4-tomorrow-item__time {
+  font-family: var(--outfit);
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--ink);
+  min-width: 44px;
+  flex-shrink: 0;
+}
+
+.hv4-tomorrow-item__title {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--ink);
+}
+
+.hv4-tomorrow-item--dim .hv4-tomorrow-item__time,
+.hv4-tomorrow-item--dim .hv4-tomorrow-item__title {
+  color: var(--sub);
+}
+
+/* ── 카드 4: 새 일정 추가 ────────────────────────────────────── */
+
+.hv4-card--add {
+  background: transparent;
+  border: 1px dashed rgba(255, 255, 255, 0.08);
+  padding: 20px;
+  text-align: center;
+  cursor: pointer;
+  width: 100%;
+  transition: background 0.15s;
+}
+
+.hv4-card--add:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.hv4-card__add-text {
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--sub);
+}
+
+/* ── 빈 상태 ─────────────────────────────────────────────────── */
+
+.hv4-card--empty {
+  padding: 40px 24px;
+  text-align: center;
+}
+
+.hv4-empty__main {
+  font-family: var(--sans);
+  font-size: 18px;
+  font-weight: 400;
+  color: var(--sub);
+}
+
+.hv4-empty__sub {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--sub);
+  opacity: 0.6;
+  margin-top: 8px;
+}
+
+.hv4-empty__cta {
+  display: block;
+  margin: 16px auto 0;
+  color: var(--ink);
+}
+
+/* ── 하단 네비게이션 ─────────────────────────────────────────── */
+
+.hv4-nav {
+  background: var(--bg);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 10px 0 14px;
+  display: flex;
+  justify-content: space-around;
+  flex-shrink: 0;
+}
+
+.hv4-nav__item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.hv4-nav__dot-wrap {
+  height: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hv4-nav__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--ink);
+}
+
+.hv4-nav__label {
+  font-size: 10px;
+  letter-spacing: 1px;
+}
+
+.hv4-nav__item--on .hv4-nav__label {
+  font-family: var(--sans);
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.hv4-nav__item:not(.hv4-nav__item--on) .hv4-nav__label {
+  font-family: var(--sans);
+  font-weight: 300;
+  color: var(--sub);
+}
+
+/* ── 반응형 ──────────────────────────────────────────────────── */
+
+/* 태블릿 (768px+): 여백만 넉넉하게 */
+@media (min-width: 768px) {
+  .hv4-header,
+  .hv4-status-bar,
+  .hv4-nav {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+
+  .hv4-cards {
+    padding-left: 40px;
+    padding-right: 40px;
+  }
+
+  .hv4-big-time {
+    font-size: 64px;
+  }
+}
+
+/* 데스크톱 (1024px+): 진짜 웹 대시보드 레이아웃 */
+@media (min-width: 1024px) {
+
+  /* 헤더 */
+  .hv4-header {
+    padding: 36px 56px 12px;
+  }
+
+  .hv4-header__name {
+    font-size: 18px;
+  }
+
+  .hv4-header__date-short,
+  .hv4-header__temp-sm {
+    font-size: 14px;
+  }
+
+  /* 상태 바 */
+  .hv4-status-bar {
+    padding: 0 56px 20px;
+    font-size: 13px;
+  }
+
+  /* 카드 영역: 3:2 두 컬럼 그리드, 화면 가득 */
+  .hv4-cards {
+    padding: 0 56px 56px;
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    grid-template-rows: auto auto auto auto;
+    align-items: start;
+    gap: 20px;
+  }
+
+  /* 메인 카드: 왼쪽 열 전체 */
+  .hv4-cards > .hv4-card--main {
+    grid-column: 1;
+    grid-row: 1 / 5;
+  }
+
+  /* 보조 카드들: 오른쪽 열 */
+  .hv4-cards > *:nth-child(2) { grid-column: 2; grid-row: 1; }
+  .hv4-cards > *:nth-child(3) { grid-column: 2; grid-row: 2; }
+  .hv4-cards > *:nth-child(4) { grid-column: 2; grid-row: 3; }
+
+  /* 메인 카드 내부 크기 키우기 */
+  .hv4-card--main {
+    padding: 36px;
+  }
+
+  .hv4-big-time {
+    font-size: 88px;
+    letter-spacing: -4px;
+  }
+
+  .hv4-card__title {
+    font-size: 16px;
+    margin-top: 10px;
+  }
+
+  .hv4-card__route {
+    font-size: 14px;
+  }
+
+  .hv4-depart-block {
+    margin-top: 28px;
+    padding: 24px 28px;
+    border-radius: 18px;
+  }
+
+  .hv4-depart-block__time {
+    font-size: 40px;
+  }
+
+  .hv4-circle {
+    width: 76px;
+    height: 76px;
+  }
+
+  .hv4-circle__svg {
+    width: 76px;
+    height: 76px;
+  }
+
+  .hv4-circle__num {
+    font-size: 26px;
+  }
+
+  .hv4-depart-block__hint {
+    font-size: 12px;
+  }
+
+  .hv4-progress {
+    margin-top: 28px;
+  }
+
+  .hv4-stats {
+    margin-top: 28px;
+    gap: 12px;
+  }
+
+  .hv4-stat {
+    padding: 16px 12px;
+    border-radius: 16px;
+  }
+
+  .hv4-stat__num {
+    font-size: 28px;
+  }
+
+  .hv4-stat__label {
+    font-size: 11px;
+  }
+
+  .hv4-btn-primary {
+    margin-top: 28px;
+    padding: 16px;
+    font-size: 15px;
+    border-radius: 16px;
+  }
+
+  /* 보조 카드 내부 */
+  .hv4-trigger {
+    padding: 22px 24px;
+  }
+
+  .hv4-card--collapsible .hv4-card__title {
+    font-size: 16px;
+  }
+
+  .hv4-card__sub {
+    font-size: 13px;
+  }
+
+  /* 하단 네비 */
+  .hv4-nav {
+    padding-left: 56px;
+    padding-right: 56px;
+  }
+}
+
+/* 와이드 스크린 (1600px+): 최대 너비 제한 */
+@media (min-width: 1600px) {
+  .hv4-header,
+  .hv4-status-bar,
+  .hv4-cards,
+  .hv4-nav {
+    max-width: 1440px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+}

@@ -1,0 +1,441 @@
+/* ================================================================
+   Recommendation Card — Apple Bento Grid × Soft UI
+   ================================================================ */
+
+.bento-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Noto Sans KR", "Apple SD Gothic Neo", "Helvetica Neue", sans-serif;
+}
+
+/* ================================================================
+   Primary Card — CSS Grid template-areas 기반 벤토 레이아웃
+   ================================================================ */
+
+.bento-card {
+  display: grid;
+  grid-template-columns: 3fr 2fr;
+  grid-template-rows: auto;
+  grid-template-areas:
+    "banner  banner"
+    "stop    prob"
+    "bus     prob"
+    "stats   stats"
+    "route   route";
+  gap: 10px;
+  background: #EFE8DF;
+  border-radius: 28px;
+  padding: 14px;
+}
+
+/* ── 공통 셀 ── */
+.bento-cell {
+  background: #FAF5EF;
+  border-radius: 20px;
+  padding: 16px;
+}
+
+/* ── 배너 ── */
+.bento-banner {
+  grid-area: banner;
+  background: linear-gradient(135deg, #1B6B38 0%, #38C55A 100%);
+  border-radius: 18px;
+  padding: 11px 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #ffffff;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: -0.1px;
+}
+
+/* ── 추천 정류장 셀 ── */
+.bento-stop-cell {
+  grid-area: stop;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 90px;
+}
+
+.bento-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: #D1FAE5;
+  color: #15803D;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  width: fit-content;
+}
+
+.bento-stop-name {
+  font-size: 26px;
+  font-weight: 800;
+  color: #1C1C1E;
+  letter-spacing: -1px;
+  line-height: 1.05;
+  margin: 0;
+  flex: 1;
+  display: flex;
+  align-items: center;
+}
+
+.bento-distance-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #15803D;
+  background: #D1FAE5;
+  padding: 5px 11px;
+  border-radius: 12px;
+  white-space: nowrap;
+  width: fit-content;
+}
+
+/* ── 앉아갈 확률 셀 (2행 병합) ── */
+.bento-prob-cell {
+  grid-area: prob;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 16px 10px;
+}
+
+.bento-cell-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: #C0BAB4;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.bento-prob-ring {
+  position: relative;
+  width: 96px;
+  height: 96px;
+}
+
+.bento-prob-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.bento-prob-num {
+  font-size: 28px;
+  font-weight: 800;
+  color: #15803D;
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.bento-prob-unit {
+  font-size: 14px;
+  font-weight: 700;
+  color: #15803D;
+  vertical-align: super;
+}
+
+.bento-prob-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #A09A93;
+  text-align: center;
+  line-height: 1.3;
+}
+
+/* ── 버스 노선 셀 ── */
+.bento-bus-cell {
+  grid-area: bus;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 90px;
+}
+
+.bento-bus-numrow {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  flex: 1;
+  align-items: center;
+}
+
+.bento-bus-num {
+  font-size: 48px;
+  font-weight: 900;
+  color: #0A7AFF;
+  letter-spacing: -2.5px;
+  line-height: 1;
+}
+
+.bento-bus-suffix {
+  font-size: 17px;
+  font-weight: 700;
+  color: #4A9EFF;
+  margin-bottom: 5px;
+}
+
+.bento-arrival-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0A7AFF;
+  background: #E8F3FF;
+  padding: 5px 11px;
+  border-radius: 10px;
+  width: fit-content;
+}
+
+/* ── 통계 행 (3-col grid) ── */
+.bento-stats-row {
+  grid-area: stats;
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.bento-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 14px 8px;
+}
+
+.bento-stat-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bento-stat-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1C1C1E;
+  letter-spacing: -0.3px;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.bento-stat-sublabel {
+  font-size: 10px;
+  font-weight: 500;
+  color: #C0BAB4;
+  text-align: center;
+}
+
+/* ── 노선 정류장 순서 셀 ── */
+.bento-route-cell {
+  grid-area: route;
+  padding: 14px 16px;
+}
+
+.route-flow {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.route-flow__label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  color: #C0BAB4;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.route-flow__scroll {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.route-flow__scroll::-webkit-scrollbar { display: none; }
+
+.route-flow__stop {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  white-space: nowrap;
+  font-size: 11px;
+  padding: 5px 10px;
+  border-radius: 20px;
+  flex-shrink: 0;
+  line-height: 1.4;
+  font-weight: 600;
+}
+
+.route-flow__stop-icon { font-size: 9px; line-height: 1; }
+
+.route-flow__connector {
+  display: flex;
+  align-items: center;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+.route-flow__legend { display: flex; gap: 12px; }
+
+.route-flow__legend-item { font-size: 10px; font-weight: 600; }
+.route-flow__legend-item--rec  { color: #15803D; }
+.route-flow__legend-item--base { color: #DC2626; }
+
+/* ── 1. 확률 링 드로우 애니메이션 ── */
+@keyframes ring-draw {
+  from { stroke-dashoffset: var(--ring-full); }
+  to   { stroke-dashoffset: var(--ring-target); }
+}
+
+.bento-ring-progress {
+  stroke-dashoffset: var(--ring-full);
+  animation: ring-draw 1.3s cubic-bezier(0.4, 0, 0.2, 1) 0.3s forwards;
+}
+
+/* ── 3. 버스 도착 칩 펄스 점 ── */
+@keyframes arrival-pulse {
+  0%, 100% { opacity: 1;   transform: scale(1);   }
+  50%       { opacity: 0.3; transform: scale(0.65); }
+}
+
+.bento-arrival-pulse {
+  width: 6px;
+  height: 6px;
+  background: #0A7AFF;
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: arrival-pulse 1.6s ease-in-out infinite;
+}
+
+
+/* ================================================================
+   Baseline Card
+   ================================================================ */
+
+.bento-baseline {
+  background: #EFE8DF;
+  border-radius: 22px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  opacity: 0.62;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Noto Sans KR", "Apple SD Gothic Neo", "Helvetica Neue", sans-serif;
+}
+
+.bento-baseline__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.bento-baseline__name-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.bento-baseline__tag {
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  color: #A09A93;
+  background: #E5DDD5;
+  padding: 3px 9px;
+  border-radius: 20px;
+  letter-spacing: 0.04em;
+  width: fit-content;
+}
+
+.bento-baseline__name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #6E6E73;
+  letter-spacing: -0.4px;
+  line-height: 1.1;
+}
+
+.bento-baseline__dist {
+  font-size: 11px;
+  font-weight: 500;
+  color: #A09A93;
+}
+
+.bento-baseline__stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #A09A93;
+  font-weight: 500;
+}
+
+.bento-baseline__divider {
+  width: 1px;
+  height: 10px;
+  background: #C8BFB5;
+}
+
+/* ================================================================
+   반응형 — 모바일에서 단일 컬럼
+   ================================================================ */
+
+@media (max-width: 480px) {
+  .bento-card {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "banner"
+      "stop"
+      "bus"
+      "prob"
+      "stats"
+      "route"
+      "cta";
+  }
+
+  .bento-prob-cell {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 16px;
+    gap: 16px;
+  }
+
+  .bento-prob-ring { width: 80px; height: 80px; }
+  .bento-prob-num  { font-size: 24px; }
+
+  .bento-stop-name { font-size: 22px; }
+  .bento-bus-num   { font-size: 40px; }
+}

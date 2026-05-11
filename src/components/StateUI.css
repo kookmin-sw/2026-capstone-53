@@ -1,0 +1,141 @@
+/* ================================================================
+   Skeleton shimmer
+   ================================================================ */
+
+.skeleton {
+  background: linear-gradient(90deg, #e8e8e8 25%, #f5f5f5 50%, #e8e8e8 75%);
+  background-size: 400px 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, #2a2a2a 25%, #3a3a3a 50%, #2a2a2a 75%);
+  background-size: 400px 100%;
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200px 0; }
+  100% { background-position:  200px 0; }
+}
+
+/* ── Home skeleton ── */
+.skel-home {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 4px;
+}
+
+.skel-home__card {
+  height: 130px;
+  border-radius: 20px;
+}
+
+.skel-home__bento {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 10px;
+}
+
+.skel-home__bento-a { height: 90px; border-radius: 16px; }
+.skel-home__bento-b { height: 90px; border-radius: 16px; }
+.skel-home__bento-c { height: 80px; border-radius: 16px; }
+.skel-home__bento-d { height: 80px; border-radius: 16px; }
+
+.skel-home__map {
+  height: 220px;
+  border-radius: 20px;
+}
+
+/* ── Calendar skeleton ── */
+.skel-cal {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.skel-cal__calendar {
+  height: 300px;
+  border-radius: 20px;
+}
+
+.skel-cal__card {
+  height: 80px;
+  border-radius: 16px;
+}
+
+/* ── Settings skeleton ── */
+.skel-st {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.skel-st__profile {
+  height: 100px;
+  border-radius: 16px;
+}
+
+.skel-st__section {
+  height: 180px;
+  border-radius: 20px;
+}
+
+.skel-st__section--sm {
+  height: 80px;
+  border-radius: 20px;
+}
+
+/* ================================================================
+   Empty / Error state
+   ================================================================ */
+
+.state-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 32px;
+  text-align: center;
+}
+
+.state-box__title {
+  font-size: 16px;
+  font-weight: 500;
+  color: #888;
+  margin: 0;
+}
+
+.state-box__desc {
+  font-size: 13px;
+  color: #aaa;
+  margin: 6px 0 0;
+  line-height: 1.5;
+}
+
+.state-box__btn {
+  margin-top: 12px;
+  padding: 10px 24px;
+  border-radius: 12px;
+  border: none;
+  background: var(--color-point);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Noto Sans KR", sans-serif;
+  transition: opacity 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.state-box__btn:active { opacity: 0.8; }
+
+.state-box__btn--outline {
+  background: transparent;
+  border: 1px solid var(--color-point);
+  color: var(--color-point);
+  margin-top: 16px;
+}
+
+[data-theme="dark"] .state-box__title { color: #6b6b6b; }
+[data-theme="dark"] .state-box__desc  { color: #555; }

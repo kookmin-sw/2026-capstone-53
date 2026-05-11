@@ -1,0 +1,61 @@
+/* ── CSS 커스텀 변수 ── */
+:root {
+  --color-point: #2563EB;
+  --color-point-dark: #1D4ED8;
+  --color-point-bg: #EFF6FF;
+  --color-point-border: #BFDBFE;
+}
+[data-theme="dark"] {
+  --color-point: #2563EB;
+  --color-point-dark: #1D4ED8;
+  --color-point-bg: #172554;
+  --color-point-border: #1e3a6e;
+}
+
+/* 전역 리셋 및 모바일 퍼스트 기반 */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+    "Noto Sans KR", "Apple SD Gothic Neo", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background: #F0E9E0;
+  color: #1C1C1E;
+  min-width: 0;
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+button {
+  font-family: inherit;
+}
+
+p, h1, h2, h3, h4, h5, h6 {
+  margin: 0;
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+/* 스크롤바 숨김 (모바일 느낌) */
+::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  scrollbar-width: none;
+}

@@ -1,0 +1,428 @@
+/* ================================================================
+   RouteMapV3.css — 전체화면 지도 + 하단 시트
+   ================================================================ */
+
+:root {
+  --rmv3-accent:  #8B7BB5;
+  --rmv3-ink:     #0d0c0a;
+  --rmv3-sub1:    #7a7570;
+  --rmv3-sub3:    #a0998f;
+  --rmv3-bg:      #f7f2e8;
+  --rmv3-surface: rgba(247, 242, 232, 0.96);
+  --rmv3-bar-h:   56px;
+}
+
+/* ── 루트 ────────────────────────────────────────────────────── */
+
+.rmv3 {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--rmv3-bg);
+  overflow: hidden;
+}
+
+/* ── 상단 바 ─────────────────────────────────────────────────── */
+
+.rmv3-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: var(--rmv3-bar-h);
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  gap: 12px;
+  background: var(--rmv3-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(13, 12, 10, 0.06);
+  animation: rmv3-fade-in 0.3s ease;
+}
+
+@keyframes rmv3-fade-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.rmv3-topbar__back {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: none;
+  color: var(--rmv3-ink);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.15s;
+}
+
+.rmv3-topbar__back:hover {
+  background: rgba(13, 12, 10, 0.06);
+}
+
+.rmv3-topbar__center {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rmv3-topbar__title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--rmv3-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rmv3-topbar__dest {
+  font-size: 12px;
+  color: var(--rmv3-sub1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rmv3-topbar__weather {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.rmv3-topbar__temp {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--rmv3-ink);
+  line-height: 1.1;
+}
+
+.rmv3-topbar__cond {
+  font-size: 11px;
+  color: var(--rmv3-sub1);
+}
+
+/* ── 지도 ────────────────────────────────────────────────────── */
+
+.rmv3-map-wrap {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+}
+
+.rmv3-map {
+  width: 100%;
+  height: 100%;
+}
+
+.rmv3-map-loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: var(--rmv3-bg);
+  font-size: 14px;
+  color: var(--rmv3-sub1);
+}
+
+.rmv3-map-loading__spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(139, 123, 181, 0.2);
+  border-top-color: var(--rmv3-accent);
+  border-radius: 50%;
+  animation: rmv3-spin 0.8s linear infinite;
+}
+
+@keyframes rmv3-spin {
+  to { transform: rotate(360deg); }
+}
+
+.rmv3-map-error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: var(--rmv3-bg);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rmv3-ink);
+}
+
+.rmv3-map-error__sub {
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--rmv3-sub1);
+}
+
+/* ── 하단 시트 ───────────────────────────────────────────────── */
+
+.rmv3-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: var(--rmv3-surface);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-top-left-radius: 20px;
+  border-top-right-radius: 20px;
+  overflow: hidden;
+  animation: rmv3-sheet-enter 0.5s cubic-bezier(0.32, 0, 0.67, 1);
+}
+
+@keyframes rmv3-sheet-enter {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.rmv3-sheet__handle {
+  width: 100%;
+  padding: 10px 0 6px;
+  display: flex;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+.rmv3-sheet__handle:active {
+  cursor: grabbing;
+}
+
+.rmv3-sheet__pill {
+  width: 36px;
+  height: 4px;
+  background: rgba(13, 12, 10, 0.18);
+  border-radius: 2px;
+}
+
+/* 접힌 상태 내용 */
+
+.rmv3-sheet__collapsed {
+  padding: 0 20px 12px;
+}
+
+.rmv3-sheet__times {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.rmv3-sheet__time-block {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.rmv3-sheet__time-label {
+  font-size: 11px;
+  color: var(--rmv3-sub1);
+  font-weight: 500;
+}
+
+.rmv3-sheet__time-value {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--rmv3-ink);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.rmv3-sheet__time-value--depart {
+  color: var(--rmv3-accent);
+}
+
+.rmv3-sheet__time-arrow {
+  font-size: 16px;
+  color: var(--rmv3-sub3);
+  flex-shrink: 0;
+}
+
+.rmv3-sheet__summary {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.rmv3-sheet__stat {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--rmv3-ink);
+}
+
+.rmv3-sheet__stat small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--rmv3-sub1);
+  margin-left: 1px;
+}
+
+.rmv3-sheet__dot {
+  font-size: 12px;
+  color: var(--rmv3-sub3);
+}
+
+/* 버스 칩 */
+
+.rmv3-sheet__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rmv3-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(139, 123, 181, 0.08);
+  border: 1px solid rgba(139, 123, 181, 0.2);
+  border-radius: 20px;
+  padding: 5px 12px 5px 8px;
+}
+
+.rmv3-chip__badge {
+  font-size: 10px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--rmv3-accent);
+  border-radius: 10px;
+  padding: 1px 6px;
+}
+
+.rmv3-chip__line {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--rmv3-ink);
+  letter-spacing: -0.5px;
+  line-height: 1;
+}
+
+.rmv3-chip__stop {
+  font-size: 12px;
+  color: var(--rmv3-sub1);
+}
+
+/* 펼친 상태 */
+
+.rmv3-sheet__expanded {
+  padding: 0 20px 16px;
+  overflow-y: auto;
+  max-height: calc(var(--rmv3-sheet-expanded, 420px) - 140px);
+}
+
+.rmv3-sheet__divider {
+  height: 1px;
+  background: rgba(13, 12, 10, 0.08);
+  margin-bottom: 14px;
+}
+
+.rmv3-sheet__tl-label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--rmv3-sub1);
+  margin-bottom: 10px;
+}
+
+/* ── 타임라인 ────────────────────────────────────────────────── */
+
+.rmv3-tl {
+  display: flex;
+  flex-direction: column;
+}
+
+.rmv3-tl__row {
+  display: flex;
+  gap: 10px;
+  min-height: 40px;
+}
+
+.rmv3-tl__track {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+  width: 16px;
+  padding-top: 3px;
+}
+
+.rmv3-tl__dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 2px solid var(--rmv3-accent);
+  flex-shrink: 0;
+}
+
+.rmv3-tl__dot--start,
+.rmv3-tl__dot--end {
+  background: var(--rmv3-accent);
+}
+
+.rmv3-tl__dot--mid {
+  background: #fff;
+}
+
+.rmv3-tl__line {
+  flex: 1;
+  width: 2px;
+  background: rgba(139, 123, 181, 0.3);
+  margin: 3px 0;
+}
+
+.rmv3-tl__text {
+  padding-bottom: 14px;
+  min-width: 0;
+}
+
+.rmv3-tl__name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rmv3-ink);
+  line-height: 1.3;
+}
+
+.rmv3-tl__name--stop {
+  color: var(--rmv3-accent);
+}
+
+.rmv3-tl__detail {
+  font-size: 12px;
+  color: var(--rmv3-sub1);
+  margin-top: 2px;
+}
+
+/* ── 데스크톱 (≥ 768px) ─────────────────────────────────────── */
+
+@media (min-width: 768px) {
+  .rmv3-topbar {
+    padding: 0 24px;
+  }
+
+  .rmv3-sheet {
+    left: auto;
+    right: 24px;
+    bottom: 24px;
+    width: 360px;
+    border-radius: 20px;
+  }
+}

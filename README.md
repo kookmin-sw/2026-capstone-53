@@ -41,7 +41,16 @@
 <!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
 <!-- <img src="assets/README/section-2.png" alt="2" width="48"> -->
 
-<!-- 사용 기술 스택을 추후 작성합니다. -->
+### 프론트엔드
+- React (Create React App)
+- JavaScript + JSDoc 타입 힌트
+- react-router-dom v6, 카카오맵 JavaScript SDK
+- MSW (Mock Service Worker) — 개발 환경 mock 서버
+- JWT Bearer + localStorage 기반 인증
+- PWA (Progressive Web App)
+
+### 백엔드
+<!-- 백엔드 팀이 추후 작성 -->
 
 <!-- 예시:
 ![Tech Stack](https://skillicons.dev/icons?i=react,spring,mysql,docker,aws)
@@ -54,7 +63,32 @@
 <!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
 <!-- <img src="assets/README/section-3.png" alt="3" width="48"> -->
 
-<!-- 설치 방법, 실행 방법, 데모 사용법 등을 추후 작성합니다. -->
+### 프론트엔드 실행
+
+요구사항: Node.js (LTS 권장), npm
+
+```bash
+cd todayway-frontend
+npm install
+npm start   # http://localhost:3000 (카카오맵 API 키 등록 포트)
+```
+
+환경변수 (`.env.development.local`):
+```
+REACT_APP_API_URL=http://localhost:8080/api/v1
+REACT_APP_USE_MOCK=true   # MSW 사용 시 (백엔드 없이 개발 가능)
+```
+
+MSW 모드:
+- 시드 계정: `testuser` / `Test1234!`
+- 시나리오 토글 (브라우저 콘솔):
+```js
+localStorage.setItem('msw-scenario', '<value>'); location.reload();
+// 가능 값: default, route-pending-retry, external-route-failed, external-timeout, token-expired
+```
+
+### 백엔드 실행
+<!-- 백엔드 팀이 추후 작성 -->
 
 <a id="team-members"></a>
 

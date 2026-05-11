@@ -1,0 +1,182 @@
+/* ================================================================
+   MapPage — 전체화면 경로 지도
+   ================================================================ */
+
+.mp {
+  position: fixed;
+  inset: 0;
+  background: #e8e4de;
+  z-index: 100;
+}
+
+.mp-map {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── 상단 바 ── */
+.mp-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  z-index: 10;
+}
+
+.mp-back {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #F3F4F6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mp-topbar-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: #1C1C1E;
+  flex: 1;
+}
+
+.mp-topbar-dur {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-point);
+  background: var(--color-point-bg);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+/* ── 바텀시트 ── */
+.mp-sheet {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: #fff;
+  border-radius: 22px 22px 0 0;
+  overflow: hidden;
+  transition: height 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 10;
+}
+
+/* ── 드래그 핸들 ── */
+.mp-handle-area {
+  padding: 10px 0 6px;
+  display: flex;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+}
+
+.mp-handle {
+  width: 36px;
+  height: 4px;
+  border-radius: 2px;
+  background: #E5E7EB;
+}
+
+/* ── 요약 행 ── */
+.mp-summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 20px 14px;
+}
+
+.mp-summary-from,
+.mp-summary-to {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1C1C1E;
+}
+
+.mp-summary-to {
+  color: #EF4444;
+}
+
+/* ── 상세 타임라인 ── */
+.mp-timeline {
+  padding: 0 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow-y: auto;
+  max-height: 260px;
+}
+
+.mp-tl-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid #F3F4F6;
+}
+
+.mp-tl-row:last-child {
+  border-bottom: none;
+}
+
+.mp-tl-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #D1D5DB;
+  border: 2px solid white;
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.mp-tl-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mp-tl-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #1C1C1E;
+}
+
+.mp-tl-mode {
+  font-size: 12px;
+  color: #6B7280;
+  font-weight: 500;
+}
+
+/* ================================================================
+   Dark mode
+   ================================================================ */
+[data-theme="dark"] .mp-topbar {
+  background: rgba(36, 34, 32, 0.95);
+}
+[data-theme="dark"] .mp-topbar-title { color: #e8e4dc; }
+[data-theme="dark"] .mp-topbar-dur   { color: var(--color-point); }
+[data-theme="dark"] .mp-back         { background: #3a3835; }
+[data-theme="dark"] .mp-back svg path { stroke: #e8e4dc; }
+
+[data-theme="dark"] .mp-sheet        { background: #242220; }
+[data-theme="dark"] .mp-handle       { background: #3a3835; }
+[data-theme="dark"] .mp-summary-from,
+[data-theme="dark"] .mp-summary-to   { color: #e8e4dc; }
+[data-theme="dark"] .mp-tl-row       { border-bottom-color: #333; }
+[data-theme="dark"] .mp-tl-name      { color: #e8e4dc; }
+[data-theme="dark"] .mp-tl-mode      { color: #6b6b6b; }
+[data-theme="dark"] .mp-tl-dot       { background: #4a4845; }

@@ -1,0 +1,712 @@
+/* ================================================================
+   CalendarV2 — 대화형 캘린더 (초록 톤)
+   ================================================================ */
+
+.cv2-page {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  background: #fafaf7;
+  font-family: 'Pretendard', -apple-system, BlinkMacSystemFont,
+    'Noto Sans KR', 'Apple SD Gothic Neo', 'Helvetica Neue', sans-serif;
+  max-width: 430px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+/* ================================================================
+   Header
+   ================================================================ */
+
+.cv2-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 15px 20px 14px;
+  background: #fafaf7;
+  border-bottom: 1px solid #eceae3;
+  flex-shrink: 0;
+}
+
+.cv2-header__left {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.cv2-header__avatar {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1D9E75, #0F6E56);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.cv2-header__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.cv2-header__status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: #0F6E56;
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.cv2-header__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #1D9E75;
+  flex-shrink: 0;
+  animation: cv2-pulse 2s ease-in-out infinite;
+}
+
+@keyframes cv2-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+
+.cv2-month-badge {
+  background: #f0ede6;
+  color: #1D9E75;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.02em;
+  flex-shrink: 0;
+}
+
+/* ================================================================
+   Scroll area
+   ================================================================ */
+
+.cv2-scroll {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.cv2-scroll::-webkit-scrollbar { display: none; }
+
+/* ================================================================
+   Calendar section
+   ================================================================ */
+
+.cv2-cal {
+  padding: 16px 20px;
+}
+
+/* Month nav */
+.cv2-cal__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+
+.cv2-cal__title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: -0.3px;
+}
+
+.cv2-cal__arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: #888;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-cal__arrow:active { background: #f0ede6; }
+
+/* Day-of-week row */
+.cv2-cal__dow-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  margin-bottom: 2px;
+}
+
+.cv2-cal__dow {
+  text-align: center;
+  font-size: 12px;
+  font-weight: 500;
+  color: #888;
+  padding: 4px 0;
+}
+
+.cv2-cal__dow--sun { color: #D4856B; }
+.cv2-cal__dow--sat { color: #64B5F6; }
+
+/* Date grid */
+.cv2-cal__grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  transition: opacity 0.2s ease;
+}
+
+.cv2-cal__grid--fade { opacity: 0; }
+
+.cv2-cal__cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  height: 44px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-cal__cell--out { pointer-events: none; }
+
+/* Sunday / Saturday color on cell's number */
+.cv2-cal__cell--sun .cv2-cal__num:not(.cv2-cal__num--today) { color: #D4856B; }
+.cv2-cal__cell--sat .cv2-cal__num:not(.cv2-cal__num--today) { color: #64B5F6; }
+
+.cv2-cal__num {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  font-weight: 400;
+  color: #1a1a1a;
+  border-radius: 50%;
+  transition: background 0.15s, color 0.15s;
+  flex-shrink: 0;
+}
+
+.cv2-cal__cell--out .cv2-cal__num { color: #ddd; }
+
+.cv2-cal__num--today {
+  background: #1D9E75;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.cv2-cal__num--sel {
+  border: 1.5px solid #1D9E75;
+  color: #1D9E75 !important;
+  font-weight: 600;
+}
+
+/* Event dots */
+.cv2-cal__dots {
+  display: flex;
+  gap: 3px;
+  height: 4px;
+}
+
+.cv2-cal__dot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #1D9E75;
+  display: block;
+}
+
+/* ================================================================
+   AI section
+   ================================================================ */
+
+.cv2-ai {
+  border-top: 1px solid #eceae3;
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 280px;
+  transition: opacity 0.2s ease;
+}
+
+.cv2-ai--fade { opacity: 0; }
+
+/* Row (avatar + bubble) */
+.cv2-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+/* Mini avatar */
+.cv2-mini-avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #1D9E75, #0F6E56);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+/* Bubble */
+.cv2-bubble {
+  background: #f0ede6;
+  border-radius: 4px 18px 18px 18px;
+  padding: 10px 14px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: #1a1a1a;
+  word-break: keep-all;
+  max-width: calc(100% - 36px);
+}
+
+/* Schedule cards container */
+.cv2-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-left: 34px;
+}
+
+/* ================================================================
+   Schedule Card
+   ================================================================ */
+
+.cv2-scard {
+  background: #fff;
+  border: 1.5px solid #1D9E75;
+  border-radius: 16px;
+  padding: 14px 16px;
+}
+
+.cv2-scard__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.cv2-scard__name {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  letter-spacing: -0.2px;
+}
+
+.cv2-scard__arr {
+  font-size: 16px;
+  font-weight: 500;
+  color: #1D9E75;
+}
+
+.cv2-scard__route {
+  font-size: 12px;
+  color: #888;
+  margin-bottom: 6px;
+}
+
+.cv2-scard__depart {
+  font-size: 12px;
+  color: #888;
+}
+
+/* Repeat day chips */
+.cv2-scard__days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.cv2-scard__day {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: #eee;
+  color: #bbb;
+  font-weight: 500;
+}
+
+.cv2-scard__day--on {
+  background: rgba(29, 158, 117, 0.10);
+  color: #0F6E56;
+}
+
+/* Card buttons */
+.cv2-scard__btns {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.cv2-scard__edit {
+  background: #f0ede6;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-scard__edit:hover { background: #e8e5de; }
+
+.cv2-scard__del {
+  background: transparent;
+  color: #D4856B;
+  border: none;
+  border-radius: 10px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-scard__del:hover { background: rgba(212, 133, 107, 0.08); }
+
+/* Add button */
+.cv2-add-wrap { margin-left: 34px; }
+
+.cv2-add-btn {
+  background: #1D9E75;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  letter-spacing: -0.1px;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-add-btn:active { background: #0F6E56; }
+
+.cv2-spacer { height: 16px; }
+
+/* ================================================================
+   Bottom Nav
+   ================================================================ */
+
+.cv2-nav {
+  display: flex;
+  border-top: 1px solid #eceae3;
+  background: #fafaf7;
+  flex-shrink: 0;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 8px);
+}
+
+.cv2-nav__tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 4px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #c0bdb6;
+  font-size: 10px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: 0.01em;
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-nav__tab--active { color: #1D9E75; }
+.cv2-nav__tab:not(.cv2-nav__tab--active):active { color: #8a8680; }
+
+/* ================================================================
+   Overlay (shared)
+   ================================================================ */
+
+.cv2-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  animation: cv2-fade-in 0.2s ease;
+}
+
+.cv2-overlay--center {
+  align-items: center;
+  justify-content: center;
+}
+
+@keyframes cv2-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ================================================================
+   Bottom Sheet
+   ================================================================ */
+
+.cv2-sheet {
+  width: 100%;
+  background: #fafaf7;
+  border-radius: 20px 20px 0 0;
+  padding: 12px 24px 32px;
+  animation: cv2-slide-up 0.3s ease;
+  max-height: 92dvh;
+  overflow-y: auto;
+}
+
+@keyframes cv2-slide-up {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+.cv2-sheet__handle {
+  width: 36px;
+  height: 4px;
+  background: #ddd;
+  border-radius: 4px;
+  margin: 0 auto 20px;
+}
+
+.cv2-sheet__heading {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin-bottom: 20px;
+  letter-spacing: -0.3px;
+}
+
+.cv2-sheet__input {
+  width: 100%;
+  border: 1px solid #eceae3;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1a1a1a;
+  background: #fff;
+  outline: none;
+  margin-bottom: 10px;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.cv2-sheet__input:focus { border-color: #1D9E75; }
+.cv2-sheet__input::placeholder { color: #bbb; }
+
+/* Input with icon */
+.cv2-sheet__field {
+  position: relative;
+  margin-bottom: 10px;
+}
+
+.cv2-sheet__field .cv2-sheet__input {
+  margin-bottom: 0;
+  padding-right: 42px;
+}
+
+.cv2-sheet__search-icon {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #bbb;
+  pointer-events: none;
+}
+
+/* Time picker */
+.cv2-sheet__timewrap { margin-bottom: 6px; }
+
+.cv2-sheet__time {
+  width: 100%;
+  border: 1px solid #eceae3;
+  border-radius: 12px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-family: inherit;
+  color: #1a1a1a;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+
+.cv2-sheet__time:focus { border-color: #1D9E75; }
+
+.cv2-sheet__hint {
+  font-size: 11px;
+  color: #888;
+  margin-bottom: 18px;
+  padding-left: 4px;
+}
+
+/* Repeat days */
+.cv2-sheet__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin-bottom: 10px;
+}
+
+.cv2-sheet__daybtn-row {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.cv2-sheet__daybtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #ddd;
+  background: transparent;
+  color: #888;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-sheet__daybtn--on {
+  background: #1D9E75;
+  color: #fff;
+  border-color: #1D9E75;
+}
+
+/* Footer buttons */
+.cv2-sheet__footer {
+  display: flex;
+  gap: 8px;
+}
+
+.cv2-sheet__cancel {
+  flex: 1;
+  background: #f0ede6;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-sheet__cancel:active { background: #e8e5de; }
+
+.cv2-sheet__save {
+  flex: 1;
+  background: #1D9E75;
+  color: #fff;
+  border: none;
+  border-radius: 14px;
+  padding: 14px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-sheet__save:active { background: #0F6E56; }
+
+/* ================================================================
+   Delete Dialog
+   ================================================================ */
+
+.cv2-dialog {
+  background: #fff;
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  margin: 20px;
+  width: calc(100% - 40px);
+  max-width: 320px;
+  animation: cv2-fade-in 0.15s ease;
+}
+
+.cv2-dialog__text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #1a1a1a;
+  text-align: center;
+  margin-bottom: 22px;
+  line-height: 1.5;
+}
+
+.cv2-dialog__btns {
+  display: flex;
+  gap: 8px;
+}
+
+.cv2-dialog__cancel {
+  flex: 1;
+  background: #f0ede6;
+  color: #1a1a1a;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-dialog__cancel:active { background: #e8e5de; }
+
+.cv2-dialog__del {
+  flex: 1;
+  background: #D4856B;
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.cv2-dialog__del:active { background: #c06f56; }
+
+/* ================================================================
+   Responsive
+   ================================================================ */
+
+@media (max-width: 375px) {
+  .cv2-cal { padding: 14px 14px; }
+  .cv2-cal__num { width: 28px; height: 28px; font-size: 13px; }
+  .cv2-cal__cell { height: 40px; }
+}
