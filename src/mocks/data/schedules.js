@@ -1,53 +1,57 @@
 /** @typedef {import('../../types/api')} T */
 
+// 시드 시간을 현재 기준 동적 생성 (모듈 로드 시 1회 계산, 새로고침 시 갱신)
+const _now = Date.now();
+const _iso = (offsetMin) => new Date(_now + offsetMin * 60000).toISOString();
+
 /** @type {T.Schedule[]} */
 export const seedSchedules = [
-  // 1. 단발성 일정 — 경로 계산 완료
+  // 1. 단발성 일정 — 경로 계산 완료 (now+25분 출발, +60분 도착)
   {
     scheduleId: 'sch_01HSEED0001ABCDEFGHJKLMN',
     title: '국민대 등교',
     origin:      { name: '우이동',     lat: 37.6600, lng: 127.0120 },
     destination: { name: '국민대학교', lat: 37.6103, lng: 126.9969 },
-    userDepartureTime:        '2026-04-21T08:30:00+09:00',
-    arrivalTime:              '2026-04-21T09:00:00+09:00',
+    userDepartureTime:        _iso(30),
+    arrivalTime:              _iso(60),
     estimatedDurationMinutes: 35,
-    recommendedDepartureTime: '2026-04-21T08:25:00+09:00',
+    recommendedDepartureTime: _iso(25),
     departureAdvice:          'LATER',
     reminderOffsetMinutes:    5,
-    reminderAt:               '2026-04-21T08:20:00+09:00',
+    reminderAt:               _iso(20),
     routineRule:              null,
     routeStatus:              'CALCULATED',
-    routeCalculatedAt:        '2026-04-20T15:00:00+09:00',
-    createdAt:                '2026-04-20T15:00:00+09:00',
+    routeCalculatedAt:        _iso(-10),
+    createdAt:                _iso(-60),
   },
 
-  // 2. 루틴 일정 — 매주 월/수/금
+  // 2. 루틴 일정 — 매주 월/수/금 (now+4.5시간 출발, +5시간 도착)
   {
     scheduleId: 'sch_01HSEED0002ABCDEFGHJKLMN',
     title: '토익 학원',
     origin:      { name: '우이동',         lat: 37.6600, lng: 127.0120 },
     destination: { name: '강남역 토익학원', lat: 37.4979, lng: 127.0276 },
-    userDepartureTime:        '2026-04-21T13:00:00+09:00',
-    arrivalTime:              '2026-04-21T14:00:00+09:00',
+    userDepartureTime:        _iso(275),
+    arrivalTime:              _iso(300),
     estimatedDurationMinutes: 55,
-    recommendedDepartureTime: '2026-04-21T12:55:00+09:00',
+    recommendedDepartureTime: _iso(270),
     departureAdvice:          'ON_TIME',
     reminderOffsetMinutes:    10,
-    reminderAt:               '2026-04-21T12:45:00+09:00',
+    reminderAt:               _iso(260),
     routineRule:              { type: 'WEEKLY', daysOfWeek: ['MON', 'WED', 'FRI'] },
     routeStatus:              'CALCULATED',
-    routeCalculatedAt:        '2026-04-20T15:10:00+09:00',
-    createdAt:                '2026-04-20T15:10:00+09:00',
+    routeCalculatedAt:        _iso(-10),
+    createdAt:                _iso(-120),
   },
 
-  // 3. 경로 계산 실패 일정
+  // 3. 경로 계산 실패 일정 (now+9.5시간 출발, +10시간 도착)
   {
     scheduleId: 'sch_01HSEED0003ABCDEFGHJKLMN',
     title: '동아리 모임',
     origin:      { name: '국민대학교',   lat: 37.6103, lng: 126.9969 },
     destination: { name: '홍대입구역 카페', lat: 37.5573, lng: 126.9245 },
-    userDepartureTime:        '2026-04-21T18:00:00+09:00',
-    arrivalTime:              '2026-04-21T19:00:00+09:00',
+    userDepartureTime:        _iso(575),
+    arrivalTime:              _iso(600),
     estimatedDurationMinutes: null,
     recommendedDepartureTime: null,
     departureAdvice:          null,
@@ -56,7 +60,7 @@ export const seedSchedules = [
     routineRule:              null,
     routeStatus:              'PENDING_RETRY',
     routeCalculatedAt:        null,
-    createdAt:                '2026-04-20T16:00:00+09:00',
+    createdAt:                _iso(-180),
   },
 ];
 
