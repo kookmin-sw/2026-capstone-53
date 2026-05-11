@@ -1,130 +1,104 @@
-# 오늘어디 — Frontend
+<p align="center">
+  <img src="assets/images/todayway-typo.svg" alt="Todayway" width="300" />
+</p>
 
-## 기술 스택
-- React
-- 카카오맵 JavaScript SDK
+<p align="center">
+  매일 당신의 곁에 함께하는 경로 알림 서비스
+</p>
+
+<p align="center">
+  <a href="https://kookmin-sw.github.io/2026-capstone-53/">
+    <img src="https://img.shields.io/badge/Website-Visit-2ea44f?style=for-the-badge" alt="Website">
+  </a>
+</p>
+
+## 목차
+
+- [프로젝트 소개](#project-intro)
+- [기술 스택](#tech-stack)
+- [사용 방법](#usage)
+- [팀원](#team-members)
+
+<a id="project-intro"></a>
+
+## 1. 프로젝트 소개
+
+<!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
+<!-- <img src="assets/README/section-1.png" alt="1" width="48"> -->
+
+<!-- 프로젝트 소개 문구를 추후 작성합니다. -->
+
+<!-- 프로젝트 소개 이미지나 기타 asset을 아래에 추가합니다. -->
+
+<!-- 예시:
+![프로젝트 대표 이미지](assets/README/project-overview.png)
+-->
+
+<a id="tech-stack"></a>
+
+## 2. 기술 스택
+
+<!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
+<!-- <img src="assets/README/section-2.png" alt="2" width="48"> -->
+
+### 프론트엔드
+- React (Create React App)
+- JavaScript + JSDoc 타입 힌트
+- react-router-dom v6, 카카오맵 JavaScript SDK
+- MSW (Mock Service Worker) — 개발 환경 mock 서버
+- JWT Bearer + localStorage 기반 인증
 - PWA (Progressive Web App)
 
-## 실행 방법
+### 백엔드
+<!-- 백엔드 팀이 추후 작성 -->
+
+<!-- 예시:
+![Tech Stack](https://skillicons.dev/icons?i=react,spring,mysql,docker,aws)
+-->
+
+<a id="usage"></a>
+
+## 3. 사용 방법
+
+<!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
+<!-- <img src="assets/README/section-3.png" alt="3" width="48"> -->
+
+### 프론트엔드 실행
+
+요구사항: Node.js (LTS 권장), npm
+
 ```bash
 cd todayway-frontend
 npm install
-npm start
-```
-localhost:3000에서 확인 가능
-
-## 환경변수 (.env)
-`.env.example` 참조. `.env.development.local`에 작성 권장.
-```
-REACT_APP_API_URL=http://localhost:8080/api/v1   # 백엔드 API 베이스 URL
-REACT_APP_USE_MOCK=true                          # true 시 MSW mock 서버 활성화 (백엔드 없이 개발 가능)
-REACT_APP_KAKAO_MAP_KEY=카카오맵 API 키           # localhost:3000에서만 동작
+npm start   # http://localhost:3000 (카카오맵 API 키 등록 포트)
 ```
 
-## 폴더 구조
-
+환경변수 (`.env.development.local`):
 ```
-src/
-├── api/
-│   ├── fetchClient.js       핵심 fetch 래퍼 (토큰 자동 첨부, 401 처리)
-│   ├── errors.js            ApiError 클래스 + ErrorCode 한국어 매핑
-│   └── index.js             도메인별 API 함수 (api.auth.*, api.schedules.* 등)
-├── archive/                 이전 디자인 버전 (v2~v5, 참고용)
-│   ├── HomeV2~V5.jsx
-│   ├── CalendarV2~V5B.jsx
-│   └── RouteMapV3.jsx
-├── components/
-│   ├── BottomNav.js         하단 탭 바
-│   ├── KakaoMap.js          카카오맵 래퍼
-│   ├── RecommendationCard.js 추천 카드
-│   ├── RouteCard.js         벤토 그리드 경로 카드
-│   ├── ScheduleCard.js      일정 카드
-│   ├── StateUI.jsx          로딩/빈 상태/에러 공통 UI
-│   └── TopNav.js            상단 내비게이션 바
-├── contexts/
-│   ├── SettingsContext.js   앱 설정 전역 상태
-│   └── ThemeContext.js      다크모드 전역 상태
-├── data/
-│   ├── mockData.js          레거시 mock 데이터 (archive용)
-│   └── notifications.js     알림 내역 (프론트 전용, API 미정의)
-├── hooks/
-│   └── usePushNotification.js  PWA 푸시 알림 권한/구독 관리
-├── mocks/                   MSW mock 서버 (REACT_APP_USE_MOCK=true 시 활성화)
-│   ├── browser.js           worker 셋업
-│   ├── scenarios.js         시나리오 토글
-│   ├── handlers/            17개 엔드포인트 핸들러
-│   └── data/                시드 데이터 (회원, 일정, 경로)
-├── types/
-│   └── api.js               API 타입 정의 (JSDoc, 17개 엔드포인트)
-├── pages/
-│   ├── HomeV2Route.jsx      홈 (벤토 그리드 + 경로 지도)
-│   ├── Calendar.js          캘린더 + 일정 목록
-│   ├── Settings.js          설정
-│   ├── MapPage.jsx          경로 지도 (풀스크린)
-│   ├── LoginPage.jsx        로그인
-│   ├── SignupPage.jsx        회원가입
-│   └── NotificationPage.jsx 알림 내역
-├── styles/
-│   └── dark.css             다크모드 오버라이드
-├── App.js                   라우팅
-└── index.css                글로벌 CSS 변수 및 베이스 스타일
+REACT_APP_API_URL=http://localhost:8080/api/v1
+REACT_APP_USE_MOCK=true   # MSW 사용 시 (백엔드 없이 개발 가능)
 ```
 
-## 페이지 구성
-| 경로 | 화면 | 설명 |
-|------|------|------|
-| `/` | 홈 | 벤토 그리드 + 경로 지도 |
-| `/calendar` | 캘린더 | 달력 + 카드 스택 |
-| `/settings` | 설정 | 프로필 + 알림 |
-| `/map` | 경로 지도 | 풀스크린 지도 |
-| `/login` | 로그인 | |
-| `/signup` | 회원가입 | |
-| `/notifications` | 알림 | 알림 내역 |
-
-## 백엔드 연동
-API 명세 v1.1.11 기준, 17개 엔드포인트 통합 완료.
-- 인증: signup, login, logout
-- 회원: me, update, delete
-- 일정: create, list, get, update, delete
-- 경로: get (scheduleId별)
-- 푸시: subscribe, unsubscribe
-- 장소검색: geocode
-- 메인/지도: main, mapConfig
-
-`.env`에 `REACT_APP_API_URL` 설정 시 실 서버 연동.  
-`REACT_APP_USE_MOCK=true` 시 MSW mock 서버로 백엔드 없이 개발 가능.  
-API 명세: `backend/docs/api-spec.md` 참고
-
-### 실 백엔드 연결 시 필요한 것
-1. CORS 화이트리스트에 `http://localhost:3000` 추가
-2. 테스트 계정 생성 (시드 일정 2-3개 포함 권장)
-3. `.env`의 `REACT_APP_API_URL`을 서버 주소로 변경, `REACT_APP_USE_MOCK` 제거 또는 false
-
-## 개발 워크플로우
-
-### MSW mock 서버
-`REACT_APP_USE_MOCK=true`로 설정 후 `npm start`하면 MSW가 활성화됩니다.  
-콘솔에 `[MSW] enabled, scenario: default` 출력 확인.
-
-시드 계정: `testuser` / `Test1234!`
-
-시나리오 토글 (브라우저 콘솔에서):
+MSW 모드:
+- 시드 계정: `testuser` / `Test1234!`
+- 시나리오 토글 (브라우저 콘솔):
 ```js
-localStorage.setItem('msw-scenario', 'default')              // 정상 응답
-localStorage.setItem('msw-scenario', 'route-pending-retry')   // 경로 계산 대기
-localStorage.setItem('msw-scenario', 'external-route-failed') // 경로 502 에러
-localStorage.setItem('msw-scenario', 'external-timeout')      // 외부 API 504
-localStorage.setItem('msw-scenario', 'token-expired')         // 모든 인증 401
+localStorage.setItem('msw-scenario', '<value>'); location.reload();
+// 가능 값: default, route-pending-retry, external-route-failed, external-timeout, token-expired
 ```
-설정 후 새로고침 필요.
 
-### 카카오맵 SDK
-- API 키가 `localhost:3000`에서만 동작 (포트 3001 등은 차단)
-- `public/index.html`에 SDK 스크립트 태그 포함
+### 백엔드 실행
+<!-- 백엔드 팀이 추후 작성 -->
 
-## 디자인 버전 이력
-- v1 (확정): 벤토 그리드 + 경로 지도
-- v2: AI 대화형 → archive
-- v3: 감성 미니멀 → archive
-- v4: 다크 카드 스택 → archive
-- v5: 풀맵 → archive
+<a id="team-members"></a>
+
+## 4. 팀원
+
+<!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
+<!-- <img src="assets/README/section-4.png" alt="4" width="48"> -->
+
+| <img src="https://github.com/wonsh200.png" width="120" alt="원수현"> | 사진~ | 사진~ | 사진~ |
+|---|---|---|---|
+| 원수현 | 임채연 | 이상진 | 황찬우 |
+| 20203102 | 20210481 | 20213039 | 20212667 |
+| DevOps, 기획, 디자인 | Frontend, UI/UX | Backend, DB | Backend, DB |
