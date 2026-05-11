@@ -868,7 +868,8 @@ Body  : { "startX", "startY", "endX", "endY", "reqCoordType":"WGS84GEO", "resCoo
 ```
 
 - 응답: GeoJSON `FeatureCollection` — `features[].geometry.type=="LineString"` 의 `coordinates[]` (이미 `[lng, lat]` 순서) 를 모든 LineString feature 에 대해 평탄화하여 한 WALK segment 의 path 로 합침.
-- 호출 빈도: WALK subPath 1개당 1회. 한 cache miss 사이클의 외부 API 호출 = ODsay × 2 (`searchPubTransPathT` + `loadLane`) + TMAP × N (N = WALK subPath 갯수, 보통 1-2).
+- 호출 빈도: WALK subPath 1개당 1회. 한 cache miss 사이클의 외부 API 호출 = ODsay × 2 (`searchPubTransPathT` + `loadLane`) + TMAP × N. N 은 환승 횟수에 비례: **환승 0회 → N=2** (출발 WALK + 도착 WALK) / **환승 1회 → N=3** (+ 환승 walk 1개) / **환승 2회 → N=4**.
+- 응답 지연 worst case (`tmap.timeout-seconds: 5` + 직렬 호출): 환승 0회 ≈ 20초 / 환승 1회 ≈ 25초 / 환승 2회 ≈ 30초. graceful fallback 으로 사용자에겐 직선 그려짐 정도지만 `GET /schedules/{id}/route` 동기 SLA 영향. P1 백로그: 첫 TMAP timeout 시 나머지 WALK 즉시 fallback (fail-fast) 또는 WALK 호출 비동기 fan-out (Java 21 Virtual Threads + `CompletableFuture.allOf`).
 - WALK 의 시작/끝 좌표는 v1.1.9 합성 알고리즘과 동일 (origin / 다음 transit `startX/Y` / 이전 transit `endX/Y` / destination). TMAP 응답 양 끝이 정확히 그 좌표와 일치하지 않을 수 있어 **양 끝에 시작/끝 좌표를 강제 prepend/append** — 정류장 좌표와 시각상 정확히 만나도록 보정.
 - **graceful fallback** — 다음 케이스에서 v1.1.9 합성 직선으로 fallback:
   - `TMAP_APP_KEY` 미설정 (호출 자체 skip — 401 비용 + 노이즈 회피)
