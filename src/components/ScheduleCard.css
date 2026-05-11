@@ -146,10 +146,10 @@
 }
 
 .schedule-card__countdown-num {
-  font-size: 30px;
+  font-size: 18px;
   font-weight: 800;
   line-height: 1;
-  letter-spacing: -1px;
+  letter-spacing: -0.5px;
 }
 
 .schedule-card__countdown-unit {
