@@ -45,6 +45,7 @@ const ERROR_MESSAGES = {
   GEOCODE_NO_MATCH:             '검색 결과가 없어요. 다른 키워드로 시도해주세요.',
   SUBSCRIPTION_NOT_FOUND:       '알림 구독 정보를 찾을 수 없어요.',
   LOGIN_ID_DUPLICATED:          '이미 사용 중인 아이디예요.',
+  RESOURCE_NOT_FOUND:           '요청하신 페이지를 찾을 수 없어요.',
   EXTERNAL_ROUTE_API_FAILED:    '서버에 일시적인 문제가 있어요. 잠시 후 다시 시도해주세요.',
   EXTERNAL_AUTH_MISCONFIGURED:  '서버에 일시적인 문제가 있어요. 잠시 후 다시 시도해주세요.',
   MAP_PROVIDER_UNAVAILABLE:     '서버에 일시적인 문제가 있어요. 잠시 후 다시 시도해주세요.',
