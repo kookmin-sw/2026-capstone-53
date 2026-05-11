@@ -7,8 +7,6 @@ import com.todayway.backend.member.domain.Member;
 import com.todayway.backend.member.dto.MemberResponse;
 import com.todayway.backend.member.dto.MemberUpdateRequest;
 import com.todayway.backend.member.repository.MemberRepository;
-import com.todayway.backend.push.repository.PushSubscriptionRepository;
-import com.todayway.backend.schedule.repository.ScheduleRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -28,8 +26,6 @@ public class MemberService {
 
     private final MemberRepository memberRepository;
     private final RefreshTokenRepository refreshTokenRepository;
-    private final ScheduleRepository scheduleRepository;
-    private final PushSubscriptionRepository pushSubscriptionRepository;
     private final PasswordEncoder passwordEncoder;
 
     public MemberResponse getMe(String memberUid) {
@@ -55,17 +51,24 @@ public class MemberService {
         return MemberResponse.from(m);
     }
 
+    /**
+     * 회원 탈퇴 — 명세 §3.3 v1.1.22 (이슈 #31). hard delete 로 row 자체 삭제.
+     *
+     * <p>cascade 동작 — DB FK ON DELETE CASCADE 가 자동 처리:
+     * <ul>
+     *   <li>{@code refresh_token} → 삭제 (활성 토큰 무효화 보장)</li>
+     *   <li>{@code schedule} → 삭제 → {@code push_log.schedule_id SET NULL} (다른 회원 영향 X 위해 SET NULL)</li>
+     *   <li>{@code push_subscription} → 삭제 → {@code push_log} CASCADE 삭제 (그 회원의 발송 이력 동반 삭제)</li>
+     * </ul>
+     *
+     * <p>두 번째 호출은 {@code findByMemberUid} 가 empty → 401 UNAUTHORIZED (멱등성 §3.3 v1.1.7 정합).
+     */
     @Transactional
-    public void softDelete(String memberUid) {
-        // soft-delete cascade 는 코드 레벨에서만 보장 — DB FK CASCADE 는 hard-delete 시에만 동작.
+    public void delete(String memberUid) {
         Member m = memberRepository.findByMemberUid(memberUid)
                 .orElseThrow(() -> new BusinessException(ErrorCode.UNAUTHORIZED));
-        m.softDelete();
-        OffsetDateTime now = OffsetDateTime.now(KST);
-        int revokedTokens = refreshTokenRepository.revokeAllActiveByMemberId(m.getId(), now);
-        int deletedSchedules = scheduleRepository.softDeleteByMemberId(m.getId(), now);
-        int revokedSubscriptions = pushSubscriptionRepository.revokeAllByMemberId(m.getId(), now);
-        log.info("member soft delete cascade — memberId={} : refresh tokens={}, schedules={}, push subscriptions={}",
-                m.getId(), revokedTokens, deletedSchedules, revokedSubscriptions);
+        memberRepository.delete(m);
+        log.info("member hard delete — memberId={} (FK CASCADE 가 refresh_token / schedule / push_subscription 일괄 정리)",
+                m.getId());
     }
 }

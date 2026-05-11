@@ -21,6 +21,7 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -119,5 +120,34 @@ class AuthControllerIntegrationTest {
         String signupTokenHash = Sha256Hasher.hash(signupRefreshToken);
         RefreshToken signupSaved = refreshTokenRepository.findByTokenHash(signupTokenHash).orElseThrow();
         assertThat(signupSaved.getRevokedAt()).isNull();
+    }
+
+    @Test
+    void 탈퇴_후_동일_loginId_재가입_가능_201() throws Exception {
+        // 이슈 #31 회귀 가드 — soft delete 모델에서 409 LOGIN_ID_DUPLICATED 던지던 경로가
+        // hard delete 전환 (명세 §3.3 v1.1.22) 으로 해소됨을 검증.
+        // SignupRequest.loginId @Pattern ^[a-zA-Z0-9]{4,20}$ — underscore 비허용이라 영숫자 only.
+        String loginId = "rejoinauth01";
+        SignupRequest req = new SignupRequest(loginId, "P@ssw0rd!", "초기");
+        String signupResp = mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        String accessToken = objectMapper.readTree(signupResp).path("data").path("accessToken").asText();
+
+        // 탈퇴 → member row 자체 + FK CASCADE 로 refresh_token row 까지 삭제
+        mockMvc.perform(delete("/api/v1/members/me")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isNoContent());
+
+        // 동일 loginId 로 재가입 → 201 (탈퇴 전엔 409 LOGIN_ID_DUPLICATED 였음)
+        SignupRequest rejoinReq = new SignupRequest(loginId, "P@ssw0rd!", "재가입");
+        mockMvc.perform(post("/api/v1/auth/signup")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(rejoinReq)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.loginId").value(loginId))
+                .andExpect(jsonPath("$.data.nickname").value("재가입"));
     }
 }

@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.21-MVP
-> **최종 수정**: 2026-05-08 (이상진 — §6.1 WALK 구간 path 출처 = TMAP 보행자 경로 (인도 곡선). 외부 API 의존성 추가, graceful fallback 으로 v1.1.9 합성 직선 보존.)
+> **버전**: v1.1.22-MVP
+> **최종 수정**: 2026-05-11 (황찬우 — §3.3 회원 탈퇴 soft delete → hard delete 전환. FK CASCADE 가 refresh_token / schedule / push_subscription 일괄 삭제. 이슈 #31 fix.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -38,6 +38,7 @@
 | **v1.1.19** | **2026-05-08** | **§4.1 lat/lng XOR 검증 명시 — 둘 다 함께 또는 둘 다 누락만 허용. 한쪽만 채워 보낸 케이스는 400 VALIDATION_ERROR (silent default fallback 차단). NaN/±Infinity 도 400 명시. PR #27 review M2 코드 fix 의 명세 mirroring + 자체 review H1/L1/L3 (javadoc 운영 가정/XFF spoof 안내) 동반.** |
 | **v1.1.20** | **2026-05-08** | **§6.1 `transferCount` 정의 확정 — "이용 대중교통 노선 수 (= 탑승 횟수)". 응답 예시 (지하철 1노선 + 도보 = `transferCount: 1`) 와 정합. **환승 횟수 = `transferCount - 1`** 비고 추가 (0 노선 케이스는 `Math.max(0, n-1)` 권고). v1.1.4 의 "미확정" 표기 제거. 코드 동작 변경 X (현 합산 패턴 그대로 OK). §12 체크리스트 완료 표시 (push/map/geocode/ODsay 4행). Step 6 PR #11 follow-up 1번 자체 판단 처리 (이상진).** |
 | **v1.1.21** | **2026-05-08** | **§6.1 WALK 구간 `path` 출처 = TMAP 보행자 경로 (인도 곡선). 기존 v1.1.9 합성 직선 → `POST https://apis.openapi.sk.com/tmap/routes/pedestrian` 호출 결과(GeoJSON LineString features)로 승격 — 4차선 도로 가로지르는 비현실적 직선 시각화 차단. WALK 구간당 1회 추가 호출. 외부 API 의존성 +1 (`TMAP_APP_KEY` 환경변수). 모든 실패 (키 미설정 / 401/403 / timeout / 5xx / 응답 형식 위반) 는 graceful — v1.1.9 합성 직선 fallback. ErrorCode 신규 X. 시각 검증: `~/route-preview/odsay-tmap-walk.html` (이상진).** |
+| **v1.1.22** | **2026-05-11** | **§3.3 회원 탈퇴 soft delete → hard delete 전환 (이슈 #31). soft delete + `login_id` UNIQUE 충돌로 동일 loginId 재가입 불가하던 버그 해소. DB FK ON DELETE CASCADE 가 refresh_token / schedule / push_subscription row 일괄 삭제 — 코드 cascade 메서드 (`ScheduleRepository.softDeleteByMemberId` / `PushSubscriptionRepository.revokeAllByMemberId`) 제거. push_log 는 FK 비대칭 동작 — `schedule_id` ON DELETE SET NULL (다른 회원의 schedule 삭제 시 이력 보존), `subscription_id` ON DELETE CASCADE (탈퇴 회원 본인의 발송 이력은 동반 삭제, 회원 데이터 완전 삭제 정책). schedule 개별 DELETE / push subscription unsubscribe 는 별개 정책으로 soft delete/revoke 유지. 멱등성 비고 (v1.1.7) 그대로 — 두 번째 DELETE 도 401 UNAUTHORIZED (member row 없음). V3 마이그레이션 (`V3__member_drop_deleted_at.sql`) 적용 시 옛 soft-deleted row 정리 (FK CASCADE 발동) + `deleted_at` 컬럼 drop.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
 
@@ -371,13 +372,23 @@ JWT의 `sub` claim에는 `member.member_uid` 값(prefix 없는 raw ULID 26자, C
 
 #### Response — `204 No Content`
 
-#### DB 매핑
-- 소프트 삭제: `member.deleted_at = NOW()`
-- 관련 `schedule`, `push_subscription`은 FK ON DELETE CASCADE이지만 소프트 삭제 시점엔 별도 로직으로 deleted_at/revoked_at 갱신
+#### DB 매핑 (v1.1.22)
 
-#### 비고 — 멱등성 (v1.1.6 / v1.1.7 정정)
+- **Hard delete**: `DELETE FROM member WHERE id = ?` — row 자체 삭제 (`memberRepository.delete()`).
+- **FK ON DELETE CASCADE** 가 다음 row 일괄 삭제:
+  - `refresh_token` → 삭제 (활성 토큰 무효화 보장)
+  - `schedule` → 삭제 → `push_log.schedule_id SET NULL` (다른 회원에 영향 없도록 SET NULL)
+  - `push_subscription` → 삭제 → `push_log` CASCADE 삭제 (탈퇴 회원 본인의 발송 이력 동반 삭제)
 
-본 API는 인증 토큰의 회원이 이미 탈퇴 처리된 경우(`deleted_at IS NOT NULL`) Service의 `findByMemberUid`에서 회원 조회 실패 → **401 `UNAUTHORIZED`** 응답. RFC 9110의 일반 DELETE 멱등성과 달리, 본 API는 인증 정책 우선 설계의 결과로 두 번째 DELETE 요청은 401로 응답된다 (JWT는 유효하지만 가리키는 회원이 무효).
+> **회원 데이터 완전 삭제 정책**: 회원 탈퇴 cascade 한해 `push_subscription` row + `push_log` 까지 함께 삭제됨. 다른 흐름 (사용자 unsubscribe §7.2 / 410 EXPIRED 자동 revoke) 은 `revoked_at` soft revoke 유지 — `push_log` 이력 보존.
+
+#### 비고 — 멱등성 (v1.1.6 / v1.1.7 / v1.1.22)
+
+본 API 는 인증 토큰의 회원이 이미 탈퇴 처리된 경우 (member row 자체가 없음) Service 의 `findByMemberUid` 에서 회원 조회 실패 → **401 `UNAUTHORIZED`** 응답. RFC 9110 의 일반 DELETE 멱등성과 달리, 본 API 는 인증 정책 우선 설계의 결과로 두 번째 DELETE 요청은 401 로 응답된다 (JWT 는 유효하지만 가리키는 회원이 무효).
+
+#### 비고 — 동일 loginId 재가입 (v1.1.22)
+
+회원 탈퇴 후 동일 `loginId` 로 재가입 가능 (`201 Created`). 이전 soft delete 모델에서는 `login_id` UNIQUE 제약 + `@SQLRestriction("deleted_at IS NULL")` 비대칭으로 `existsByLoginId=false` → `save()` 시 `DataIntegrityViolationException` → 409 `LOGIN_ID_DUPLICATED` 던지던 버그가 hard delete 전환으로 해소됨.
 
 ---
 

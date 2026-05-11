@@ -3,7 +3,6 @@ package com.todayway.backend.schedule.repository;
 import com.todayway.backend.schedule.domain.Schedule;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -60,12 +59,4 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
             """)
     List<Schedule> findDueReminders(@Param("now") OffsetDateTime now,
                                     @Param("windowStart") OffsetDateTime windowStart);
-
-    /**
-     * 회원 탈퇴 시 cascade — Issue #8.
-     * @Modifying 직접 UPDATE라 영속성 컨텍스트 우회 (clearAutomatically로 1차 캐시 일관성 보장).
-     */
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("UPDATE Schedule s SET s.deletedAt = :now WHERE s.memberId = :memberId AND s.deletedAt IS NULL")
-    int softDeleteByMemberId(@Param("memberId") Long memberId, @Param("now") OffsetDateTime now);
 }
