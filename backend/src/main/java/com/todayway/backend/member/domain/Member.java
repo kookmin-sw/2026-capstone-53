@@ -1,8 +1,6 @@
 package com.todayway.backend.member.domain;
 
 import com.todayway.backend.common.entity.BaseEntity;
-import com.todayway.backend.common.exception.BusinessException;
-import com.todayway.backend.common.exception.ErrorCode;
 import com.todayway.backend.common.ulid.UlidGenerator;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -14,19 +12,19 @@ import jakarta.persistence.Table;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
-import org.hibernate.annotations.SQLRestriction;
 
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
-
+/**
+ * 회원 도메인 — 명세 §3 / V1__init.sql {@code member} 테이블 정합.
+ *
+ * <p>v1.1.22 (이슈 #31) — soft delete → hard delete 전환. {@code @SQLRestriction} /
+ * {@code deleted_at} 컬럼 / {@code softDelete()} 제거. 회원 탈퇴는 {@code memberRepository.delete()}
+ * 로 row 자체 삭제 + FK ON DELETE CASCADE 가 refresh_token / schedule / push_subscription 일괄 정리.
+ */
 @Getter
 @Entity
 @Table(name = "member")
-@SQLRestriction("deleted_at IS NULL")
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class Member extends BaseEntity {
-
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");  // 명세 §1.4
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -44,9 +42,6 @@ public class Member extends BaseEntity {
 
     @Column(name = "nickname", nullable = false, length = 50)
     private String nickname;
-
-    @Column(name = "deleted_at")
-    private OffsetDateTime deletedAt;
 
     private Member(String loginId, String passwordHash, String nickname) {
         this.loginId = loginId;
@@ -66,22 +61,10 @@ public class Member extends BaseEntity {
     }
 
     public void updateNickname(String nickname) {
-        if (deletedAt != null) {
-            throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND);
-        }
         this.nickname = nickname;
     }
 
     public void updatePasswordHash(String passwordHash) {
-        if (deletedAt != null) {
-            throw new BusinessException(ErrorCode.MEMBER_NOT_FOUND);
-        }
         this.passwordHash = passwordHash;
-    }
-
-    public void softDelete() {
-        if (deletedAt == null) {
-            deletedAt = OffsetDateTime.now(KST);
-        }
     }
 }

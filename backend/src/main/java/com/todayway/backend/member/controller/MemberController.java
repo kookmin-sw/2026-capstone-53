@@ -36,7 +36,7 @@ public class MemberController {
 
     @DeleteMapping("/me")
     public ResponseEntity<Void> delete(@CurrentMember String memberUid) {
-        memberService.softDelete(memberUid);
+        memberService.delete(memberUid);
         return ResponseEntity.noContent().build();
     }
 }

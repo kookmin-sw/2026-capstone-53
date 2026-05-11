@@ -19,9 +19,14 @@ import java.util.Objects;
 /**
  * Web Push 구독 (사용자 1명 = 기기당 1행). 명세 §7 / V1__init.sql {@code push_subscription} 정합.
  *
- * <p>row 자체는 hard-delete 하지 않고 {@code revoked_at} 으로 활성/비활성을 구분한다 —
- * push_log FK 가 ON DELETE CASCADE 라 row 삭제 시 발송 이력까지 사라지기 때문.
- * 따라서 BaseEntity 미상속 ({@code updated_at} 컬럼 없음, {@code created_at} 만 PrePersist).
+ * <p>사용자의 unsubscribe (§7.2) / 410 EXPIRED 자동 revoke 흐름에서는 row 를 hard-delete 하지 않고
+ * {@code revoked_at} 으로 활성/비활성을 구분한다 — push_log FK 가 ON DELETE CASCADE 라 row 삭제 시
+ * 그 구독의 발송 이력까지 사라지기 때문. 따라서 BaseEntity 미상속 ({@code updated_at} 컬럼 없음,
+ * {@code created_at} 만 PrePersist).
+ *
+ * <p>단 회원 탈퇴 cascade (명세 §3.3 v1.1.22) 흐름에서는 한해 row + push_log 까지 함께 삭제됨 —
+ * 회원 데이터 완전 삭제 정책. 다른 회원의 발송 이력은 {@code push_log.schedule_id SET NULL} 로
+ * 보존되지만, 탈퇴한 회원 본인의 이력은 보존 대상이 아님.
  *
  * <p>활성 구독 조회는 항상 {@code revoked_at IS NULL} 조건을 붙여야 한다 (Repository 메서드에 명시).
  * {@code @SQLRestriction} 사용 X — soft-delete 의미가 다름 (revoke 는 사용자 의도, deleted 는 삭제).
