@@ -1,12 +1,9 @@
-# 2026 Capstone Team 53
-
 <p align="center">
   <img src="assets/images/todayway-typo.svg" alt="Todayway" width="300" />
 </p>
 
 <p align="center">
-  <!-- 프로젝트를 한 문장으로 설명합니다. -->
-  짧은 프로젝트 설명을 작성할 예정입니다.
+  매일 당신의 곁에 함께하는 경로 알림 서비스
 </p>
 
 <p align="center">
