@@ -29,7 +29,9 @@ function ScheduleCard({ schedule, departureTime, departureMinutes, bufferMinutes
 
       <div className="schedule-card__right">
         <div className="schedule-card__countdown">
-          <span className="schedule-card__countdown-num">{departureMinutes}</span>
+          {(Array.isArray(departureMinutes) ? departureMinutes : [departureMinutes]).map((line, i) => (
+            <span key={i} className="schedule-card__countdown-num">{line}</span>
+          ))}
           <span className="schedule-card__countdown-unit">후 출발</span>
         </div>
       </div>

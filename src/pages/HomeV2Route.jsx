@@ -43,12 +43,11 @@ function calcMinutesUntil(isoTime) {
   return diff > 0 ? diff : null;
 }
 
-function formatDepartureLabel(minutes) {
-  if (minutes == null) return '—';
-  if (minutes < 60) return `${minutes}분`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+function formatDepartureLines(minutes) {
+  if (minutes == null) return ['—'];
+  if (minutes < 60) return [`${minutes}분`];
+  const h = Math.round(minutes / 60);
+  return [`약 ${h}시간`];
 }
 
 const MY_LOCATION = { lat: 37.661, lng: 127.012 };
@@ -230,7 +229,7 @@ export default function HomeNoMap() {
                           destinationName: sch.destination?.name ?? '',
                         }}
                         departureTime={extractTime(sch.recommendedDepartureTime || sch.userDepartureTime)}
-                        departureMinutes={formatDepartureLabel(calcMinutesUntil(sch.recommendedDepartureTime || sch.userDepartureTime))}
+                        departureMinutes={formatDepartureLines(calcMinutesUntil(sch.recommendedDepartureTime || sch.userDepartureTime))}
                         bufferMinutes={sch.reminderOffsetMinutes}
                       />
                     </div>
@@ -239,7 +238,7 @@ export default function HomeNoMap() {
 
                 <button
                   className={`home__nav-arrow home__nav-arrow--prev${hoverSide === 'prev' ? ' home__nav-arrow--show' : ''}`}
-                  onClick={goPrev}
+                  onClick={e => { e.stopPropagation(); goPrev(); }}
                   aria-label="이전 일정"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -250,7 +249,7 @@ export default function HomeNoMap() {
 
                 <button
                   className={`home__nav-arrow home__nav-arrow--next${hoverSide === 'next' ? ' home__nav-arrow--show' : ''}`}
-                  onClick={goNext}
+                  onClick={e => { e.stopPropagation(); goNext(); }}
                   aria-label="다음 일정"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
@@ -265,7 +264,7 @@ export default function HomeNoMap() {
                       <button
                         key={sch.scheduleId}
                         className={`home__dot${i === activeIdx ? ' home__dot--on' : ''}`}
-                        onClick={() => setActiveIdx(i)}
+                        onClick={e => { e.stopPropagation(); setActiveIdx(i); }}
                         aria-label={`일정 ${i + 1}`}
                       />
                     ))}
