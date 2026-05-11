@@ -30,7 +30,7 @@ function ScheduleCard({ schedule, departureTime, departureMinutes, bufferMinutes
       <div className="schedule-card__right">
         <div className="schedule-card__countdown">
           <span className="schedule-card__countdown-num">{departureMinutes}</span>
-          <span className="schedule-card__countdown-unit">분 후 출발</span>
+          <span className="schedule-card__countdown-unit">후 출발</span>
         </div>
       </div>
     </div>

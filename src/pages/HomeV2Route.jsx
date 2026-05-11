@@ -43,6 +43,14 @@ function calcMinutesUntil(isoTime) {
   return diff > 0 ? diff : null;
 }
 
+function formatDepartureLabel(minutes) {
+  if (minutes == null) return '—';
+  if (minutes < 60) return `${minutes}분`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}시간 ${m}분` : `${h}시간`;
+}
+
 const MY_LOCATION = { lat: 37.661, lng: 127.012 };
 
 export default function HomeNoMap() {
@@ -222,7 +230,7 @@ export default function HomeNoMap() {
                           destinationName: sch.destination?.name ?? '',
                         }}
                         departureTime={extractTime(sch.recommendedDepartureTime || sch.userDepartureTime)}
-                        departureMinutes={calcMinutesUntil(sch.recommendedDepartureTime || sch.userDepartureTime) ?? '—'}
+                        departureMinutes={formatDepartureLabel(calcMinutesUntil(sch.recommendedDepartureTime || sch.userDepartureTime))}
                         bufferMinutes={sch.reminderOffsetMinutes}
                       />
                     </div>
