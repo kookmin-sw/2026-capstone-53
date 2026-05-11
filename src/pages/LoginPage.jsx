@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import logoTypo from '../assets/brand/logo-typo.svg';
 import './AuthPage.css';
 
 export default function LoginPage() {
@@ -41,8 +42,10 @@ export default function LoginPage() {
 
       <div className="auth__card">
         {/* 로고 */}
-        <p className="auth__app-name">오늘어디</p>
-        <p className="auth__tagline">매일 함께하는 경로 알리미, 「오늘어디」</p>
+        <div style={{ textAlign: 'center', marginBottom: 12 }}>
+          <img src={logoTypo} alt="오늘어디" style={{ height: 48 }} />
+        </div>
+        <p className="auth__tagline">매일 함께하는 경로 알리미</p>
 
         {/* 입력 */}
         <div className="auth__fields">

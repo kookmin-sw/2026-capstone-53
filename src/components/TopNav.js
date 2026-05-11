@@ -1,6 +1,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
+import logo from '../assets/brand/logo.svg';
 import './TopNav.css';
 
 const tabs = [
@@ -19,15 +20,7 @@ function TopNav() {
       <div className="top-nav__inner">
         {/* 로고 */}
         <button className="top-nav__logo" onClick={() => navigate('/')}>
-          <div className="top-nav__logo-icon">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <rect x="2" y="5" width="20" height="14" rx="3" fill="#3B82F6"/>
-              <path d="M2 10H22M7 18V20M17 18V20" stroke="white" strokeWidth="2" strokeLinecap="round"/>
-              <circle cx="8" cy="7.5" r="1" fill="white" fillOpacity="0.7"/>
-              <circle cx="16" cy="7.5" r="1" fill="white" fillOpacity="0.7"/>
-            </svg>
-          </div>
-          <span className="top-nav__logo-text">오늘어디</span>
+          <img src={logo} alt="오늘어디" className="top-nav__logo-img" />
         </button>
 
         {/* 네비게이션 링크 */}

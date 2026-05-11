@@ -29,21 +29,9 @@
   text-decoration: none;
 }
 
-.top-nav__logo-icon {
-  width: 34px;
-  height: 34px;
-  background: var(--color-point-bg);
-  border-radius: 9px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.top-nav__logo-text {
-  font-size: 17px;
-  font-weight: 800;
-  color: #111827;
-  letter-spacing: -0.4px;
+.top-nav__logo-img {
+  height: 22px;
+  display: block;
 }
 
 /* 링크 영역 */
