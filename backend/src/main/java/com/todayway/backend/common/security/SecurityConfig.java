@@ -18,6 +18,11 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 @Configuration
 @EnableWebSecurity
@@ -55,6 +60,31 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
+    }
+
+    /**
+     * 명세 §1.9 — CORS 정책 Bean. 위 {@code .cors(Customizer.withDefaults())} 가 본 Bean 을
+     * 자동 picking. Bean 부재 시 Spring 은 default (정책 없음) → 모든 cross-origin 차단.
+     *
+     * <p>{@code allowCredentials=false} — JWT 는 {@code Authorization} 헤더 stateless 인증이라
+     * cookie 미사용 (프론트 {@code fetchClient.js} 도 {@code credentials} 옵션 미지정 = 브라우저
+     * default {@code 'same-origin'} 동작). 향후 cookie-based refresh 도입 시 본 옵션 + origin
+     * wildcard 금지 동반 재검토.
+     *
+     * <p>{@code allowedHeaders="*"} — 프론트 자동 부착 헤더 {@code Content-Type} / {@code Authorization}
+     * 모두 커버. {@code Origin} / {@code Access-Control-Request-*} 는 simple header 라 별도 등록 X.
+     */
+    @Bean
+    public CorsConfigurationSource corsConfigurationSource(CorsProperties props) {
+        CorsConfiguration config = new CorsConfiguration();
+        config.setAllowedOrigins(props.allowedOrigins());
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+        config.setAllowedHeaders(List.of("*"));
+        config.setAllowCredentials(false);
+        config.setMaxAge(props.maxAgeSeconds());
+        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        source.registerCorsConfiguration("/**", config);
+        return source;
     }
 
     private AuthenticationEntryPoint jsonAuthenticationEntryPoint() {
