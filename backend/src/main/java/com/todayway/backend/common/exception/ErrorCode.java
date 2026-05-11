@@ -18,6 +18,7 @@ public enum ErrorCode {
     ROUTE_NOT_CALCULATED(HttpStatus.NOT_FOUND, "경로가 계산되지 않았습니다"),
     GEOCODE_NO_MATCH(HttpStatus.NOT_FOUND, "지오코딩 결과가 없습니다"),
     SUBSCRIPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "푸시 구독을 찾을 수 없습니다"),
+    RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 자원을 찾을 수 없습니다"),
     LOGIN_ID_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 로그인 ID입니다"),
     EXTERNAL_ROUTE_API_FAILED(HttpStatus.BAD_GATEWAY, "경로 API 호출에 실패했습니다"),
     EXTERNAL_AUTH_MISCONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "외부 API 인증 설정에 문제가 있습니다"),
