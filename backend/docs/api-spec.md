@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
 > **버전**: v1.1.25-MVP
-> **최종 수정**: 2026-05-12 (황찬우 — §9.2 WEEKLY routine 요일 비교 Asia/Seoul 기준 명시. 이슈 #36 fix.)
+> **최종 수정**: 2026-05-12 (황찬우 — §1.9 CORS 정책 신규 + §9.2 WEEKLY routine 요일 비교 Asia/Seoul 기준 명시. PR #29 unblock + 이슈 #36 fix.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -40,6 +40,7 @@
 | **v1.1.21** | **2026-05-08** | **§6.1 WALK 구간 `path` 출처 = TMAP 보행자 경로 (인도 곡선). 기존 v1.1.9 합성 직선 → `POST https://apis.openapi.sk.com/tmap/routes/pedestrian` 호출 결과(GeoJSON LineString features)로 승격 — 4차선 도로 가로지르는 비현실적 직선 시각화 차단. WALK 구간당 1회 추가 호출. 외부 API 의존성 +1 (`TMAP_APP_KEY` 환경변수). 모든 실패 (키 미설정 / 401/403 / timeout / 5xx / 응답 형식 위반) 는 graceful — v1.1.9 합성 직선 fallback. ErrorCode 신규 X. 시각 검증: `~/route-preview/odsay-tmap-walk.html` (이상진).** |
 | **v1.1.23** | **2026-05-11** | **§1.6 `RESOURCE_NOT_FOUND` ErrorCode 추가 (이슈 #33). 매핑되지 않은 URL 호출 시 Spring 6.x 가 `NoResourceFoundException` throw → `GlobalExceptionHandler` catch-all 이 잡아 500 `INTERNAL_SERVER_ERROR` 로 폴백하던 결함 fix. 신규 핸들러는 404 + WARN 로깅 (`resourcePath` 한 줄, 스택 미포함 — 4xx 류 ERROR 가 운영 false alarm 의 원인이었음). `NoHandlerFoundException` 도 동시 매핑 (현 application.yml 미설정이라 미발생, future-proof). 405 `HttpRequestMethodNotSupportedException` 잘못 매핑 (400 → 405) 은 별 이슈로 분리.** |
 | **v1.1.22** | **2026-05-11** | **§3.3 회원 탈퇴 soft delete → hard delete 전환 (이슈 #31). soft delete + `login_id` UNIQUE 충돌로 동일 loginId 재가입 불가하던 버그 해소. DB FK ON DELETE CASCADE 가 refresh_token / schedule / push_subscription row 일괄 삭제 — 코드 cascade 메서드 (`ScheduleRepository.softDeleteByMemberId` / `PushSubscriptionRepository.revokeAllByMemberId`) 제거. push_log 는 FK 비대칭 동작 — `schedule_id` ON DELETE SET NULL (다른 회원의 schedule 삭제 시 이력 보존), `subscription_id` ON DELETE CASCADE (탈퇴 회원 본인의 발송 이력은 동반 삭제, 회원 데이터 완전 삭제 정책). schedule 개별 DELETE / push subscription unsubscribe 는 별개 정책으로 soft delete/revoke 유지. 멱등성 비고 (v1.1.7) 그대로 — 두 번째 DELETE 도 401 UNAUTHORIZED (member row 없음). V3 마이그레이션 (`V3__member_drop_deleted_at.sql`) 적용 시 옛 soft-deleted row 정리 (FK CASCADE 발동) + `deleted_at` 컬럼 drop.** |
+| **v1.1.24** | **2026-05-12** | **§1.9 CORS 정책 섹션 신규 추가 — `CorsConfigurationSource` Bean 등록 (`common.security.CorsProperties` + `SecurityConfig`). 화이트리스트 default `http://localhost:3000` (yml fallback, env `CORS_ALLOWED_ORIGINS` 콤마 구분 override), `allowCredentials=false` (JWT stateless 정합), `allowedHeaders="*"` (`Content-Type` / `Authorization` 커버), `maxAge=1800`. PR #29 (frontend 통합) unblock. 운영 도메인은 별 task (외부 노출) 진입 시 `CORS_ALLOWED_ORIGINS` env 로 보강.** |
 | **v1.1.25** | **2026-05-12** | **§9.2 WEEKLY routine 요일 비교 `Asia/Seoul` (KST) 기준 명시 (이슈 #36 fix). `RoutineCalculator.nextWeeklyOccurrence` 가 `cand.getDayOfWeek()` 를 사용하던 결함 — `OffsetDateTime` 영속화 후 displayed offset 이 UTC 로 reconstruct 되어 KST 가 아닌 UTC 기준 요일 평가 → KST 새벽 시간대 일정의 advance 가 `daysOfWeek` 에 없는 요일 (예: MON/WED/FRI 일정이 THU 로) 반환. `cand.atZoneSameInstant(KST).getDayOfWeek()` 로 정정. 회귀 가드 추가 (`PushReminderDispatcherIntegrationTest.S5B` 명시 KST 새벽 시각). 데모 시연 (정오) 직접 영향 ⚪ 낮음 — KST/UTC 동일 요일 시간대. DAILY/CUSTOM (`plusDays(N)` instant 기준) / `reminderAt` 계산 (instant 기준) 영향 0.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
@@ -189,6 +190,19 @@ JWT의 `sub` claim에는 `member.member_uid` 값(prefix 없는 raw ULID 26자, C
 | 7.1 | POST | `/geocode` | ✓ | geocode |
 
 > △: 게스트 허용. 인증 시 추가 정보 반환.
+
+### 1.9 CORS 정책
+
+브라우저 cross-origin 호출 (예: 프론트 `http://localhost:3000` → 백엔드 `http://localhost:8080/api/v1`) 을 위한 화이트리스트 정책.
+
+- **허용 origin**: `application.yml` 의 `cors.allowed-origins` 키 (환경변수 `CORS_ALLOWED_ORIGINS` 콤마 구분 override). 로컬 dev default `http://localhost:3000`. 운영 도메인은 별 task (외부 노출) 진입 시 추가.
+- **허용 method**: `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `OPTIONS`
+- **허용 header**: `*` (`Content-Type`, `Authorization` 자동 부착 헤더 커버)
+- **노출 header**: 없음 (응답 본문 `{data}` / `{error}` 만 사용)
+- **credentials**: ❌ — JWT 가 `Authorization` 헤더 stateless 인증, cookie 미사용
+- **preflight 캐시**: 1800초 (30분)
+
+차단 origin 의 preflight (`OPTIONS` + `Origin` + `Access-Control-Request-Method`) 는 Spring Security 가 `403 Invalid CORS request` 응답. 비-허용 origin 의 본 요청도 `Access-Control-Allow-Origin` 헤더 부재로 브라우저 차단.
 
 ---
 
