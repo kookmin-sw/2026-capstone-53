@@ -1,7 +1,9 @@
 /** @typedef {import('../../types/api')} T */
 
+// transferCount = 이용 대중교통 노선 수 (v1.1.20 정의). 환승 횟수 = Math.max(0, transferCount - 1).
 /** @type {Record<string, { route: T.Route, calculatedAt: string }>} */
 export const seedRoutes = {
+  // 도보 + 지하철 1노선 + 도보 → transferCount: 1 (환승 없음)
   'sch_01HSEED0001ABCDEFGHJKLMN': {
     route: {
       totalDurationMinutes: 35,
@@ -40,6 +42,7 @@ export const seedRoutes = {
     calculatedAt: '2026-04-21T08:25:00+09:00',
   },
 
+  // 도보 + 지하철 2노선(4호선→2호선) + 도보 → transferCount: 2 (환승 1회)
   'sch_01HSEED0002ABCDEFGHJKLMN': {
     route: {
       totalDurationMinutes: 55,
