@@ -347,6 +347,10 @@ class PushReminderDispatcherIntegrationTest {
     void WEEKLY_루틴_advance_지정요일_userDepartureTime_delta_shift_S5() throws Exception {
         // 명세 §9.2 — WEEKLY 는 daysOfWeek 중 가장 가까운 미래 요일로 advance.
         // DAILY 만 검증하던 기존 회귀 가드의 사각지대 보강.
+        //
+        // 명시 절대 시각 사용 (이슈 #36 G1) — `now(KST).plusMinutes(60)` 의 시간 의존성 제거.
+        // 화요일 정오 KST = 화요일 03:00 UTC — KST/UTC 동일 요일 시간대라 timezone 함정과 무관한 기본
+        // advance 동작 검증. 새벽 시간대 (KST/UTC 요일 다름) 회귀는 별 테스트 S5B 가 담당.
         stubRouteRefreshSuccess(20);
         when(pushSender.send(any(PushSubscription.class), any(String.class)))
                 .thenReturn(PushSendResult.sent(201));
@@ -354,7 +358,7 @@ class PushReminderDispatcherIntegrationTest {
         String token = signupAndGetToken("dispweek", "주간");
         subscribe(token, "https://fcm.googleapis.com/fcm/send/week");
 
-        OffsetDateTime origArrival = OffsetDateTime.now(KST).plusMinutes(60);
+        OffsetDateTime origArrival = OffsetDateTime.of(2026, 12, 8, 12, 0, 0, 0, KST);  // 화요일 정오 KST
         String externalScheduleId = createWeeklySchedule(token, origArrival);
         Long scheduleDbId = schId(externalScheduleId);
         Schedule before = scheduleRepository.findById(scheduleDbId).orElseThrow();
@@ -376,6 +380,37 @@ class PushReminderDispatcherIntegrationTest {
         long userDepartDeltaSec = java.time.Duration.between(origUserDepart, s.getUserDepartureTime()).getSeconds();
         assertEquals(arrivalDeltaSec, userDepartDeltaSec,
                 "WEEKLY advance 도 userDepartureTime 동일 delta shift (v1.1.13 정합)");
+    }
+
+    @Test
+    void WEEKLY_KST_새벽_advance_KST기준_요일_회귀가드_S5B() throws Exception {
+        // 명세 §9.2 v1.1.25 / 이슈 #36 회귀 가드 — KST/UTC 요일이 다른 시간대 (KST 새벽) 입력 시
+        // KST 기준 요일로 advance. 2026-12-08 (화) 01:00 KST = 2026-12-07 (월) 16:00 UTC.
+        //
+        // fix 전: `cand.getDayOfWeek()` 가 UTC offset 기준 → UTC 월요일 기준으로 advance 탐색 →
+        //          delta=2 (UTC 수) → 12-09 16:00 UTC = 12-10 01:00 KST (THURSDAY!) 잘못된 요일.
+        // fix 후: `cand.atZoneSameInstant(KST).getDayOfWeek()` → KST 화요일 기준 → delta=1 (KST 수) →
+        //          12-09 01:00 KST (WEDNESDAY) 정합.
+        stubRouteRefreshSuccess(20);
+        when(pushSender.send(any(PushSubscription.class), any(String.class)))
+                .thenReturn(PushSendResult.sent(201));
+
+        String token = signupAndGetToken("dispweekkst", "주간KST");
+        subscribe(token, "https://fcm.googleapis.com/fcm/send/weekkst");
+
+        OffsetDateTime origArrival = OffsetDateTime.of(2026, 12, 8, 1, 0, 0, 0, KST);  // 화요일 KST 01:00
+        String externalScheduleId = createWeeklySchedule(token, origArrival);
+        Long scheduleDbId = schId(externalScheduleId);
+        OffsetDateTime expectedReminderAt = scheduleRepository.findById(scheduleDbId)
+                .orElseThrow().getReminderAt();
+
+        dispatcher.process(scheduleDbId, expectedReminderAt);
+
+        Schedule s = scheduleRepository.findById(scheduleDbId).orElseThrow();
+        java.time.DayOfWeek dow = s.getArrivalTime().atZoneSameInstant(KST).getDayOfWeek();
+        assertEquals(java.time.DayOfWeek.WEDNESDAY, dow,
+                "KST 화요일 새벽 01:00 입력 시 next WEEKLY (MON/WED/FRI) 는 KST WED — "
+                        + "UTC 기준 평가 시 THURSDAY 회귀 (이슈 #36). 실제=" + dow);
     }
 
     // ───── helpers ─────

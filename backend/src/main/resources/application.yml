@@ -86,3 +86,7 @@ geocode:
   cleanup:
     enabled: ${GEOCODE_CLEANUP_ENABLED:true}
     cron: ${GEOCODE_CLEANUP_CRON:0 0 4 * * *}  # 명세 §8.1 v1.1.18 — 매일 04:00 KST TTL eviction
+
+cors:                                          # 명세 §1.9 — 프론트 origin 화이트리스트
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000}   # 콤마 구분 (Spring Boot Binder)
+  max-age-seconds: ${CORS_MAX_AGE_SECONDS:1800}                    # 브라우저 preflight 캐시
