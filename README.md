@@ -68,12 +68,12 @@
 요구사항: Node.js (LTS 권장), npm
 
 ```bash
-cd todayway-frontend
+cd frontend
 npm install
 npm start   # http://localhost:3000 (카카오맵 API 키 등록 포트)
 ```
 
-환경변수 (`.env.development.local`):
+환경변수 (`frontend/.env.development.local`):
 ```
 REACT_APP_API_URL=http://localhost:8080/api/v1
 REACT_APP_USE_MOCK=true   # MSW 사용 시 (백엔드 없이 개발 가능)
