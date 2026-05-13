@@ -3,7 +3,7 @@
 // transferCount = 이용 대중교통 노선 수 (v1.1.20 정의). 환승 횟수 = Math.max(0, transferCount - 1).
 /** @type {Record<string, { route: T.Route, calculatedAt: string }>} */
 export const seedRoutes = {
-  // 도보 + 지하철 1노선 + 도보 → transferCount: 1 (환승 없음)
+  // 도보 + 버스 1노선 + 도보 → transferCount: 1 (환승 없음)
   'sch_01HSEED0001ABCDEFGHJKLMN': {
     route: {
       totalDurationMinutes: 35,
@@ -19,16 +19,13 @@ export const seedRoutes = {
           path: [[127.012, 37.661], [127.013, 37.662]],
         },
         {
-          mode: 'SUBWAY',
+          mode: 'BUS',
           durationMinutes: 25,
           distanceMeters:  7500,
-          from:         '우이동역',
-          to:           '성신여대입구역',
-          lineName:     '우이신설선',
-          lineId:       '109',
-          stationStart: '우이동역',
-          stationEnd:   '성신여대입구역',
-          stationCount: 7,
+          from:         '북한산우이역.우이초등학교',
+          to:           '국민대학교후문',
+          lineName:     '153',
+          lineId:       '100100153',
           path: [[127.013, 37.662], [127.015, 37.662], [126.999, 37.613]],
         },
         {
