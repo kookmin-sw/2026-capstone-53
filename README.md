@@ -21,7 +21,7 @@
 
 <a id="project-intro"></a>
 
-## <img src="assets/images/todayway-logo.svg" alt="2" width="48"> 프로젝트 소개
+## <img src="assets/images/todayway-logo.svg" alt="2" width="20"> 프로젝트 소개
 
 <!-- 프로젝트 소개 문구를 추후 작성합니다. -->
 
@@ -33,7 +33,7 @@
 
 <a id="tech-stack"></a>
 
-## <img src="assets/images/todayway-logo.svg" alt="2" width="48"> 기술 스택
+## <img src="assets/images/todayway-logo.svg" alt="2" width="20"> 기술 스택
 
 ### 프론트엔드
 - React (Create React App)
@@ -52,7 +52,7 @@
 
 <a id="usage"></a>
 
-## <img src="assets/images/todayway-logo.svg" alt="2" width="48"> 사용 방법
+## <img src="assets/images/todayway-logo.svg" alt="2" width="20"> 사용 방법
 
 ### 프론트엔드 실행
 
@@ -83,7 +83,7 @@ localStorage.setItem('msw-scenario', '<value>'); location.reload();
 
 <a id="team-members"></a>
 
-## <img src="assets/images/todayway-logo.svg" alt="2" width="48"> 팀원
+## <img src="assets/images/todayway-logo.svg" alt="2" width="20"> 팀원
 
 <!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
 <!-- <img src="assets/README/section-4.png" alt="4" width="48"> -->
