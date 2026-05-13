@@ -25,6 +25,8 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeParseException;
 import java.util.Base64;
 import java.util.List;
 
@@ -35,7 +37,8 @@ import java.util.List;
 public class ScheduleService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final String CURSOR_PREFIX = "id:";
+    private static final String CURSOR_PREFIX_V2 = "v2:";
+    private static final String CURSOR_DELIMITER = "|";
 
     private final MemberRepository memberRepository;
     private final ScheduleRepository scheduleRepository;
@@ -94,15 +97,22 @@ public class ScheduleService {
                                                  OffsetDateTime to,
                                                  CursorRequest cursor) {
         Long memberId = resolveMemberId(memberUid);
-        Long cursorId = decodeCursor(cursor.cursor());
+        CursorKey key = decodeCursor(cursor.cursor());
 
         // limit + 1 조회 → hasMore 판정 + 마지막 row 제거
-        List<Schedule> rows = scheduleRepository.findPage(memberId, from, to, cursorId,
+        List<Schedule> rows = scheduleRepository.findPage(
+                memberId, from, to,
+                key != null ? key.arrivalTime() : null,
+                key != null ? key.id() : null,
                 PageRequest.of(0, cursor.limit() + 1));
         boolean hasMore = rows.size() > cursor.limit();
         if (hasMore) rows = rows.subList(0, cursor.limit());
 
-        String nextCursor = hasMore ? encodeCursor(rows.get(rows.size() - 1).getId()) : null;
+        String nextCursor = null;
+        if (hasMore) {
+            Schedule last = rows.get(rows.size() - 1);
+            nextCursor = encodeCursor(last.getArrivalTime(), last.getId());
+        }
         List<ScheduleListItem> items = rows.stream().map(ScheduleListItem::from).toList();
         return CursorResponse.of(items, nextCursor);
     }
@@ -204,23 +214,46 @@ public class ScheduleService {
         }
     }
 
-    private static String encodeCursor(Long id) {
+    /**
+     * cursor 인코딩 — 이슈 #15 합성키 (arrivalTime, id) 기준.
+     * <p>arrivalTime 은 UTC 로 정규화 (DB 영속화 형식과 일치, 클라이언트 무관 — opaque token).
+     * v1 ({@code id:N}) cursor 는 이번 fix 로 폐기, 신규 prefix {@code v2:} 도입.
+     */
+    private static String encodeCursor(OffsetDateTime arrivalTime, Long id) {
+        String payload = CURSOR_PREFIX_V2
+                + arrivalTime.withOffsetSameInstant(ZoneOffset.UTC)
+                + CURSOR_DELIMITER + id;
         return Base64.getUrlEncoder().withoutPadding()
-                .encodeToString((CURSOR_PREFIX + id).getBytes(StandardCharsets.UTF_8));
+                .encodeToString(payload.getBytes(StandardCharsets.UTF_8));
     }
 
-    private static Long decodeCursor(String cursor) {
+    private static CursorKey decodeCursor(String cursor) {
         if (cursor == null || cursor.isBlank()) return null;
+        String decoded;
         try {
-            String decoded = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
-            if (!decoded.startsWith(CURSOR_PREFIX)) {
-                throw new BusinessException(ErrorCode.VALIDATION_ERROR);
-            }
-            return Long.parseLong(decoded.substring(CURSOR_PREFIX.length()));
+            decoded = new String(Base64.getUrlDecoder().decode(cursor), StandardCharsets.UTF_8);
         } catch (IllegalArgumentException e) {
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
+        if (!decoded.startsWith(CURSOR_PREFIX_V2)) {
+            // 구버전 ({@code id:N}) cursor 또는 변조 — 명세 §1.5 opaque 정책상 1페이지부터 재요청 강제
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        String body = decoded.substring(CURSOR_PREFIX_V2.length());
+        int sep = body.indexOf(CURSOR_DELIMITER);
+        if (sep <= 0 || sep == body.length() - 1) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        try {
+            OffsetDateTime arrival = OffsetDateTime.parse(body.substring(0, sep));
+            Long id = Long.parseLong(body.substring(sep + 1));
+            return new CursorKey(arrival, id);
+        } catch (DateTimeParseException | NumberFormatException e) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
     }
+
+    private record CursorKey(OffsetDateTime arrivalTime, Long id) {}
 
     private static com.todayway.backend.schedule.domain.RoutineType routineType(RoutineRuleDto r) {
         return r != null ? r.type() : null;
