@@ -293,14 +293,14 @@ export default function HomeNoMap() {
                   {sortedSchedules.map((sch, i) => {
                     const arrMins = toMins(sch.arrivalTime);
                     const isPast = arrMins < nowMins;
-                    const isNext = i === nextSchIdx;
+                    const isActive = sch.scheduleId === currentSch?.scheduleId;
                     const isLast = i === sortedSchedules.length - 1;
                     const deptTime = extractTime(sch.recommendedDepartureTime || sch.userDepartureTime);
                     const arrTime  = extractTime(sch.arrivalTime);
                     return (
-                      <div key={sch.scheduleId} className={`htl-item${isPast ? ' htl-item--past' : ''}${isNext ? ' htl-item--next' : ''}`}>
+                      <div key={sch.scheduleId} className={`htl-item${isPast ? ' htl-item--past' : ''}${isActive ? ' htl-item--active' : ''}`}>
                         <div className="htl-item__line">
-                          <div className={`htl-item__dot${isNext ? ' htl-item__dot--point' : ''}`} />
+                          <div className={`htl-item__dot${isActive ? ' htl-item__dot--point' : ''}`} />
                           {!isLast && <div className="htl-item__connector" />}
                         </div>
                         <div className="htl-item__body">

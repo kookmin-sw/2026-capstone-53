@@ -3,6 +3,9 @@
 // 시드 시간을 현재 기준 동적 생성 (모듈 로드 시 1회 계산, 새로고침 시 갱신)
 const _now = Date.now();
 const _iso = (offsetMin) => new Date(_now + offsetMin * 60000).toISOString();
+const _today = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][new Date().getDay()];
+const _weekdays = ['MON', 'TUE', 'WED', 'THU', 'FRI'];
+const _withToday = (days) => (days.includes(_today) ? days : [...days, _today]);
 
 /** @type {T.Schedule[]} */
 export const seedSchedules = [
@@ -19,7 +22,7 @@ export const seedSchedules = [
     departureAdvice:          'LATER',
     reminderOffsetMinutes:    5,
     reminderAt:               _iso(20),
-    routineRule:              null,
+    routineRule:              { type: 'WEEKLY', daysOfWeek: _withToday(_weekdays) },
     routeStatus:              'CALCULATED',
     routeCalculatedAt:        _iso(-10),
     createdAt:                _iso(-60),
@@ -38,7 +41,7 @@ export const seedSchedules = [
     departureAdvice:          'ON_TIME',
     reminderOffsetMinutes:    10,
     reminderAt:               _iso(260),
-    routineRule:              { type: 'WEEKLY', daysOfWeek: ['MON', 'WED', 'FRI'] },
+    routineRule:              { type: 'WEEKLY', daysOfWeek: _withToday(['MON', 'WED', 'FRI']) },
     routeStatus:              'CALCULATED',
     routeCalculatedAt:        _iso(-10),
     createdAt:                _iso(-120),
@@ -57,7 +60,7 @@ export const seedSchedules = [
     departureAdvice:          null,
     reminderOffsetMinutes:    5,
     reminderAt:               null,
-    routineRule:              null,
+    routineRule:              { type: 'WEEKLY', daysOfWeek: _withToday(['FRI']) },
     routeStatus:              'PENDING_RETRY',
     routeCalculatedAt:        null,
     createdAt:                _iso(-180),

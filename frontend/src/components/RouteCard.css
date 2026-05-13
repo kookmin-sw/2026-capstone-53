@@ -392,16 +392,16 @@
 }
 
 [data-theme="dark"] .rc-stop-name,
-[data-theme="dark"] .rc-bus-num,
-[data-theme="dark"] .rc-arrive-time  { color: #6b6b6b; }
-[data-theme="dark"] .rc-label        { color: #58575A; }
+[data-theme="dark"] .rc-bus-num      { color: #F5F5F7; }
+[data-theme="dark"] .rc-arrive-time  { color: #F5F5F7; }
+[data-theme="dark"] .rc-label        { color: #C5BFB4; }
 [data-theme="dark"] .rc-tl-val       { color: #F5F5F7; }
 [data-theme="dark"] .rc-tl-sub,
-[data-theme="dark"] .rc-buffer       { color: #636366; }
+[data-theme="dark"] .rc-buffer       { color: #B0A99F; }
 [data-theme="dark"] .rc-tl-icon--walk,
 [data-theme="dark"] .rc-tl-icon--bus { background: var(--color-point-bg); }
-[data-theme="dark"] .rc-transfer-chip { background: #3A3833; color: #8E8E93; }
-[data-theme="dark"] .rc-flow-chip    { background: #3A3833; color: #8E8E93; }
+[data-theme="dark"] .rc-transfer-chip { background: #3A3833; color: #C5BFB4; }
+[data-theme="dark"] .rc-flow-chip    { background: #3A3833; color: #C5BFB4; }
 [data-theme="dark"] .rc-flow-chip--on { background: var(--color-point-bg); color: var(--color-point); border-color: var(--color-point-border); }
 [data-theme="dark"] .rc-walk-badge,
 [data-theme="dark"] .rc-arrival      { background: var(--color-point-bg); }

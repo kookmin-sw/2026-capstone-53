@@ -36,7 +36,7 @@
 [data-theme="dark"] .home__greeting       { color: #9e9a93; }
 [data-theme="dark"] .home__section-title  { color: #e8e4dc; }
 [data-theme="dark"] .home__map-caption    { color: #6b6b6b; }
-[data-theme="dark"] .rc-arrive-time       { color: #9e9a93; }
+[data-theme="dark"] .rc-arrive-time       { color: #F5F5F7; font-weight: 600; }
 
 /* RouteCard */
 [data-theme="dark"] .rc-card {
