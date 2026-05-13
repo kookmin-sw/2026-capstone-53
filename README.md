@@ -19,6 +19,7 @@
 - [사용 방법](#usage)
 - [팀원](#team-members)
 
+
 <a id="project-intro"></a>
 
 ## <img src="assets/images/todayway-logo.svg" alt="2" width="15">  프로젝트 소개
@@ -30,6 +31,7 @@
 <!-- 예시:
 ![프로젝트 대표 이미지](assets/README/project-overview.png)
 -->
+
 
 <a id="tech-stack"></a>
 
@@ -49,6 +51,7 @@
 <!-- 예시:
 ![Tech Stack](https://skillicons.dev/icons?i=react,spring,mysql,docker,aws)
 -->
+
 
 <a id="usage"></a>
 
@@ -80,6 +83,7 @@ localStorage.setItem('msw-scenario', '<value>'); location.reload();
 
 ### 백엔드 실행
 <!-- 백엔드 팀이 추후 작성 -->
+
 
 <a id="team-members"></a>
 
