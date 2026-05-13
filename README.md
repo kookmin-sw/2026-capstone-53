@@ -21,10 +21,7 @@
 
 <a id="project-intro"></a>
 
-## 1. 프로젝트 소개
-
-<!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
-<!-- <img src="assets/README/section-1.png" alt="1" width="48"> -->
+## <img src="assets/images/todayway-logo.svg" alt="2" width="48"> 프로젝트 소개
 
 <!-- 프로젝트 소개 문구를 추후 작성합니다. -->
 
@@ -36,10 +33,7 @@
 
 <a id="tech-stack"></a>
 
-## 2. 기술 스택
-
-<!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
-<!-- <img src="assets/README/section-2.png" alt="2" width="48"> -->
+## <img src="assets/images/todayway-logo.svg" alt="2" width="48"> 기술 스택
 
 ### 프론트엔드
 - React (Create React App)
@@ -58,10 +52,7 @@
 
 <a id="usage"></a>
 
-## 3. 사용 방법
-
-<!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
-<!-- <img src="assets/README/section-3.png" alt="3" width="48"> -->
+## <img src="assets/images/todayway-logo.svg" alt="2" width="48"> 사용 방법
 
 ### 프론트엔드 실행
 
@@ -92,7 +83,7 @@ localStorage.setItem('msw-scenario', '<value>'); location.reload();
 
 <a id="team-members"></a>
 
-## 4. 팀원
+## <img src="assets/images/todayway-logo.svg" alt="2" width="48"> 팀원
 
 <!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
 <!-- <img src="assets/README/section-4.png" alt="4" width="48"> -->
