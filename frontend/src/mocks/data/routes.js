@@ -22,7 +22,7 @@ export const seedRoutes = {
           mode: 'BUS',
           durationMinutes: 25,
           distanceMeters:  7500,
-          from:         '북한산우이역.우이초등학교',
+          from:         '국민대 앞',
           to:           '국민대학교후문',
           lineName:     '153',
           lineId:       '100100153',
