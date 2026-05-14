@@ -60,11 +60,11 @@ function ProfileEditSheet({ member, onClose, onSaved, onPasswordChanged }) {
     try {
       const body = { nickname };
       if (pwFilled) body.password = newPw;
-      await api.members.update(body);
+      const updated = await api.members.update(body);
       if (pwFilled) {
         onPasswordChanged();
       } else {
-        onSaved();
+        onSaved(updated);
       }
     } catch (err) {
       setSaveError(err.message || '수정에 실패했어요');
@@ -393,8 +393,10 @@ function Settings() {
         <ProfileEditSheet
           member={member}
           onClose={() => setShowProfile(false)}
-          onSaved={() => {
+          onSaved={(updated) => {
             setShowProfile(false);
+            if (updated) setMember(updated);
+            window.dispatchEvent(new CustomEvent('member-updated', { detail: updated }));
             setToast('수정 완료');
             setTimeout(() => setToast(''), 2000);
           }}

@@ -118,6 +118,15 @@ export default function HomeNoMap() {
     fetchData();
   }, [searchParams, fetchData]);
 
+  // 다른 페이지에서 회원 정보 수정 시 닉네임 즉시 반영
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.nickname !== undefined) setNickname(e.detail.nickname);
+    };
+    window.addEventListener('member-updated', handler);
+    return () => window.removeEventListener('member-updated', handler);
+  }, []);
+
   const retry = () => fetchData();
 
   // 캐러셀 데이터 구성
