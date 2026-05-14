@@ -100,6 +100,7 @@ cp .env.example .env    # DB_PASSWORD, JWT_SECRET 등 채우기
 
 ## <img src="assets/images/todayway-logo.svg" alt="2" width="15">  팀원
 
+| <img src="assets/landing/character/team-variants/female-team-char-2.png" width="120" alt="원수현"> | <img src="assets/landing/character/team-variants/female-team-char-1.png" width="120" alt="임채연"> | <img src="assets/landing/character/team-variants/team-char-2.png" width="120" alt="황찬우"> | <img src="assets/landing/character/team-variants/team-char-3.png" width="120" alt="이상진"> |
 |---|---|---|---|
 | 원수현 | 임채연 | 황찬우 | 이상진 |
 | 20203102 | 20210481 | 20212667 | 20213039 |
