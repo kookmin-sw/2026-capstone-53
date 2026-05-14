@@ -1258,11 +1258,17 @@ body::before {
   object-fit: contain;
   object-position: bottom center;
 }
-/* 남성 캐릭터(team-char-2/3)는 캔버스를 더 꽉 채워서 시각적으로 더 커보임 → 15% 축소 */
-.team-polaroid-photo img[src*="team-char-2"],
-.team-polaroid-photo img[src*="team-char-3"] {
+/* 남성 캐릭터(team-char-2/3)는 캔버스를 더 꽉 채워서 시각적으로 더 커보임 → 15% 축소.
+ * `team-char-` prefix 매칭이 female-team-char- 도 잡으니 :not 으로 제외. */
+.team-polaroid-photo img[src*="/team-char-2"],
+.team-polaroid-photo img[src*="/team-char-3"] {
   height: 85%;
   max-width: 62%;
+}
+/* 원수현(female-team-char-2)만 살짝 키움 */
+.team-polaroid-photo img[src*="female-team-char-2"] {
+  height: 100%;
+  max-width: 71%;
 }
 .team-polaroid-tape {
   position: absolute;
