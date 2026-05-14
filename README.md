@@ -23,10 +23,6 @@
 
 ## <img src="assets/images/todayway-logo.svg" alt="2" width="15">  프로젝트 소개
 
-<!-- 프로젝트 소개 문구를 추후 작성합니다. -->
-
-<!-- 프로젝트 소개 이미지나 기타 asset을 아래에 추가합니다. -->
-
 <!-- 예시:
 ![프로젝트 대표 이미지](assets/README/project-overview.png)
 -->
