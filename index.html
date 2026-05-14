@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>오늘어디 (TodayWay) · 캡스톤 디자인 I 2026 · 53팀</title>
+    <meta name="description" content="루틴 일정 × 대중교통 경로 × 출발 시각 알림. 매일의 통근·통학을 잊지 않도록 — 국민대학교 소프트웨어학부 캡스톤 디자인 I 2026 53팀." />
+    <meta property="og:title" content="오늘어디 (TodayWay)" />
+    <meta property="og:description" content="루틴 일정 × 대중교통 경로 × 출발 시각 알림" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="assets/images/todayway-typo.svg" />
+    <link rel="icon" type="image/svg+xml" href="assets/images/todayway-logo.svg" />
+
+    <!-- 손글씨 + 둥근 한글 + 영문 mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Gowun+Dodum&family=JetBrains+Mono:wght@500;600&display=swap" />
+
+    <!-- GSAP + ScrollTrigger (Lenis 는 무거워서 제거 — 네이티브 스크롤이 더 부드러움) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js" defer></script>
+
+    <link rel="stylesheet" href="assets/landing.css" />
+  </head>
+  <body>
+
+    <!-- 상단 스크롤 progress bar -->
+    <div class="scroll-progress" id="scrollProg" aria-hidden="true"></div>
+
+    <!-- ═══════════════ 좌측 RAIL — 출발/도착 + 캐릭터 ═══════════════ -->
+    <aside class="rail" aria-hidden="true">
+      <img class="rail-end-img start" src="assets/landing/scene-2-map/label-start.png" alt="출발" />
+      <div class="rail-line">
+        <div class="rail-progress"></div>
+        <div class="rail-char" id="railChar">
+          <img class="active" src="assets/landing/character/walk/walk-1.png" alt="" loading="lazy" decoding="async" />
+          <img src="assets/landing/character/walk/walk-2.png" alt="" loading="lazy" decoding="async" />
+          <img src="assets/landing/character/walk/walk-3.png" alt="" loading="lazy" decoding="async" />
+          <img src="assets/landing/character/walk/walk-4.png" alt="" loading="lazy" decoding="async" />
+          <img src="assets/landing/character/walk/walk-5.png" alt="" loading="lazy" decoding="async" />
+          <img src="assets/landing/character/walk/walk-6.png" alt="" loading="lazy" decoding="async" />
+        </div>
+      </div>
+      <img class="rail-end-img end" src="assets/landing/scene-2-map/label-end.png" alt="도착" />
+    </aside>
+
+    <!-- ═══════════════ TOPBAR ═══════════════ -->
+    <header class="topbar" id="topbar">
+      <a class="topbar-brand" href="#top" aria-label="오늘어디">
+        <img src="assets/images/todayway-typo.svg" alt="오늘어디" />
+      </a>
+      <nav class="topbar-nav">
+        <a href="#calendar">일정</a>
+        <a href="#map">지도</a>
+        <a href="#route">경로</a>
+        <a href="#alert">알림</a>
+        <a href="#product">화면</a>
+        <a href="#team">팀</a>
+      </nav>
+      <a class="topbar-gh" href="https://github.com/kookmin-sw/2026-capstone-53" target="_blank" rel="noopener">
+        GitHub <span aria-hidden="true">↗</span>
+      </a>
+    </header>
+
+    <!-- ═══════════════ HERO ═══════════════ -->
+    <section class="hero" id="top">
+      <h1 class="visually-hidden">오늘어디 (TodayWay) — 캘린더 기반 대중교통 경로 추천 + 출발 알림</h1>
+      <!-- 산재 doodle 들 -->
+      <img class="hero-doodle hd-headline" src="assets/landing/scene-1-calendar/handwritten-headline.png" alt="" aria-hidden="true" />
+      <img class="hero-doodle hd-arrow" src="assets/landing/common/arrow-curvy-down.png" alt="" aria-hidden="true" />
+      <img class="hero-doodle hd-star" src="assets/landing/common/star-doodle.png" alt="" aria-hidden="true" />
+      <img class="hero-doodle hd-heart" src="assets/landing/common/heart-doodle.png" alt="" aria-hidden="true" />
+      <img class="hero-doodle hd-check" src="assets/landing/common/check-mark.png" alt="" aria-hidden="true" />
+      <img class="hero-doodle hd-sparkle1" src="assets/landing/scene-4-alert/sparkle.png" alt="" aria-hidden="true" />
+      <img class="hero-doodle hd-sparkle2" src="assets/landing/scene-4-alert/sparkle.png" alt="" aria-hidden="true" />
+      <img class="hero-doodle hd-pin" src="assets/landing/scene-2-map/pin-start.png" alt="" aria-hidden="true" />
+      <img class="hero-doodle hd-wave" src="assets/landing/character/wave-team/wave-3.png" alt="" aria-hidden="true" />
+
+      <div class="hero-inner">
+        <div class="hero-greeting">
+          <span class="scribble">오늘은</span> 몇 시에 나가야 할까?
+        </div>
+        <img class="hero-brand" src="assets/images/todayway-typo.svg" alt="오늘어디?" />
+        <p class="hero-tag">
+          캘린더에 일정만 적어두면<br/>
+          <em>오늘의 출발 시각과 경로</em>를 매일 다시 계산해 알림으로 보내드려요.
+        </p>
+        <div class="hero-meta">
+          <span>국민대학교 SW학부</span>
+          <span class="hero-meta-dot"></span>
+          <span>캡스톤 디자인 I · 2026</span>
+          <span class="hero-meta-dot"></span>
+          <span>53팀</span>
+        </div>
+      </div>
+      <img class="hero-char" src="assets/landing/character/calendar-writing/cal-write-3.png" alt="" aria-hidden="true" />
+      <div class="hero-cta-mouse" aria-hidden="true"></div>
+    </section>
+
+    <!-- ═══════════════ JOURNEY — sticky stage 안에서 씬이 fade·morph ═══════════════ -->
+    <main class="journey" id="journey">
+      <!-- 스크롤 길이 만들어주는 컨테이너. height: 700vh -->
+      <div class="stage-pin">
+        <div class="stage" id="stage">
+
+          <!-- FRAME 0 — Calendar (일정 등록) — 메인 기능: 캘린더가 모든 추천의 출발점 -->
+          <div class="frame frame-calendar" data-frame="0" id="calendar">
+            <div class="frame-num"><strong>01</strong><em>모든 건 캘린더에서 시작</em></div>
+            <div class="frame-calendar-text">
+              <h2 class="frame-title">
+                <span class="accent">캘린더에 적어둔 일정</span>이<br/>
+                <span class="underline">매일 경로 추천</span>의<br/>
+                출발점이 돼요.
+              </h2>
+              <p class="frame-sub">
+                <strong>도착하고 싶은 시각</strong>만 한 번 정해두면, 매일 아침 시스템이
+                오늘 교통 상황에 맞춰 <strong>출발 시각과 경로</strong>를 자동으로 다시 계산합니다.
+              </p>
+              <ul class="frame-calendar-list">
+                <li><b>한 번만</b> — 시험·면접·이벤트</li>
+                <li><b>매일</b> — 똑같은 평일 출근</li>
+                <li><b>요일 지정</b> — 화·목 저녁 스터디</li>
+                <li><b>N일마다</b> — 격일 운동·약 복용</li>
+              </ul>
+            </div>
+            <div class="frame-calendar-visual">
+              <img class="doodle-circle" src="assets/landing/scene-1-calendar/doodle-circle-red.png" alt="" loading="lazy" decoding="async" />
+              <img class="doodle-arrow" src="assets/landing/scene-1-calendar/doodle-arrow-down.png" alt="" loading="lazy" decoding="async" />
+              <img class="calendar" src="assets/landing/scene-1-calendar/calendar-grid-filled.png" alt="이번달 일정이 적힌 캘린더" loading="lazy" decoding="async" />
+              <img class="char" src="assets/landing/character/calendar-writing/cal-write-2.png" alt="" loading="lazy" decoding="async" />
+            </div>
+          </div>
+
+          <!-- FRAME 1 — Map (출발·도착 등록 기능) -->
+          <div class="frame frame-map" data-frame="1" id="map">
+            <div class="frame-num"><strong>02</strong><em>장소 — 어디서, 어디까지</em></div>
+            <div class="frame-map-text">
+              <h2 class="frame-title">
+                지도 위에서<br/>
+                <span class="underline">출발지와 도착지</span>를<br/>
+                <span class="accent">한 번만</span> 정해두기.
+              </h2>
+              <p class="frame-sub">
+                <strong>"국민대 정문"</strong> · <strong>"강남역 11번 출구"</strong> 처럼
+                주소도 그대로 검색해서 찍어두면, 다음 일정부터
+                <strong>매일 자동</strong>으로 같은 출·도착지를 씁니다.
+              </p>
+              <ul class="frame-feature-list">
+                <li><b>주소 검색</b> — 도로명·지번·건물명 다 인식</li>
+                <li><b>자동 좌표 변환</b> — 다음 단계 경로 계산기에 그대로 전달</li>
+              </ul>
+            </div>
+            <div class="frame-map-right">
+              <div class="frame-map-stage">
+                <img class="map" src="assets/landing/scene-2-map/map-aerial-handdrawn.png" alt="손그림 도시 지도" loading="lazy" decoding="async" />
+                <img class="pin start" src="assets/landing/scene-2-map/pin-start.png" alt="" loading="lazy" decoding="async" />
+                <div class="pin-label start hand">국민대 정문</div>
+                <img class="pin end" src="assets/landing/scene-2-map/pin-end.png" alt="" loading="lazy" decoding="async" />
+                <div class="pin-label end hand">강남역</div>
+                <img class="char" src="assets/landing/character/map-pointing/map-point-2.png" alt="" loading="lazy" decoding="async" />
+              </div>
+              <div class="map-extras">
+                <img class="map-extra-coords" src="assets/landing/scene-2-map/coordinates-doodle.png" alt="" loading="lazy" decoding="async" />
+                <img class="map-extra-geo" src="assets/landing/scene-2-map/geocode-bubble.png" alt="" loading="lazy" decoding="async" />
+              </div>
+            </div>
+          </div>
+
+          <!-- FRAME 2 — Route (경로) -->
+          <div class="frame frame-route" data-frame="2" id="route">
+            <div class="frame-num"><strong>03</strong><em>경로 — 도보 + 버스 + 지하철</em></div>
+            <div class="frame-route-visual">
+              <img class="path" src="assets/landing/scene-3-route/route-segments-bg.png" alt="" loading="lazy" decoding="async" />
+              <div class="runner" id="routeRunner">
+                <img class="active" src="assets/landing/character/run/run-1.png" alt="" loading="lazy" decoding="async" />
+                <img src="assets/landing/character/run/run-2.png" alt="" loading="lazy" decoding="async" />
+                <img src="assets/landing/character/run/run-3.png" alt="" loading="lazy" decoding="async" />
+                <img src="assets/landing/character/run/run-4.png" alt="" loading="lazy" decoding="async" />
+                <img src="assets/landing/character/run/run-5.png" alt="" loading="lazy" decoding="async" />
+                <img src="assets/landing/character/run/run-6.png" alt="" loading="lazy" decoding="async" />
+              </div>
+            </div>
+            <div class="frame-route-text">
+              <h2 class="frame-title">
+                <span class="accent">캘린더 일정</span>마다<br/>
+                <span class="underline">오늘의 최적 경로</span>를<br/>
+                매일 다시 추천.
+              </h2>
+              <p class="frame-sub">
+                ODsay의 <strong>도로 위 곡선</strong> + TMAP의 <strong>인도 위 곡선</strong>을 시간순으로 합성해,
+                도보 구간까지 진짜 인도 위에 그려진 경로를 보여드려요.
+              </p>
+              <div class="frame-route-segments">
+                <div class="seg walk"><span class="seg-mode">도</span><span class="seg-where">출발지 → <b>정릉.국민대</b></span><span class="seg-time">3분 · 194m</span></div>
+                <div class="seg bus"><span class="seg-mode">버</span><span class="seg-where"><b>1711번</b> 15개 정류장</span><span class="seg-time">29분 · 8.4km</span></div>
+                <div class="seg transfer"><span class="seg-mode">환</span><span class="seg-where">미아사거리 4호선 환승</span><span class="seg-time">1분 · 68m</span></div>
+                <div class="seg subway"><span class="seg-mode">철</span><span class="seg-where"><b>4호선</b> 23개 역 · 환승 없음</span><span class="seg-time">42분 · 28km</span></div>
+                <div class="seg walk"><span class="seg-mode">도</span><span class="seg-where">강남역 → 도착지</span><span class="seg-time">2분 · 110m</span></div>
+                <div class="seg-total">
+                  <span>총</span>
+                  <span class="seg-total-num" data-count="77">77</span>
+                  <span>분 <small>· 도보 372m · 환승 1회 · 2,250원</small></span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- FRAME 3 — Alert (푸시 알림) -->
+          <div class="frame frame-alert" data-frame="3" id="alert">
+            <div class="frame-num"><strong>04</strong><em>알림 — 출발 직전 자동 푸시</em></div>
+            <div class="frame-alert-text">
+              <h2 class="frame-title">
+                <span class="accent">5분 전,</span><br/>
+                준비하라고<br/>
+                <span class="underline">톡 알려드려요.</span>
+              </h2>
+              <p class="frame-sub">
+                도착 시각을 맞추기 위해 <strong>오늘 출발해야 하는 시각</strong>을 매일 계산해
+                <strong>출발 직전 푸시 알림</strong>으로 보내드려요.
+              </p>
+              <ul class="frame-alert-points">
+                <li><b>모든 브라우저·OS 지원</b> Chrome·Safari·Firefox 어디든 같은 알림</li>
+                <li><b>일정 바꿔도 자동 반영</b> 30초마다 점검 · 알림 시각 재계산</li>
+                <li><b>여러 기기 동시 발송</b> 만료된 구독은 알아서 정리</li>
+                <li><b>KST 기준 통일</b> 자정·서머타임 함정으로 어긋날 일 없음</li>
+              </ul>
+            </div>
+            <div class="frame-alert-visual">
+              <img class="frame-alert-spark s1" src="assets/landing/scene-4-alert/sparkle.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-spark s2" src="assets/landing/scene-4-alert/sparkle.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-spark s3" src="assets/landing/scene-4-alert/sparkle.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-spark s4" src="assets/landing/scene-4-alert/sparkle.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-spark s5" src="assets/landing/scene-4-alert/sparkle.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-doodle d-bell" src="assets/landing/scene-4-alert/bell-icon.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-doodle d-excl" src="assets/landing/scene-4-alert/exclamation-mark.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-doodle d-shock" src="assets/landing/scene-4-alert/shock-lines.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-doodle d-star" src="assets/landing/common/star-doodle.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-doodle d-heart" src="assets/landing/common/heart-doodle.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-doodle d-check" src="assets/landing/common/check-mark.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-doodle d-clock" src="assets/landing/scene-3-route/clock-doodle.png" alt="" loading="lazy" decoding="async" />
+              <img class="frame-alert-notif" src="assets/landing/scene-4-alert/notification-card.png" alt="출발 10분 전 알림" loading="lazy" decoding="async" />
+              <img class="frame-alert-char" src="assets/landing/character/surprised/surprised-4.png" alt="" loading="lazy" decoding="async" />
+            </div>
+          </div>
+
+          <!-- FRAME 4 — Product (실제 앱 화면 — 폰 목업 자체 포함) -->
+          <div class="frame frame-product" data-frame="4" id="product">
+            <div class="frame-num"><strong>05</strong><em>화면 — 실제 동작</em></div>
+            <div class="frame-product-text">
+              <h2 class="frame-title">
+                매일 마주칠 <span class="underline accent">실제 화면</span>들.
+              </h2>
+              <p class="frame-sub" style="margin-left:auto;margin-right:auto;text-align:center;">
+                다음 일정 카드 · 월간 캘린더 · 합성 경로 지도 · 설정
+              </p>
+            </div>
+            <div class="frame-product-grid">
+              <figure class="product-shot">
+                <img src="assets/screenshot/phone-main.webp" alt="메인" loading="lazy" decoding="async" width="280" height="576" />
+                <figcaption class="product-shot-caption"><b>01</b> 메인 — 다음 일정 · 권장 출발 시각</figcaption>
+              </figure>
+              <figure class="product-shot">
+                <img src="assets/screenshot/phone-calendar.webp" alt="캘린더" loading="lazy" decoding="async" width="280" height="576" />
+                <figcaption class="product-shot-caption"><b>02</b> 캘린더 — 월간 일정 · 오늘 강조</figcaption>
+              </figure>
+              <figure class="product-shot">
+                <img src="assets/screenshot/phone-map.webp" alt="지도" loading="lazy" decoding="async" width="280" height="576" />
+                <figcaption class="product-shot-caption"><b>03</b> 지도 — 도보 + 버스 + 지하철</figcaption>
+              </figure>
+              <figure class="product-shot">
+                <img src="assets/screenshot/phone-setting.webp" alt="설정" loading="lazy" decoding="async" width="280" height="576" />
+                <figcaption class="product-shot-caption"><b>04</b> 설정 — 알림 시간 · 다크 모드</figcaption>
+              </figure>
+            </div>
+          </div>
+
+          <!-- FRAME 5 — Team -->
+          <div class="frame frame-team" data-frame="5" id="team">
+            <div class="frame-num"><strong>06</strong><em>팀원 — 53팀</em></div>
+            <img class="frame-team-banner" src="assets/landing/scene-5-team/team-banner.png" alt="함께 만든 팀" loading="lazy" decoding="async" />
+            <p class="frame-team-sub">
+              네 명이 각자 다른 영역을 맡아<br/>
+              한 줄의 알림으로 모았습니다.
+            </p>
+            <div class="frame-team-grid">
+              <article class="team-card">
+                <div class="team-polaroid">
+                  <img class="team-polaroid-tape" src="assets/landing/scene-5-team/polaroid-tape.png" alt="" loading="lazy" decoding="async" />
+                  <img class="poly-frame" src="assets/landing/scene-5-team/polaroid-frame.png" alt="" loading="lazy" decoding="async" />
+                  <div class="team-polaroid-photo">
+                    <img src="assets/landing/character/team-variants/team-char-2.png" alt="" loading="lazy" decoding="async" />
+                  </div>
+                </div>
+                <div class="team-name">황찬우</div>
+                <div class="team-role">백엔드 메인</div>
+              </article>
+              <article class="team-card">
+                <div class="team-polaroid">
+                  <img class="team-polaroid-tape" src="assets/landing/scene-5-team/polaroid-tape.png" alt="" loading="lazy" decoding="async" />
+                  <img class="poly-frame" src="assets/landing/scene-5-team/polaroid-frame.png" alt="" loading="lazy" decoding="async" />
+                  <div class="team-polaroid-photo">
+                    <img src="assets/landing/character/team-variants/team-char-3.png" alt="" loading="lazy" decoding="async" />
+                  </div>
+                </div>
+                <div class="team-name">이상진</div>
+                <div class="team-role">백엔드 · 외부 API</div>
+              </article>
+              <article class="team-card">
+                <div class="team-polaroid">
+                  <img class="team-polaroid-tape" src="assets/landing/scene-5-team/polaroid-tape.png" alt="" loading="lazy" decoding="async" />
+                  <img class="poly-frame" src="assets/landing/scene-5-team/polaroid-frame.png" alt="" loading="lazy" decoding="async" />
+                  <div class="team-polaroid-photo">
+                    <img src="assets/landing/character/team-variants/female-team-char-1.png" alt="" loading="lazy" decoding="async" />
+                  </div>
+                </div>
+                <div class="team-name">임채연</div>
+                <div class="team-role">프론트엔드</div>
+              </article>
+              <article class="team-card">
+                <div class="team-polaroid">
+                  <img class="team-polaroid-tape" src="assets/landing/scene-5-team/polaroid-tape.png" alt="" loading="lazy" decoding="async" />
+                  <img class="poly-frame" src="assets/landing/scene-5-team/polaroid-frame.png" alt="" loading="lazy" decoding="async" />
+                  <div class="team-polaroid-photo">
+                    <img src="assets/landing/character/team-variants/female-team-char-2.png" alt="" loading="lazy" decoding="async" />
+                  </div>
+                </div>
+                <div class="team-name">원수현</div>
+                <div class="team-role">팀장 · 인프라</div>
+              </article>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+
+    <!-- ═══════════════ CLOSING ═══════════════ -->
+    <section class="closing">
+      <h3 class="closing-title">
+        <span class="accent">오늘어디?</span> — 그 질문에<br/>
+        매일 답해주는 친구가 되어줄게요.
+      </h3>
+      <p class="closing-sub">국민대학교 소프트웨어학부 캡스톤 디자인 I 2026 · 53팀</p>
+      <a class="closing-cta" href="https://github.com/kookmin-sw/2026-capstone-53" target="_blank" rel="noopener">
+        GitHub 에서 보기 <span aria-hidden="true">↗</span>
+      </a>
+    </section>
+
+    <!-- ═══════════════ FOOTER ═══════════════ -->
+    <footer class="foot">
+      <div class="foot-inner">
+        <div class="foot-brand">
+          <img src="assets/images/todayway-typo.svg" alt="오늘어디" />
+          <p>매일의 통근·통학을 잊지 않도록.<br/>도착하고 싶은 시각만 적어주세요.</p>
+        </div>
+        <div class="foot-col">
+          <h6>Repository</h6>
+          <a href="https://github.com/kookmin-sw/2026-capstone-53" target="_blank" rel="noopener">github.com / 2026-capstone-53 ↗</a>
+        </div>
+        <div class="foot-col">
+          <h6>Demo</h6>
+          <span>2026. 05. 22</span>
+          <span>국민대학교</span>
+        </div>
+        <div class="foot-col">
+          <h6>Capstone</h6>
+          <span>다학제간 캡스톤 디자인 I</span>
+          <span>2026 · 53팀</span>
+        </div>
+      </div>
+      <div class="foot-bottom">
+        <span>© 2026 · TEAM 53 · KOOKMIN UNIVERSITY</span>
+        <span>오늘 어디로 출발할까요?</span>
+      </div>
+    </footer>
+
+    <script src="assets/landing.js" defer></script>
+  </body>
+</html>
