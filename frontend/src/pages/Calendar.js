@@ -763,7 +763,11 @@ function ScheduleAccordion({ schedule, onEdit, onDelete, todayDow }) {
             {originName} → {destName}
           </p>
           <p className="sac-depart__sub">
-            {schedule.estimatedDurationMinutes ? `${schedule.estimatedDurationMinutes}분` : '경로 계산 중'}
+            {schedule.estimatedDurationMinutes
+              ? `${schedule.estimatedDurationMinutes}분`
+              : schedule.routeStatus === 'PENDING_RETRY'
+              ? '경로 계산 중'
+              : '경로 안내 가능'}
           </p>
           <div className="sac-actions">
             <button className="sac-btn sac-btn--edit"
