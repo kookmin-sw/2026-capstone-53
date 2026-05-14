@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { mockNotifications } from '../data/notifications';
 import './NotificationPage.css';
 
 /* 날짜 레이블 포매터: "오늘", "어제", "5월 2일 금요일" */
@@ -61,7 +60,7 @@ function NotifItem({ item, onRead }) {
 
 export default function NotificationPage() {
   const navigate = useNavigate();
-  const [items, setItems] = useState(mockNotifications);
+  const [items, setItems] = useState([]);
 
   const markRead = (id) =>
     setItems(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
