@@ -630,6 +630,16 @@
   color: var(--color-point);
 }
 
+/* ── 현재 카드 선택 ── */
+.htl-item--active .htl-item__title {
+  color: var(--color-point);
+  font-weight: 700;
+}
+.htl-item--active .htl-item__depart,
+.htl-item--active .htl-item__arrive {
+  color: var(--color-point);
+}
+
 /* ── 다크모드 ── */
 [data-theme="dark"] .home__today-tl__inner {
   background: #2A2825;
@@ -655,3 +665,6 @@
 [data-theme="dark"] .htl-item--past .htl-item__arrive { color: #444; }
 
 [data-theme="dark"] .htl-item--next .htl-item__title { color: var(--color-point); }
+[data-theme="dark"] .htl-item--active .htl-item__title,
+[data-theme="dark"] .htl-item--active .htl-item__depart,
+[data-theme="dark"] .htl-item--active .htl-item__arrive { color: var(--color-point); }
