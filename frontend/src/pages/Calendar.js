@@ -853,6 +853,10 @@ function CalendarPage() {
   const closeSheet = () => { setShowSheet(false); setEditingSch(null); };
 
   const handleSave = async (form) => {
+    // 백엔드 Place 스키마 provider enum: NAVER | KAKAO | ODSAY | MANUAL
+    // geocode API는 'KAKAO_LOCAL' 반환하므로 schedule 저장 시 'KAKAO'로 변환
+    const normalizeProvider = (p) => (p === 'KAKAO_LOCAL' ? 'KAKAO' : (p ?? 'KAKAO'));
+
     const body = {
       title: form.title,
       origin: {
@@ -861,7 +865,7 @@ function CalendarPage() {
         lng:      form.originPlace?.lng      ?? null,
         address:  form.originPlace?.address  ?? null,
         placeId:  form.originPlace?.placeId  ?? null,
-        provider: form.originPlace?.provider ?? 'KAKAO',
+        provider: normalizeProvider(form.originPlace?.provider),
       },
       destination: {
         name:     form.destinationPlace?.name     ?? form.destinationName,
@@ -869,7 +873,7 @@ function CalendarPage() {
         lng:      form.destinationPlace?.lng      ?? null,
         address:  form.destinationPlace?.address  ?? null,
         placeId:  form.destinationPlace?.placeId  ?? null,
-        provider: form.destinationPlace?.provider ?? 'KAKAO',
+        provider: normalizeProvider(form.destinationPlace?.provider),
       },
       userDepartureTime: `${year}-${padTwo(month + 1)}-${padTwo(selDay)}T${form.usualDepartureTime || '08:00'}:00+09:00`,
       arrivalTime: `${year}-${padTwo(month + 1)}-${padTwo(selDay)}T${form.arrivalTime}:00+09:00`,
