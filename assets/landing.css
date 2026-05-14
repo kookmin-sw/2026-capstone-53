@@ -1267,8 +1267,8 @@ body::before {
 }
 /* 원수현(female-team-char-2)만 살짝 키움 */
 .team-polaroid-photo img[src*="female-team-char-2"] {
-  height: 100%;
-  max-width: 71%;
+  height: 108%;
+  max-width: 78%;
 }
 .team-polaroid-tape {
   position: absolute;
