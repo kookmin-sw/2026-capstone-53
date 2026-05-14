@@ -46,7 +46,18 @@
 - PWA (Progressive Web App)
 
 ### 백엔드
-<!-- 백엔드 팀이 추후 작성 -->
+- **언어** Java 21 (Toolchain · LTS)
+- **프레임워크** Spring Boot 3.5.3, Spring Web MVC, Spring Data JPA, Hibernate ORM, Spring Security, Spring Boot Actuator, Spring Boot DevTools, Jakarta Bean Validation, Java 21 Virtual Threads
+- **빌드 / 툴체인** Gradle 8.14.4 (Kotlin DSL), Spring Dependency Management Plugin 1.1.7, Eclipse Temurin 21 (JDK / JRE)
+- **DB / 마이그레이션** MySQL 8.x, MySQL Connector/J, Flyway (core + flyway-mysql)
+- **인증 / 보안** JJWT 0.12.6 (api / impl / jackson), Spring Security BCrypt, SHA-256 refresh token hashing
+- **웹 푸시** nl.martijndwars web-push 5.1.1, BouncyCastle bcprov-jdk18on 1.78, VAPID (RFC 8292)
+- **HTTP / 직렬화** Apache HttpClient 5, Jackson (KST `Asia/Seoul`, ISO 8601)
+- **유틸리티** Lombok, ulid-creator 5.2.3 (Crockford Base32 ULID)
+- **테스트** JUnit 5 (Jupiter), AssertJ, Mockito, Spring Boot Test, Spring Security Test, Testcontainers 1.21.4 (junit-jupiter + mysql), Spring Boot Testcontainers, JUnit Platform Launcher
+- **인프라 / 배포** Docker (multi-stage · non-root · `TZ=Asia/Seoul`), AWS EC2, AWS RDS (MySQL), GitHub Container Registry (GHCR)
+- **CI** GitHub Actions (Temurin 21 · Gradle cache · `./gradlew build`)
+- **외부 API** ODsay (대중교통 경로 / 권장 출발시각), Kakao Local (주소 → 좌표 지오코딩), T-map (보행자 경로 — 인도 곡선), Naver Maps (지도 타일)
 
 <!-- 예시:
 ![Tech Stack](https://skillicons.dev/icons?i=react,spring,mysql,docker,aws)
@@ -82,7 +93,14 @@ localStorage.setItem('msw-scenario', '<value>'); location.reload();
 ```
 
 ### 백엔드 실행
-<!-- 백엔드 팀이 추후 작성 -->
+
+요구사항: Java 21 · Docker (로컬 MySQL용). 빌드 / 운영(EC2 · RDS · Docker) 상세는 [`backend/README.md`](backend/README.md) 참고.
+
+```bash
+cd backend
+cp .env.example .env    # DB_PASSWORD, JWT_SECRET 등 채우기
+./gradlew bootRun       # http://localhost:8080/actuator/health
+```
 
 
 <a id="team-members"></a>
