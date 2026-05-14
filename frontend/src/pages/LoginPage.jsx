@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api';
+import { useTheme } from '../contexts/ThemeContext';
 import logoTypo from '../assets/brand/logo-typo.svg';
+import logoTypoWhite from '../assets/brand/logo-typo-white.svg';
 import './AuthPage.css';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const { theme } = useTheme();
   const [id, setId] = useState('');
   const [pw, setPw] = useState('');
   const [error, setError] = useState('');
@@ -43,7 +46,7 @@ export default function LoginPage() {
       <div className="auth__card">
         {/* 로고 */}
         <div style={{ textAlign: 'center', marginBottom: 12 }}>
-          <img src={logoTypo} alt="오늘어디" style={{ height: 48 }} />
+          <img src={theme === 'dark' ? logoTypoWhite : logoTypo} alt="오늘어디" style={{ height: 48 }} />
         </div>
         <p className="auth__tagline">매일 함께하는 경로 알리미</p>
 
