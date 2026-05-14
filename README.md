@@ -19,7 +19,6 @@
 - [사용 방법](#usage)
 - [팀원](#team-members)
 
-
 <a id="project-intro"></a>
 
 ## <img src="assets/images/todayway-logo.svg" alt="2" width="15">  프로젝트 소개
@@ -31,7 +30,6 @@
 <!-- 예시:
 ![프로젝트 대표 이미지](assets/README/project-overview.png)
 -->
-
 
 <a id="tech-stack"></a>
 
@@ -62,7 +60,6 @@
 <!-- 예시:
 ![Tech Stack](https://skillicons.dev/icons?i=react,spring,mysql,docker,aws)
 -->
-
 
 <a id="usage"></a>
 
@@ -107,11 +104,8 @@ cp .env.example .env    # DB_PASSWORD, JWT_SECRET 등 채우기
 
 ## <img src="assets/images/todayway-logo.svg" alt="2" width="15">  팀원
 
-<!-- 섹션 번호는 추후 아래와 같이 에셋으로 교체할 수 있습니다. -->
-<!-- <img src="assets/README/section-4.png" alt="4" width="48"> -->
-
 | <img src="https://github.com/wonsh200.png" width="120" alt="원수현"> | 사진~ | 사진~ | 사진~ |
 |---|---|---|---|
-| 원수현 | 임채연 | 이상진 | 황찬우 |
-| 20203102 | 20210481 | 20213039 | 20212667 |
+| 원수현 | 임채연 | 황찬우 | 이상진 |
+| 20203102 | 20210481 | 20212667 | 20213039 |
 | DevOps, 기획, 디자인 | Frontend, UI/UX | Backend, DB | Backend, DB |
