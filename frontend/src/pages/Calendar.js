@@ -699,7 +699,11 @@ function ScheduleAccordion({ schedule, onEdit, onDelete, todayDow }) {
   const displayArr = rawArr.includes('T') ? rawArr.split('T')[1]?.substring(0, 5) : rawArr;
 
   const depTime = calcDepTime(displayArr, schedule.estimatedDurationMinutes ?? schedule.averageDurationMinutes);
-  const days = schedule.repeatDays ?? schedule.routineRule?.daysOfWeek ?? [];
+  const routineDays = schedule.repeatDays ?? schedule.routineRule?.daysOfWeek ?? [];
+  // 단발성 일정은 arrivalTime의 요일을 활성 요일로 표시
+  const days = routineDays.length > 0
+    ? routineDays
+    : (schedule.arrivalTime ? [DAY_KEYS[new Date(schedule.arrivalTime).getDay()]] : []);
   const originName = schedule.originName ?? schedule.origin?.name ?? '';
   const destName   = schedule.destinationName ?? schedule.destination?.name ?? '';
 
