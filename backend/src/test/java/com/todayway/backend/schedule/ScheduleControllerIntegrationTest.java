@@ -146,6 +146,65 @@ class ScheduleControllerIntegrationTest {
     }
 
     @Test
+    void list_keysetHandlesAsymmetricArrivalAndId_doesNotDropSchedules() throws Exception {
+        // 이슈 #15 회귀 가드 — arrival ASC 순서와 id 단조 증가가 어긋날 때
+        // keyset 술어가 id 단독이면 일정 영구 누락. (arrivalTime, id) 합성 술어로 fix.
+        when(routeService.refreshRouteSync(any(Schedule.class))).thenReturn(false);
+
+        String accessToken = signupAndGetToken("schasym01", "비대칭");
+
+        // A 먼저 등록 (arrival = NOW+10일 → id 더 작음)
+        mockMvc.perform(post("/api/v1/schedules")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createScheduleBody(arrivalIn(60 * 24 * 10))))
+                .andExpect(status().isCreated());
+        // B 나중 등록 (arrival = NOW+5일 → id 더 크지만 arrival 더 이름)
+        mockMvc.perform(post("/api/v1/schedules")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(createScheduleBody(arrivalIn(60 * 24 * 5))))
+                .andExpect(status().isCreated());
+
+        // 1페이지 (limit=1) → arrival 더 이른 B 가 먼저 + nextCursor 발급
+        String page1 = mockMvc.perform(get("/api/v1/schedules?limit=1")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.hasMore").value(true))
+                .andReturn().getResponse().getContentAsString();
+        String firstId = objectMapper.readTree(page1).path("data").path("items").get(0).path("scheduleId").asText();
+        String nextCursor = objectMapper.readTree(page1).path("data").path("nextCursor").asText();
+
+        // 2페이지 → 남은 A 반환. id-only 술어였다면 firstId(=B, id 더 큼) 보다 큰 id 가 없어 빈 결과 → A 영구 누락.
+        String page2 = mockMvc.perform(get("/api/v1/schedules?limit=1&cursor=" + nextCursor)
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items.length()").value(1))
+                .andExpect(jsonPath("$.data.hasMore").value(false))
+                .andReturn().getResponse().getContentAsString();
+        String secondId = objectMapper.readTree(page2).path("data").path("items").get(0).path("scheduleId").asText();
+
+        assertThat(secondId).isNotEqualTo(firstId);
+    }
+
+    @Test
+    void list_whenInvalidCursorFormat_returns400() throws Exception {
+        // v1 cursor (id:N base64) 또는 변조된 cursor → VALIDATION_ERROR.
+        // 명세 §1.5 opaque 정책상 클라이언트는 1페이지부터 재요청해야 함.
+        String accessToken = signupAndGetToken("schinval01", "잘못된");
+
+        // v1 cursor 시뮬레이션: Base64URL("id:1")
+        String legacyCursor = java.util.Base64.getUrlEncoder().withoutPadding()
+                .encodeToString("id:1".getBytes(java.nio.charset.StandardCharsets.UTF_8));
+
+        mockMvc.perform(get("/api/v1/schedules?limit=10&cursor=" + legacyCursor)
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
     void get_whenNotOwn_returns403Forbidden() throws Exception {
         when(routeService.refreshRouteSync(any(Schedule.class))).thenReturn(false);
 

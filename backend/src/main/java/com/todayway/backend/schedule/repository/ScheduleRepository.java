@@ -20,6 +20,10 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
     /**
      * 명세 §5.2 cursor 페이지네이션. ⚠️ JPQL은 @SQLRestriction 자동 적용 X — `deletedAt IS NULL` 명시 필수.
      * 정렬: arrival_time ASC, id ASC tie-break.
+     *
+     * <p>Keyset 술어는 정렬과 동일한 합성 키 {@code (arrivalTime, id)} 기준이어야 함 — 이슈 #15:
+     * id 단일 술어 시 arrival ASC 순서와 id 단조 증가가 어긋나면 일정 영구 누락.
+     * cursor 양쪽이 모두 null 인 경우만 1페이지로 처리 — service 가 동반 보장.
      */
     @Query("""
             SELECT s FROM Schedule s
@@ -27,12 +31,15 @@ public interface ScheduleRepository extends JpaRepository<Schedule, Long> {
               AND s.deletedAt IS NULL
               AND (:from IS NULL OR s.arrivalTime >= :from)
               AND (:to IS NULL OR s.arrivalTime <= :to)
-              AND (:cursorId IS NULL OR s.id > :cursorId)
+              AND (:cursorArrival IS NULL
+                   OR s.arrivalTime > :cursorArrival
+                   OR (s.arrivalTime = :cursorArrival AND s.id > :cursorId))
             ORDER BY s.arrivalTime ASC, s.id ASC
             """)
     List<Schedule> findPage(@Param("memberId") Long memberId,
                             @Param("from") OffsetDateTime from,
                             @Param("to") OffsetDateTime to,
+                            @Param("cursorArrival") OffsetDateTime cursorArrival,
                             @Param("cursorId") Long cursorId,
                             Pageable pageable);
 

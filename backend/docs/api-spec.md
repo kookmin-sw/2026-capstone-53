@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.25-MVP
-> **최종 수정**: 2026-05-12 (황찬우 — §1.9 CORS 정책 신규 + §9.2 WEEKLY routine 요일 비교 Asia/Seoul 기준 명시. PR #29 unblock + 이슈 #36 fix.)
+> **버전**: v1.1.26-MVP
+> **최종 수정**: 2026-05-13 (황찬우 — §5.2 cursor 페이지네이션 keyset 합성키 (arrival_time, id) 명시. 이슈 #15 fix.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -41,6 +41,7 @@
 | **v1.1.23** | **2026-05-11** | **§1.6 `RESOURCE_NOT_FOUND` ErrorCode 추가 (이슈 #33). 매핑되지 않은 URL 호출 시 Spring 6.x 가 `NoResourceFoundException` throw → `GlobalExceptionHandler` catch-all 이 잡아 500 `INTERNAL_SERVER_ERROR` 로 폴백하던 결함 fix. 신규 핸들러는 404 + WARN 로깅 (`resourcePath` 한 줄, 스택 미포함 — 4xx 류 ERROR 가 운영 false alarm 의 원인이었음). `NoHandlerFoundException` 도 동시 매핑 (현 application.yml 미설정이라 미발생, future-proof). 405 `HttpRequestMethodNotSupportedException` 잘못 매핑 (400 → 405) 은 별 이슈로 분리.** |
 | **v1.1.22** | **2026-05-11** | **§3.3 회원 탈퇴 soft delete → hard delete 전환 (이슈 #31). soft delete + `login_id` UNIQUE 충돌로 동일 loginId 재가입 불가하던 버그 해소. DB FK ON DELETE CASCADE 가 refresh_token / schedule / push_subscription row 일괄 삭제 — 코드 cascade 메서드 (`ScheduleRepository.softDeleteByMemberId` / `PushSubscriptionRepository.revokeAllByMemberId`) 제거. push_log 는 FK 비대칭 동작 — `schedule_id` ON DELETE SET NULL (다른 회원의 schedule 삭제 시 이력 보존), `subscription_id` ON DELETE CASCADE (탈퇴 회원 본인의 발송 이력은 동반 삭제, 회원 데이터 완전 삭제 정책). schedule 개별 DELETE / push subscription unsubscribe 는 별개 정책으로 soft delete/revoke 유지. 멱등성 비고 (v1.1.7) 그대로 — 두 번째 DELETE 도 401 UNAUTHORIZED (member row 없음). V3 마이그레이션 (`V3__member_drop_deleted_at.sql`) 적용 시 옛 soft-deleted row 정리 (FK CASCADE 발동) + `deleted_at` 컬럼 drop.** |
 | **v1.1.24** | **2026-05-12** | **§1.9 CORS 정책 섹션 신규 추가 — `CorsConfigurationSource` Bean 등록 (`common.security.CorsProperties` + `SecurityConfig`). 화이트리스트 default `http://localhost:3000` (yml fallback, env `CORS_ALLOWED_ORIGINS` 콤마 구분 override), `allowCredentials=false` (JWT stateless 정합), `allowedHeaders="*"` (`Content-Type` / `Authorization` 커버), `maxAge=1800`. PR #29 (frontend 통합) unblock. 운영 도메인은 별 task (외부 노출) 진입 시 `CORS_ALLOWED_ORIGINS` env 로 보강.** |
+| **v1.1.26** | **2026-05-13** | **§5.2 cursor 페이지네이션 keyset 합성키 명시 (이슈 #15 fix). `ScheduleRepository.findPage` keyset 술어가 `s.id > :cursorId` 단독이라 정렬 `(arrival_time ASC, id ASC)` 과 어긋날 때 (arrival 이른 일정이 더 큰 id 보유) 다음 페이지에서 영구 누락. 술어를 `(arrivalTime > :cArr OR (arrivalTime = :cArr AND id > :cId))` 합성키로 교체. cursor 인코딩도 `id:N` (v1) → `v2:<ISO_UTC>|<id>` 로 변경, v1 cursor 는 `VALIDATION_ERROR` (400) 로 거부 — 명세 §1.5 opaque 정책상 클라이언트는 1페이지부터 재요청. 회귀 가드 `ScheduleControllerIntegrationTest.list_keysetHandlesAsymmetricArrivalAndId_doesNotDropSchedules` + `list_whenInvalidCursorFormat_returns400`.** |
 | **v1.1.25** | **2026-05-12** | **§9.2 WEEKLY routine 요일 비교 `Asia/Seoul` (KST) 기준 명시 (이슈 #36 fix). `RoutineCalculator.nextWeeklyOccurrence` 가 `cand.getDayOfWeek()` 를 사용하던 결함 — `OffsetDateTime` 영속화 후 displayed offset 이 UTC 로 reconstruct 되어 KST 가 아닌 UTC 기준 요일 평가 → KST 새벽 시간대 일정의 advance 가 `daysOfWeek` 에 없는 요일 (예: MON/WED/FRI 일정이 THU 로) 반환. `cand.atZoneSameInstant(KST).getDayOfWeek()` 로 정정. 회귀 가드 추가 (`PushReminderDispatcherIntegrationTest.S5B` 명시 KST 새벽 시각). 데모 시연 (정오) 직접 영향 ⚪ 낮음 — KST/UTC 동일 요일 시간대. DAILY/CUSTOM (`plusDays(N)` instant 기준) / `reminderAt` 계산 (instant 기준) 영향 0.** |
 
 ### 0.2 v1.0 → v1.1-MVP 주요 변경
@@ -680,9 +681,13 @@ SELECT * FROM schedule
 WHERE member_id = ?
   AND deleted_at IS NULL
   [AND arrival_time BETWEEN ? AND ?]
-ORDER BY arrival_time ASC
+  -- cursor 가 있으면 합성키 keyset (이슈 #15 fix, v1.1.26)
+  [AND (arrival_time > ? OR (arrival_time = ? AND id > ?))]
+ORDER BY arrival_time ASC, id ASC
 LIMIT ?
 ```
+
+> cursor 는 opaque token — 서버 내부 표현은 `Base64URL("v2:" + <arrival_time UTC ISO> + "|" + <id>)`. v1 (`id:N`) cursor 는 `VALIDATION_ERROR` (400) 로 거부. 정렬 tie-break (`id ASC`) 와 동일한 합성키 술어로 누락 방지.
 
 ---
 
