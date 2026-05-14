@@ -104,4 +104,4 @@ cp .env.example .env    # DB_PASSWORD, JWT_SECRET 등 채우기
 |---|---|---|---|
 | 원수현 | 임채연 | 황찬우 | 이상진 |
 | 20203102 | 20210481 | 20212667 | 20213039 |
-| DevOps, 기획, 디자인 | Frontend, UI/UX | Backend, DB | Backend, DB |
+| Infra, 기획, 디자인 | Frontend, UI/UX | Backend, DB | Backend, DB |
