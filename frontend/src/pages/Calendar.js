@@ -853,6 +853,35 @@ function CalendarPage() {
   const closeSheet = () => { setShowSheet(false); setEditingSch(null); };
 
   const handleSave = async (form) => {
+    // 일정 날짜 계산:
+    // - 루틴(repeatDays > 0): selDay 시작으로 daysOfWeek 중 가장 가까운 요일 (오늘 또는 미래)
+    // - 단발성: selDay 그대로
+    // - 또한 도착 시각이 이미 과거면 (오늘 + 시각이 NOW 이전) 다음 같은 요일로 +7일 보정
+    const [arrH, arrM] = (form.arrivalTime || '09:00').split(':').map(Number);
+    const baseDate = new Date(year, month, selDay, arrH, arrM, 0);
+    const now = new Date();
+
+    let scheduledDate = baseDate;
+    if (form.repeatDays.length > 0) {
+      const allowed = new Set(form.repeatDays.map(d => DAY_NUM[d]));
+      // selDay부터 7일 안에 가장 가까운 미래(또는 오늘이면서 미래 시각) 요일 찾기
+      for (let i = 0; i < 8; i++) {
+        const candidate = new Date(year, month, selDay + i, arrH, arrM, 0);
+        if (allowed.has(candidate.getDay()) && candidate > now) {
+          scheduledDate = candidate;
+          break;
+        }
+      }
+    } else if (scheduledDate <= now) {
+      // 단발성인데 시각이 과거면 다음 날로
+      scheduledDate = new Date(year, month, selDay + 1, arrH, arrM, 0);
+    }
+
+    const schedY = scheduledDate.getFullYear();
+    const schedM = scheduledDate.getMonth();
+    const schedD = scheduledDate.getDate();
+    const dateStr = `${schedY}-${padTwo(schedM + 1)}-${padTwo(schedD)}`;
+
     const body = {
       title: form.title,
       origin: {
@@ -871,8 +900,8 @@ function CalendarPage() {
         placeId:  form.destinationPlace?.placeId  ?? null,
         provider: form.destinationPlace?.provider ?? 'KAKAO',
       },
-      userDepartureTime: `${year}-${padTwo(month + 1)}-${padTwo(selDay)}T${form.usualDepartureTime || '08:00'}:00+09:00`,
-      arrivalTime: `${year}-${padTwo(month + 1)}-${padTwo(selDay)}T${form.arrivalTime}:00+09:00`,
+      userDepartureTime: `${dateStr}T${form.usualDepartureTime || '08:00'}:00+09:00`,
+      arrivalTime: `${dateStr}T${form.arrivalTime}:00+09:00`,
       reminderOffsetMinutes: 5,
       routineRule: form.repeatDays.length > 0
         ? { type: 'WEEKLY', daysOfWeek: form.repeatDays }
