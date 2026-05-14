@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import logo from '../assets/brand/logo.svg';
-import logoWhite from '../assets/brand/logo-typo-white.svg';
+import logoWhite from '../assets/brand/todayway-white.svg';
 import './TopNav.css';
 
 const tabs = [
