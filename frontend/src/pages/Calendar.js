@@ -24,18 +24,30 @@ function getCalendarDays(year, month) {
 
 function scheduleActiveOnDate(sch, year, month, day) {
   const days = sch.repeatDays ?? sch.routineRule?.daysOfWeek ?? [];
-  if (days.length === 0) return true; // 단발성 일정 — 모든 날에 표시
   const target = new Date(year, month, day);
-  if (sch.startDate) {
-    const [sy, sm, sd] = sch.startDate.split('-').map(Number);
-    if (target < new Date(sy, sm - 1, sd)) return false;
+
+  // 루틴 일정: daysOfWeek 요일 매칭
+  if (days.length > 0) {
+    if (sch.startDate) {
+      const [sy, sm, sd] = sch.startDate.split('-').map(Number);
+      if (target < new Date(sy, sm - 1, sd)) return false;
+    }
+    if (sch.endDate) {
+      const [ey, em, ed] = sch.endDate.split('-').map(Number);
+      if (target > new Date(ey, em - 1, ed)) return false;
+    }
+    const dow = target.getDay();
+    return days.some(d => DAY_NUM[d] === dow);
   }
-  if (sch.endDate) {
-    const [ey, em, ed] = sch.endDate.split('-').map(Number);
-    if (target > new Date(ey, em - 1, ed)) return false;
-  }
-  const dow = target.getDay();
-  return days.some(d => DAY_NUM[d] === dow);
+
+  // 단발성 일정: arrivalTime 날짜와 일치하는 날에만 표시
+  if (!sch.arrivalTime) return false;
+  const arr = new Date(sch.arrivalTime);
+  return (
+    arr.getFullYear() === year &&
+    arr.getMonth() === month &&
+    arr.getDate() === day
+  );
 }
 
 function getSchedulesForDate(schedules, year, month, day) {
