@@ -31,6 +31,76 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ═══════════════ Too-small viewport overlay ═══════════════
+ * 1024×640 이하에서 사이트 전체 가리고 안내만 보여줌 */
+.too-small {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background:
+    radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--blue) 18%, transparent), transparent 60%),
+    var(--paper);
+  background-image:
+    radial-gradient(ellipse at 50% 30%, color-mix(in srgb, var(--blue) 18%, transparent), transparent 60%),
+    url("landing/scene-1-calendar/notebook-paper.jpg");
+  background-size: cover, 800px auto;
+  background-repeat: no-repeat, repeat;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 24px;
+}
+.too-small[hidden] { display: none; }
+.too-small-inner {
+  max-width: 360px;
+  width: 100%;
+  text-align: center;
+  font-family: "Gaegu", "Gowun Dodum", sans-serif;
+  color: var(--ink);
+}
+.too-small-logo {
+  width: 180px;
+  height: auto;
+  margin: 0 auto 28px;
+  display: block;
+  filter: drop-shadow(0 6px 14px rgba(37, 99, 235, 0.18));
+}
+.too-small h2 {
+  font-family: "Gaegu", sans-serif;
+  font-weight: 700;
+  font-size: 30px;
+  line-height: 1.25;
+  margin-bottom: 16px;
+  color: var(--ink);
+  word-break: keep-all;
+}
+.too-small p {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--ink-soft);
+  margin-bottom: 28px;
+  word-break: keep-all;
+}
+.too-small p strong {
+  font-weight: 700;
+  color: var(--blue);
+}
+.too-small-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 22px;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: 999px;
+  font-family: "Gaegu", sans-serif;
+  font-weight: 700;
+  font-size: 16px;
+  text-decoration: none;
+  transition: transform 0.2s, background 0.2s;
+}
+.too-small-cta:hover { transform: translateY(-2px); background: var(--blue); }
+
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
@@ -88,6 +158,9 @@ body::before {
   background:
     radial-gradient(ellipse at 50% 50%, transparent 55%, rgba(80, 60, 20, 0.10) 100%);
 }
+
+/* product frame 의 sub copy 만 가운데 정렬 (인라인 style 대체) */
+.frame-sub-center { margin-left: auto; margin-right: auto; text-align: center; }
 
 /* ═══════════════ Topbar ═══════════════ */
 .topbar {
@@ -191,7 +264,7 @@ body::before {
 .rail-line {
   position: relative;
   width: 40px;
-  height: 56vh;
+  height: 480px;
   max-height: 420px;
   min-height: 240px;
   margin: 6px 0;
@@ -254,7 +327,7 @@ body::before {
 
 /* ═══════════════ HERO ═══════════════ */
 .hero {
-  min-height: 100vh;
+  min-height: 820px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -273,7 +346,7 @@ body::before {
 }
 .hero-greeting {
   font-family: var(--hand);
-  font-size: clamp(22px, 2.4vw, 30px);
+  font-size: 28px;
   color: var(--ink-mute);
   margin-bottom: 20px;
   letter-spacing: 0.01em;
@@ -295,7 +368,7 @@ body::before {
   transform: rotate(-1deg);
 }
 .hero-brand {
-  width: clamp(420px, 60vw, 720px);
+  width: 640px;
   height: auto;
   margin-bottom: 32px;
   filter: drop-shadow(0 8px 20px rgba(37, 99, 235, 0.18));
@@ -317,7 +390,7 @@ body::before {
   display: inline-flex;
   align-items: center;
   padding: 6px 16px;
-  font-size: clamp(15px, 1.3vw, 18px);
+  font-size: 17px;
   font-weight: 700;
   color: var(--blue-deep);
   background: color-mix(in srgb, var(--blue) 14%, white);
@@ -341,7 +414,7 @@ body::before {
 
 .hero-tag {
   font-family: var(--hand);
-  font-size: clamp(20px, 2vw, 26px);
+  font-size: 24px;
   color: var(--ink-soft);
   line-height: 1.5;
   max-width: 540px;
@@ -431,7 +504,7 @@ body::before {
 }
 .hero-doodle.hd-headline {
   top: 8%; left: 4%;
-  width: clamp(150px, 16vw, 220px);
+  width: 200px;
   --r: -8deg;
   opacity: 0.95;
 }
@@ -502,12 +575,13 @@ body::before {
   position: relative;
   width: 100%;
   /* 6 씬 × ~100vh + 여유 */
-  height: 700vh;
+  /* 6 frame × ~1.4 viewport 씩 머묾 — 각 frame 1148px 스크롤 dwell */
+  height: 8200px;
 }
 .stage-pin {
   position: sticky;
   top: 0;
-  height: 100vh;
+  height: 820px;
   width: 100%;
   overflow: hidden;
 }
@@ -588,7 +662,7 @@ body::before {
 .frame-title {
   font-family: var(--hand);
   font-weight: 700;
-  font-size: clamp(34px, 5vw, 64px);
+  font-size: 58px;
   line-height: 1.15;
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -611,7 +685,7 @@ body::before {
 }
 .frame-sub {
   font-family: var(--hand);
-  font-size: clamp(18px, 1.6vw, 22px);
+  font-size: 21px;
   line-height: 1.6;
   color: var(--ink-soft);
   max-width: 38ch;
@@ -741,12 +815,12 @@ body::before {
   padding: 0 12px;
 }
 .map-extra-coords {
-  width: clamp(220px, 38%, 320px);
+  width: 300px;
   height: auto;
   transform: rotate(-2deg);
 }
 .map-extra-geo {
-  width: clamp(140px, 24%, 210px);
+  width: 200px;
   height: auto;
   transform: rotate(3deg);
 }
@@ -860,7 +934,7 @@ body::before {
 }
 .frame-route-visual {
   position: relative;
-  height: calc(100vh - 200px);
+  height: 620px;
   max-height: 640px;
   display: flex;
   justify-content: center;
@@ -1133,7 +1207,7 @@ body::before {
   gap: 24px;
 }
 .frame-product .frame-title {
-  font-size: clamp(28px, 4vw, 50px);
+  font-size: 46px;
   text-align: center;
 }
 .frame-product-text {
@@ -1385,7 +1459,7 @@ body::before {
 }
 .closing-title {
   font-family: var(--hand);
-  font-size: clamp(36px, 5vw, 64px);
+  font-size: 58px;
   font-weight: 700;
   color: var(--ink);
   letter-spacing: -0.01em;
