@@ -58,6 +58,7 @@ function scheduleActiveOnDate(sch, year, month, day) {
 }
 
 function getSchedulesForDate(schedules, year, month, day) {
+  console.log('[DEBUG #9] getSchedulesForDate called with schedules:', schedules, 'date:', year, month, day);
   return schedules.filter(s => scheduleActiveOnDate(s, year, month, day));
 }
 
@@ -942,13 +943,22 @@ function CalendarPage() {
     setUiState('loading');
     try {
       const data = await api.schedules.list();
+      console.log('[DEBUG #9] api.schedules.list() returned:', data);
+      console.log('[DEBUG #9] data.items:', data?.items);
+      console.log('[DEBUG #9] data.items length:', data?.items?.length);
       setSchedules(data.items);
+      console.log('[DEBUG #9] setSchedules called with:', data.items);
       setUiState('ready');
     } catch (err) {
-      console.error('[Calendar] 일정 로드 실패', err);
+      console.error('[DEBUG #9] fetch error:', err);
       setUiState('error');
     }
   }, []);
+
+  useEffect(() => {
+    console.log('[DEBUG #9] schedules state changed:', schedules);
+    console.log('[DEBUG #9] schedules length:', schedules?.length);
+  }, [schedules]);
 
   useEffect(() => {
     const forced = searchParams.get('state');
