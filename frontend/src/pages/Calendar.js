@@ -74,7 +74,8 @@ function PlaceSearchOverlay({ field, onSelect, onClose }) {
   const timerRef  = useRef(null);
   const inputRef  = useRef(null);
 
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  // 마운트 시 자동 포커스를 걸지 않음 — iOS Safari가 input을 viewport에 보이게 하려고
+  // 자동 스크롤하면서 페이지가 아래로 내려가는 문제 방지. 사용자가 직접 input을 탭해야 포커스됨.
 
   const dismiss = useCallback((cb) => {
     setClosing(true);
