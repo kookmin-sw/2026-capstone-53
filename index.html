@@ -24,6 +24,21 @@
   </head>
   <body>
 
+    <!-- 화면이 너무 작을 때 안내 overlay (JS 가 너비/높이 검사 후 표시) -->
+    <div id="too-small" class="too-small" hidden>
+      <div class="too-small-inner">
+        <img class="too-small-logo" src="assets/images/todayway-typo.svg" alt="오늘어디?" />
+        <h2>이 사이트는<br/>큰 화면에서 봐주세요</h2>
+        <p>
+          가로 <strong>1280px</strong> · 세로 <strong>720px</strong> 이상의<br/>
+          데스크톱 / 태블릿 가로 화면에서 가장 잘 보입니다.
+        </p>
+        <a class="too-small-cta" href="https://github.com/kookmin-sw/2026-capstone-53" target="_blank" rel="noopener">
+          GitHub 에서 프로젝트 보기 <span aria-hidden="true">↗</span>
+        </a>
+      </div>
+    </div>
+
     <!-- 상단 스크롤 progress bar -->
     <div class="scroll-progress" id="scrollProg" aria-hidden="true"></div>
 
@@ -61,6 +76,10 @@
         GitHub <span aria-hidden="true">↗</span>
       </a>
     </header>
+
+    <!-- 페이지 본문 wrapper — topbar/rail/too-small/scrollProg 같은 fixed 요소와 분리.
+         현재 zoom 은 body 에 적용 중이라 별도 스타일은 없지만, 추후 정렬·전환 단위로 활용 가능. -->
+    <div id="page-stage">
 
     <!-- ═══════════════ HERO ═══════════════ -->
     <section class="hero" id="top">
@@ -250,7 +269,7 @@
               <h2 class="frame-title">
                 매일 마주칠 <span class="underline accent">실제 화면</span>들.
               </h2>
-              <p class="frame-sub" style="margin-left:auto;margin-right:auto;text-align:center;">
+              <p class="frame-sub frame-sub-center">
                 다음 일정 카드 · 월간 캘린더 · 합성 경로 지도 · 설정
               </p>
             </div>
@@ -373,6 +392,8 @@
         <span>오늘 어디로 출발할까요?</span>
       </div>
     </footer>
+
+    </div><!-- /#page-stage -->
 
     <script src="assets/landing.js" defer></script>
   </body>
