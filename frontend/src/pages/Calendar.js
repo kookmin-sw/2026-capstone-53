@@ -26,6 +26,19 @@ function scheduleActiveOnDate(sch, year, month, day) {
   const days = sch.repeatDays ?? sch.routineRule?.daysOfWeek ?? [];
   const target = new Date(year, month, day);
 
+  // 5월 16일에만 로그 (스팸 방지) — month는 0-indexed
+  const isDebugCell = (year === 2026 && month === 4 && day === 16);
+
+  if (isDebugCell) {
+    console.log('[DEBUG #9 match] entry', {
+      sch_id: sch.scheduleId,
+      title: sch.title,
+      arrivalTime: sch.arrivalTime,
+      cell: `${year}-${month}-${day}`,
+      days_length: days.length,
+    });
+  }
+
   // 루틴 일정: 시작일 이후 + daysOfWeek 요일 매칭
   if (days.length > 0) {
     // 시작일 결정: startDate 필드 우선, 없으면 arrivalTime의 yyyy-mm-dd
@@ -37,24 +50,48 @@ function scheduleActiveOnDate(sch, year, month, day) {
       const arr = new Date(sch.arrivalTime);
       startDate = new Date(arr.getFullYear(), arr.getMonth(), arr.getDate());
     }
-    if (startDate && target < startDate) return false;
+    if (startDate && target < startDate) {
+      if (isDebugCell) console.log('[DEBUG #9 match] routine result', sch.scheduleId, '→ false (before startDate)', { startDate, target });
+      return false;
+    }
 
     if (sch.endDate) {
       const [ey, em, ed] = sch.endDate.split('-').map(Number);
-      if (target > new Date(ey, em - 1, ed)) return false;
+      if (target > new Date(ey, em - 1, ed)) {
+        if (isDebugCell) console.log('[DEBUG #9 match] routine result', sch.scheduleId, '→ false (after endDate)');
+        return false;
+      }
     }
     const dow = target.getDay();
-    return days.some(d => DAY_NUM[d] === dow);
+    const result = days.some(d => DAY_NUM[d] === dow);
+    if (isDebugCell) console.log('[DEBUG #9 match] routine result', sch.scheduleId, '→', result, { dow, days, startDate });
+    return result;
   }
 
   // 단발성 일정: arrivalTime 날짜와 일치하는 날에만 표시
-  if (!sch.arrivalTime) return false;
+  if (!sch.arrivalTime) {
+    if (isDebugCell) console.log('[DEBUG #9 match] no arrivalTime', sch.scheduleId);
+    return false;
+  }
   const arr = new Date(sch.arrivalTime);
-  return (
+  const matched = (
     arr.getFullYear() === year &&
     arr.getMonth() === month &&
     arr.getDate() === day
   );
+
+  if (isDebugCell) {
+    console.log('[DEBUG #9 match] single result', {
+      sch_id: sch.scheduleId,
+      arr_year: arr.getFullYear(),
+      arr_month: arr.getMonth(),
+      arr_date: arr.getDate(),
+      target: `${year}-${month}-${day}`,
+      matched,
+    });
+  }
+
+  return matched;
 }
 
 function getSchedulesForDate(schedules, year, month, day) {
