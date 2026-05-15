@@ -26,12 +26,19 @@ function scheduleActiveOnDate(sch, year, month, day) {
   const days = sch.repeatDays ?? sch.routineRule?.daysOfWeek ?? [];
   const target = new Date(year, month, day);
 
-  // 루틴 일정: daysOfWeek 요일 매칭
+  // 루틴 일정: 시작일 이후 + daysOfWeek 요일 매칭
   if (days.length > 0) {
+    // 시작일 결정: startDate 필드 우선, 없으면 arrivalTime의 yyyy-mm-dd
+    let startDate = null;
     if (sch.startDate) {
       const [sy, sm, sd] = sch.startDate.split('-').map(Number);
-      if (target < new Date(sy, sm - 1, sd)) return false;
+      startDate = new Date(sy, sm - 1, sd);
+    } else if (sch.arrivalTime) {
+      const arr = new Date(sch.arrivalTime);
+      startDate = new Date(arr.getFullYear(), arr.getMonth(), arr.getDate());
     }
+    if (startDate && target < startDate) return false;
+
     if (sch.endDate) {
       const [ey, em, ed] = sch.endDate.split('-').map(Number);
       if (target > new Date(ey, em - 1, ed)) return false;
