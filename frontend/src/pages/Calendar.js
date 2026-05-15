@@ -503,13 +503,38 @@ function BottomSheet({ editingSchedule, defaultDate, onClose, onSave, isSaving }
             </button>
           </div>
 
-          {/* 날짜 입력 — 휠 피커 */}
+          {/* 날짜 입력 — collapsible 휠 피커 */}
           <div className="sf">
             <label className="sf__label">날짜</label>
-            <InlineDatePicker
-              value={form.date}
-              onChange={val => set('date', val)}
-            />
+            <div
+              className="sf__time-wrap"
+              onClick={() => setActivePicker(p => p === 'date' ? null : 'date')}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
+                <path d="M3 10h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <span className={`sf__time-val${form.date ? ' sf__time-val--set' : ''}`}>
+                {form.date
+                  ? (() => {
+                      const [y, m, d] = form.date.split('-');
+                      return `${y}년 ${m}월 ${d}일`;
+                    })()
+                  : '날짜 선택'}
+              </span>
+              <svg
+                className={`sf__time-chevron${activePicker === 'date' ? ' sf__time-chevron--open' : ''}`}
+                width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className={`sf__picker-wrap${activePicker === 'date' ? ' sf__picker-wrap--open' : ''}`}>
+              <InlineDatePicker
+                value={form.date}
+                onChange={val => set('date', val)}
+              />
+            </div>
           </div>
 
           {/* 시간 입력 — 2열 나란히 */}
