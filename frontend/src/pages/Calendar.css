@@ -500,6 +500,17 @@
   outline-offset: -2px;
 }
 
+/* 날짜 입력 — native date picker */
+.sf__date-input {
+  color-scheme: light;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+[data-theme="dark"] .sf__date-input {
+  color-scheme: dark;
+}
+
 .sf__time-wrap {
   display: flex;
   align-items: center;

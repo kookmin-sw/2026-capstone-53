@@ -269,6 +269,7 @@ function InlineTimePicker({ value, onChange }) {
 
 const EMPTY_FORM = {
   title: '',
+  date: '',                 // yyyy-mm-dd (BottomSheet 마운트 시 defaultDate로 채워짐)
   originName: '',
   originPlace: null,        // { name, lat, lng, address, placeId, provider }
   destinationName: '',
@@ -278,8 +279,8 @@ const EMPTY_FORM = {
   repeatDays: [],
 };
 
-function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
-  const [form, setForm]             = useState(EMPTY_FORM);
+function BottomSheet({ editingSchedule, defaultDate, onClose, onSave, isSaving }) {
+  const [form, setForm]             = useState({ ...EMPTY_FORM, date: defaultDate || '' });
   const [placeField, setPlaceField] = useState(null);    // 'origin' | 'destination' | null
   const [activePicker, setActivePicker] = useState(null); // 'usualDepartureTime' | 'arrivalTime' | null
   const [formError, setFormError]   = useState('');
@@ -287,8 +288,12 @@ function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
 
   useEffect(() => {
     if (editingSchedule) {
+      // 편집 모드: 기존 일정의 arrivalTime에서 yyyy-mm-dd 추출
+      const arr = editingSchedule.arrivalTime || '';
+      const editDate = arr.includes('T') ? arr.split('T')[0] : (defaultDate || '');
       setForm({
         title:              editingSchedule.title              || '',
+        date:               editDate,
         originName:         editingSchedule.originName         || '',
         originPlace:        editingSchedule.originPlace        || null,
         destinationName:    editingSchedule.destinationName    || '',
@@ -298,9 +303,9 @@ function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
         repeatDays:         [...(editingSchedule.repeatDays    || [])],
       });
     } else {
-      setForm(EMPTY_FORM);
+      setForm({ ...EMPTY_FORM, date: defaultDate || '' });
     }
-  }, [editingSchedule]);
+  }, [editingSchedule, defaultDate]);
 
   // 바텀시트 열릴 때 스크롤 잠금
   useEffect(() => {
@@ -345,6 +350,7 @@ function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
 
   const handleSave = () => {
     if (!form.title.trim()) { setFormError('일정 이름을 입력해주세요'); return; }
+    if (!form.date)         { setFormError('날짜를 선택해주세요'); return; }
     setFormError('');
     onSave(form);
   };
@@ -413,6 +419,17 @@ function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
               </svg>
               현재 위치 사용
             </button>
+          </div>
+
+          {/* 날짜 입력 */}
+          <div className="sf">
+            <label className="sf__label">날짜</label>
+            <input
+              className="sf__input sf__date-input"
+              type="date"
+              value={form.date}
+              onChange={e => set('date', e.target.value)}
+            />
           </div>
 
           {/* 시간 입력 — 2열 나란히 */}
@@ -879,19 +896,19 @@ function CalendarPage() {
     const normalizeProvider = (p) => (p === 'KAKAO_LOCAL' ? 'KAKAO' : (p ?? 'KAKAO'));
 
     // 일정 날짜 계산:
-    // - 루틴(repeatDays > 0): selDay 시작으로 daysOfWeek 중 가장 가까운 요일 (오늘 또는 미래)
-    // - 단발성: selDay 그대로
+    // - 루틴(repeatDays > 0): form.date 시작으로 daysOfWeek 중 가장 가까운 요일 (오늘 또는 미래)
+    // - 단발성: form.date 그대로
     // - 또한 도착 시각이 이미 과거면 (오늘 + 시각이 NOW 이전) 다음 같은 요일로 +7일 보정
     const [arrH, arrM] = (form.arrivalTime || '09:00').split(':').map(Number);
-    const baseDate = new Date(year, month, selDay, arrH, arrM, 0);
+    const [fy, fm, fd] = (form.date || '').split('-').map(Number);
+    const baseDate = new Date(fy, fm - 1, fd, arrH, arrM, 0);
     const now = new Date();
 
     let scheduledDate = baseDate;
     if (form.repeatDays.length > 0) {
       const allowed = new Set(form.repeatDays.map(d => DAY_NUM[d]));
-      // selDay부터 7일 안에 가장 가까운 미래(또는 오늘이면서 미래 시각) 요일 찾기
       for (let i = 0; i < 8; i++) {
-        const candidate = new Date(year, month, selDay + i, arrH, arrM, 0);
+        const candidate = new Date(fy, fm - 1, fd + i, arrH, arrM, 0);
         if (allowed.has(candidate.getDay()) && candidate > now) {
           scheduledDate = candidate;
           break;
@@ -899,7 +916,7 @@ function CalendarPage() {
       }
     } else if (scheduledDate <= now) {
       // 단발성인데 시각이 과거면 다음 날로
-      scheduledDate = new Date(year, month, selDay + 1, arrH, arrM, 0);
+      scheduledDate = new Date(fy, fm - 1, fd + 1, arrH, arrM, 0);
     }
 
     const schedY = scheduledDate.getFullYear();
@@ -1082,6 +1099,7 @@ function CalendarPage() {
       {showSheet && (
         <BottomSheet
           editingSchedule={editingSch}
+          defaultDate={`${year}-${padTwo(month + 1)}-${padTwo(selDay)}`}
           onClose={closeSheet}
           onSave={handleSave}
           isSaving={isSaving}
