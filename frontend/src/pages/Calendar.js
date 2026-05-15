@@ -206,13 +206,14 @@ const TPW_H    = 32;  // 항목 높이
 const TPW_PAD  = 68;  // 미사용 (하위 호환)
 const ITPW_PAD = 34;  // 인라인 피커 패딩 — (100 - 32) / 2 = 34, 가운데 정렬용
 
-function TimeWheelCol({ count, selected, onSelect, colRef, padHeight = TPW_PAD }) {
+function TimeWheelCol({ count, selected, onSelect, colRef, padHeight = TPW_PAD, format }) {
   const pad   = n => String(n).padStart(2, '0');
+  const fmt   = format || (i => pad(i));
   const timer = useRef(null);
 
   useEffect(() => {
     if (colRef.current) colRef.current.scrollTop = selected * TPW_H;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleScroll = () => {
     clearTimeout(timer.current);
@@ -237,7 +238,7 @@ function TimeWheelCol({ count, selected, onSelect, colRef, padHeight = TPW_PAD }
           className={`tpw__item${i === selected ? ' tpw__item--sel' : ''}`}
           onClick={() => scrollTo(i)}
         >
-          {pad(i)}
+          {fmt(i)}
         </div>
       ))}
       <div style={{ height: padHeight, flexShrink: 0 }} />
@@ -266,6 +267,80 @@ function InlineTimePicker({ value, onChange }) {
       <TimeWheelCol count={24} selected={selH} onSelect={handleH} colRef={hourRef} padHeight={ITPW_PAD} />
       <div className="itpw__sep">:</div>
       <TimeWheelCol count={60} selected={selM} onSelect={handleM} colRef={minRef} padHeight={ITPW_PAD} />
+    </div>
+  );
+}
+
+/* 인라인 날짜 휠 피커 — 년/월/일 3컬럼 휠 (시간 휠과 동일 톤) */
+function InlineDatePicker({ value, onChange }) {
+  const pad = n => String(n).padStart(2, '0');
+  const thisYear = new Date().getFullYear();
+  const years = [thisYear, thisYear + 1, thisYear + 2];
+
+  // value 파싱 (yyyy-mm-dd). 실패 시 오늘로 폴백
+  const parseValue = (v) => {
+    if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      const [y, m, d] = v.split('-').map(Number);
+      return { y, m, d };
+    }
+    const now = new Date();
+    return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+  };
+
+  const init = parseValue(value);
+  // 년 휠 범위 밖이면 가장 가까운 값으로 클램프
+  const initYIdx = Math.max(0, Math.min(years.length - 1, years.indexOf(init.y) >= 0 ? years.indexOf(init.y) : 0));
+  const [selY, setSelY] = useState(initYIdx);
+  const [selM, setSelM] = useState(init.m - 1);
+  const [selD, setSelD] = useState(init.d - 1);
+
+  const yearRef  = useRef(null);
+  const monthRef = useRef(null);
+  const dayRef   = useRef(null);
+
+  // 현재 년/월의 일 수 (윤년 자동 처리)
+  const daysInMonth = new Date(years[selY], selM + 1, 0).getDate();
+
+  // 일이 daysInMonth 범위를 벗어나면 클램프
+  useEffect(() => {
+    if (selD > daysInMonth - 1) setSelD(daysInMonth - 1);
+  }, [selY, selM, daysInMonth, selD]);
+
+  // 변경 시 onChange 호출
+  useEffect(() => {
+    const safeD = Math.min(selD, daysInMonth - 1);
+    onChange(`${years[selY]}-${pad(selM + 1)}-${pad(safeD + 1)}`);
+  }, [selY, selM, selD, daysInMonth]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="itpw itpw--date">
+      <div className="itpw__highlight" />
+      <div className="itpw__fade itpw__fade--top" />
+      <div className="itpw__fade itpw__fade--bot" />
+      <TimeWheelCol
+        count={years.length}
+        selected={selY}
+        onSelect={setSelY}
+        colRef={yearRef}
+        padHeight={ITPW_PAD}
+        format={i => String(years[i])}
+      />
+      <TimeWheelCol
+        count={12}
+        selected={selM}
+        onSelect={setSelM}
+        colRef={monthRef}
+        padHeight={ITPW_PAD}
+        format={i => pad(i + 1)}
+      />
+      <TimeWheelCol
+        count={daysInMonth}
+        selected={selD}
+        onSelect={setSelD}
+        colRef={dayRef}
+        padHeight={ITPW_PAD}
+        format={i => pad(i + 1)}
+      />
     </div>
   );
 }
@@ -428,14 +503,12 @@ function BottomSheet({ editingSchedule, defaultDate, onClose, onSave, isSaving }
             </button>
           </div>
 
-          {/* 날짜 입력 */}
+          {/* 날짜 입력 — 휠 피커 */}
           <div className="sf">
             <label className="sf__label">날짜</label>
-            <input
-              className="sf__input sf__date-input"
-              type="date"
+            <InlineDatePicker
               value={form.date}
-              onChange={e => set('date', e.target.value)}
+              onChange={val => set('date', val)}
             />
           </div>
 
