@@ -158,6 +158,31 @@ class PushControllerIntegrationTest {
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
     }
 
+    /**
+     * v1.1.32 §7.1 — endpoint scheme 가드: RFC 8030 위반 (http / file / data / javascript / 공백 포함)
+     * 입력은 400 VALIDATION_ERROR. push provider 호출 단계로 새지 않게 fail-fast.
+     */
+    @Test
+    void endpoint_https_아니면_400_VALIDATION_ERROR() throws Exception {
+        String token = signupAndGetToken("pushval03", "스킴검증");
+
+        String[] invalidEndpoints = {
+                "http://fcm.googleapis.com/fcm/send/insecure",
+                "file:///etc/passwd",
+                "data:text/plain;base64,SGVsbG8=",
+                "javascript:alert(1)",
+                "https://has space in url/endpoint"
+        };
+        for (String bad : invalidEndpoints) {
+            mockMvc.perform(post("/api/v1/push/subscribe")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(subscribeBody(bad, "BNc", "auth")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
+    }
+
     // ───── helpers ─────
 
     private String signupAndGetToken(String loginId, String nickname) throws Exception {

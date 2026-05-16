@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.31-MVP
-> **최종 수정**: 2026-05-16 (이상진 — v1.1.29 의 §9.3 "경유 노드별 알림" 롤백. 팀 피드백 #3 재해석 — "한 일정 = 1회 출발 알림 + 반복 일정은 매 occurrence 마다 알림" 으로 이미 v1.1.16 + RoutineCalculator 가 만족. multi-leg 데이터 모델/페이로드/마이그레이션 전부 제거, V5 로 컬럼 drop.)
+> **버전**: v1.1.32-MVP
+> **최종 수정**: 2026-05-16 (이상진 — §7.1 `endpoint` scheme 가드 추가. `PushSubscribeRequest.endpoint` 에 `@Pattern(^https://\S+$)` 강제 — RFC 8030 정합 + `http://`/`file://`/`data:`/`javascript:`/공백 포함 입력을 push provider 호출 전 `400 VALIDATION_ERROR` 로 fail-fast. 응답 schema field 표 + 에러 표 확장 동반.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -41,6 +41,7 @@
 | **v1.1.23** | **2026-05-11** | **§1.6 `RESOURCE_NOT_FOUND` ErrorCode 추가 (이슈 #33). 매핑되지 않은 URL 호출 시 Spring 6.x 가 `NoResourceFoundException` throw → `GlobalExceptionHandler` catch-all 이 잡아 500 `INTERNAL_SERVER_ERROR` 로 폴백하던 결함 fix. 신규 핸들러는 404 + WARN 로깅 (`resourcePath` 한 줄, 스택 미포함 — 4xx 류 ERROR 가 운영 false alarm 의 원인이었음). `NoHandlerFoundException` 도 동시 매핑 (현 application.yml 미설정이라 미발생, future-proof). 405 `HttpRequestMethodNotSupportedException` 잘못 매핑 (400 → 405) 은 별 이슈로 분리.** |
 | **v1.1.22** | **2026-05-11** | **§3.3 회원 탈퇴 soft delete → hard delete 전환 (이슈 #31). soft delete + `login_id` UNIQUE 충돌로 동일 loginId 재가입 불가하던 버그 해소. DB FK ON DELETE CASCADE 가 refresh_token / schedule / push_subscription row 일괄 삭제 — 코드 cascade 메서드 (`ScheduleRepository.softDeleteByMemberId` / `PushSubscriptionRepository.revokeAllByMemberId`) 제거. push_log 는 FK 비대칭 동작 — `schedule_id` ON DELETE SET NULL (다른 회원의 schedule 삭제 시 이력 보존), `subscription_id` ON DELETE CASCADE (탈퇴 회원 본인의 발송 이력은 동반 삭제, 회원 데이터 완전 삭제 정책). schedule 개별 DELETE / push subscription unsubscribe 는 별개 정책으로 soft delete/revoke 유지. 멱등성 비고 (v1.1.7) 그대로 — 두 번째 DELETE 도 401 UNAUTHORIZED (member row 없음). V3 마이그레이션 (`V3__member_drop_deleted_at.sql`) 적용 시 옛 soft-deleted row 정리 (FK CASCADE 발동) + `deleted_at` 컬럼 drop.** |
 | **v1.1.24** | **2026-05-12** | **§1.9 CORS 정책 섹션 신규 추가 — `CorsConfigurationSource` Bean 등록 (`common.security.CorsProperties` + `SecurityConfig`). 화이트리스트 default `http://localhost:3000` (yml fallback, env `CORS_ALLOWED_ORIGINS` 콤마 구분 override), `allowCredentials=false` (JWT stateless 정합), `allowedHeaders="*"` (`Content-Type` / `Authorization` 커버), `maxAge=1800`. PR #29 (frontend 통합) unblock. 운영 도메인은 별 task (외부 노출) 진입 시 `CORS_ALLOWED_ORIGINS` env 로 보강.** |
+| **v1.1.32** | **2026-05-16** | **§7.1 `endpoint` scheme 가드 (이상진) — `PushSubscribeRequest.endpoint` 에 `@Pattern("^https://\\S+$")` 추가. 배경: Web Push 표준 RFC 8030 은 push service endpoint 가 HTTPS 임을 요구하는데 기존 `@NotBlank + @Size(max=2048)` 만으로는 클라이언트가 실수/악의로 보낸 `http://` / `file://` / `data:` / `javascript:` / 공백 포함 URL 이 통과해 push provider 호출 단계에서 NPE/`MalformedURLException` 류로 500 `INTERNAL_SERVER_ERROR` 누출. fail-fast 로 `400 VALIDATION_ERROR` 변환. 정규식은 scheme 강제 + 공백 차단만 (host/path 형식은 의도적으로 느슨 — IDN/IPv6/미래 provider 호스트명 silent 차단 회피). §7.1 본문에 응답 schema field 표 (`data.subscriptionId` `sub_` + ULID26 = 30char) + 에러 표에 `400 VALIDATION_ERROR` (scheme) / `403 FORBIDDEN_RESOURCE` 명시 동반. 회귀 가드: `PushControllerIntegrationTest.endpoint_https_아니면_400_VALIDATION_ERROR` (5 invalid scheme cases).** |
 | **v1.1.31** | **2026-05-16** | **v1.1.29 §9.3 "경유 노드별 알림" 롤백 (이상진) — 팀 피드백 #3 재해석 후 v1.1.29 도입한 multi-leg reminder 모델/페이로드를 전부 제거. 실제 요구는 "여러 일정이 있으면 각 일정마다 출발 전 알림" + "N일/특정 요일 반복 일정도 매 occurrence 마다 알림" 이었고, 이는 v1.1.16 분리 패턴 + `RoutineCalculator.advanceToNextOccurrence` (§9.2) 가 이미 만족. multi-leg 는 한 일정 안에서 환승마다 알람을 추가하는 모델이라 요구와 무관 — 잉여로 판단 후 제거. 변경: `ReminderLeg` / `ReminderLegPlanner` 삭제, `Schedule` 의 `reminder_legs_json` / `reminder_leg_index` 필드+메서드 (`applyReminderLegs` / `advanceToNextLeg` / `clearReminderLegs`) 삭제, `PushReminderTransactional.advanceOrTerminate` 를 ONCE 종결/occurrence advance 단일 분기로 환원, `PushReminderDispatcher.buildPayloadJson` 에서 `legIndex/legMode/legFrom/legTo/legLineName` 키 제거 + `buildBody` 의 leg 합류 제거, `DispatchContext.currentLeg` 제거, `OdsayRouteService.applyToSchedule` 에서 leg 적용 호출 제거. DB: V4 (`reminder_legs_json` / `reminder_leg_index` 컬럼) 는 forward-only 원칙상 파일은 유지하되 V5 (`V5__drop_schedule_reminder_legs.sql`) 가 즉시 drop — dev DB 가 V4 를 적용한 환경도 schema_history 손상 없이 정합. §9.3 본문은 통째로 제거.** |
 | **v1.1.30** | **2026-05-15** | **§8.1/§8.2 응답 `provider` 정규화 (이상진) — 기존엔 캐시 row 의 세분 식별자 `KAKAO_LOCAL` 을 응답에 그대로 노출하던 결함. §8.1 v1.1.4 변환표상 `Place.provider` 도메인 ENUM 은 `KAKAO` 인데 §8.1/§8.2 응답에서만 `KAKAO_LOCAL` 이 노출되어 프론트 `PlaceProvider` typedef (`NAVER/KAKAO/ODSAY/MANUAL`) 와 불일치 → 클라이언트가 후보 선택 후 schedule 저장 단계에서 별도 변환을 해야 하는 부담. 변환 책임을 응답 단계로 끌어올려 (`GeocodeResponse.from` / `GeocodeService.searchCandidates`) frontend MSW 목 (`provider: 'KAKAO'`) 과도 자연 정합. DB 캐시 컬럼 / `GeocodeCacheProvider` ENUM 은 그대로 — 내부 식별자라 API 표면에 노출 안 함. 부수 fix: javadoc dead link `GeocodeSearchService` → `GeocodeService#searchCandidates` (`GeocodeCandidate`, `GeocodeSearchResponse`), 버전 drift "v1.1.28 이전" → "v1.1.29 이전" (`DispatchContext`, `PushReminderDispatcher`), §9.3 호환성 cutoff "v1.1.27 이전" → "v1.1.29 이전" (legs 컬럼 도입 시점이 v1.1.29 인데 본문이 v1.1.27 을 언급하던 drift), `GeocodeService.searchCandidates` x/y null skip 시 `log.debug` 보강. 명세 §8.1 v1.1.4 변환표 갱신 — 변환 책임 위치 명시. 회귀 가드: `GeocodeControllerIntegrationTest` 어설션 `KAKAO_LOCAL` → `KAKAO`.** |
 | **v1.1.29** | **2026-05-15** | **§9.3 신규 + §11.3 `Schedule` 컬럼 2개 추가 — 경유 노드별 알림 (팀 피드백 #3 "경유 노드별 N분 전 알림"). 기존 모델 (한 일정 = 1회 알림, 권장 출발시각 N분 전) 을 환승 포함 다중 알림으로 확장. ODsay route segments → `ReminderLegPlanner` 가 각 segment 시작 시각의 N분 전을 `ReminderLeg` 배열로 계산해 `schedule.reminder_legs_json` 에 저장 (V4 migration). `schedule.reminder_leg_index` 가 현재 발송 대기 leg 추적, `reminder_at` 은 denormalize 된 "현재 leg fireAt" — 스케줄러 폴링 쿼리 변경 X (`reminder_at <= now` 그대로). dispatcher advance: leg index 우선 advance (다음 leg fireAt 으로 `reminder_at` 갱신), 마지막 leg 도달 시 기존 occurrence 종결/advance 흐름. payload 에 현재 leg 의 `legIndex/legMode/legFrom/legTo/legLineName` 키 추가 — 환승 boarding 알림은 본문에 "○○에서 △△ 승차" 합류. v1.1.27 이전 schedule / ODsay 실패 fallback (legs JSON null) 은 기존 단발 알림 흐름과 동치 (회귀 안전망). (이상진).** |
@@ -994,7 +995,7 @@ Web Push 표준 PushSubscription 객체를 등록.
 
 | 필드 | 타입 | 필수 | 설명 |
 |---|---|---|---|
-| `endpoint` | string | Y | 브라우저 푸시 서버 URL. **max 2048 char** (v1.1.15 — FCM ~200 / Apple Web Push ~280 / Mozilla autopush ~400 / Microsoft WNS ~2048 모두 안전 마진). RFC 3986 ASCII. |
+| `endpoint` | string | Y | 브라우저 푸시 서버 URL. **max 2048 char** (v1.1.15 — FCM ~200 / Apple Web Push ~280 / Mozilla autopush ~400 / Microsoft WNS ~2048 모두 안전 마진). RFC 3986 ASCII. **v1.1.32 — scheme 가드: `^https://\S+$` 정규식 강제** (`http://`, `file://`, `data:`, `javascript:` 등 비-HTTPS 또는 공백 포함 입력은 `400 VALIDATION_ERROR`). Web Push 표준 RFC 8030 정합 + push provider 호출 단계 unchecked 예외 방지. host/path 형식은 의도적으로 느슨 — IDN / IPv6 / 미래 provider 호스트명을 silent 차단하지 않기 위함. |
 | `keys.p256dh` | string | Y | P-256 ECDH 공개키. max 255 char. |
 | `keys.auth` | string | Y | 인증 비밀. max 255 char. |
 
@@ -1008,13 +1009,18 @@ Web Push 표준 PushSubscription 객체를 등록.
 }
 ```
 
+| 필드 | 타입 | 설명 |
+|---|---|---|
+| `data.subscriptionId` | string | 외부 노출 ID. §1.7 규약상 `sub_` prefix + ULID 26자 (총 30자). 이후 §7.2 unsubscribe path 파라미터로 사용. |
+
 #### 비고
-- 동일 `endpoint`로 재구독 시 기존 row의 `revoked_at`을 `NULL`로 갱신 (재활성화)
+- 동일 `endpoint`로 재구독 시 기존 row의 `revoked_at`을 `NULL`로 갱신 (재활성화) — 이때도 `subscriptionId` 는 기존 ULID 그대로 (회전 X)
 - `endpoint`는 unique key
 - `endpoint` 컬럼은 `VARCHAR(2048) CHARACTER SET ascii` (v1.1.15) — InnoDB UNIQUE INDEX max key length (utf8mb4 환경 3072 byte) 제약 + URL 표준 ASCII 정합. 비ASCII endpoint 는 spec 위반.
 
 #### 에러
-- `400 VALIDATION_ERROR`
+- `400 VALIDATION_ERROR` — 필드 누락 / `endpoint` 길이 초과 / `endpoint` scheme 위반 (v1.1.32)
+- `403 FORBIDDEN_RESOURCE` — 다른 회원이 이미 동일 `endpoint` 로 구독한 경우 (§7.1 v1.1.13)
 
 #### DB 매핑
 - `push_subscription` UPSERT (endpoint 기준)
