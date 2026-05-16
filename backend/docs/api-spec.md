@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.34-MVP
-> **최종 수정**: 2026-05-16 (이상진 — §4.1 `nearestSchedule` corrupted coordinate graceful 직렬화. JPA `nullable=false` 우회 (직접 SQL / 마이그레이션) 로 흘러들어온 null 좌표 schedule 이 `IllegalStateException` 으로 영구 500 일으키던 결함을 mapper 단계 null 반환 + WARN 격하로 차단.)
+> **버전**: v1.1.35-MVP
+> **최종 수정**: 2026-05-16 (이상진 — §7 Push 보안/정합성 3건 묶음. (1) PushSender 운영 로그의 endpoint 전체 URL 마스킹 (path = 발송 권한 자격 누출 차단), (2) UPSERT race 1회 retry 후 실패 시 신규 `PUSH_SUBSCRIBE_CONFLICT` 503 (기존엔 500 으로 unrecoverable bug 오인), (3) `DELETE /push/subscribe/{id}` path variable strict ULID26 + prefix 검증.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -41,6 +41,7 @@
 | **v1.1.23** | **2026-05-11** | **§1.6 `RESOURCE_NOT_FOUND` ErrorCode 추가 (이슈 #33). 매핑되지 않은 URL 호출 시 Spring 6.x 가 `NoResourceFoundException` throw → `GlobalExceptionHandler` catch-all 이 잡아 500 `INTERNAL_SERVER_ERROR` 로 폴백하던 결함 fix. 신규 핸들러는 404 + WARN 로깅 (`resourcePath` 한 줄, 스택 미포함 — 4xx 류 ERROR 가 운영 false alarm 의 원인이었음). `NoHandlerFoundException` 도 동시 매핑 (현 application.yml 미설정이라 미발생, future-proof). 405 `HttpRequestMethodNotSupportedException` 잘못 매핑 (400 → 405) 은 별 이슈로 분리.** |
 | **v1.1.22** | **2026-05-11** | **§3.3 회원 탈퇴 soft delete → hard delete 전환 (이슈 #31). soft delete + `login_id` UNIQUE 충돌로 동일 loginId 재가입 불가하던 버그 해소. DB FK ON DELETE CASCADE 가 refresh_token / schedule / push_subscription row 일괄 삭제 — 코드 cascade 메서드 (`ScheduleRepository.softDeleteByMemberId` / `PushSubscriptionRepository.revokeAllByMemberId`) 제거. push_log 는 FK 비대칭 동작 — `schedule_id` ON DELETE SET NULL (다른 회원의 schedule 삭제 시 이력 보존), `subscription_id` ON DELETE CASCADE (탈퇴 회원 본인의 발송 이력은 동반 삭제, 회원 데이터 완전 삭제 정책). schedule 개별 DELETE / push subscription unsubscribe 는 별개 정책으로 soft delete/revoke 유지. 멱등성 비고 (v1.1.7) 그대로 — 두 번째 DELETE 도 401 UNAUTHORIZED (member row 없음). V3 마이그레이션 (`V3__member_drop_deleted_at.sql`) 적용 시 옛 soft-deleted row 정리 (FK CASCADE 발동) + `deleted_at` 컬럼 drop.** |
 | **v1.1.24** | **2026-05-12** | **§1.9 CORS 정책 섹션 신규 추가 — `CorsConfigurationSource` Bean 등록 (`common.security.CorsProperties` + `SecurityConfig`). 화이트리스트 default `http://localhost:3000` (yml fallback, env `CORS_ALLOWED_ORIGINS` 콤마 구분 override), `allowCredentials=false` (JWT stateless 정합), `allowedHeaders="*"` (`Content-Type` / `Authorization` 커버), `maxAge=1800`. PR #29 (frontend 통합) unblock. 운영 도메인은 별 task (외부 노출) 진입 시 `CORS_ALLOWED_ORIGINS` env 로 보강.** |
+| **v1.1.35** | **2026-05-16** | **§7 Push 도메인 보안/정합성 3건 묶음 (이상진) — **(1) `PushSender` 로그 endpoint URL 마스킹**: 4xx/5xx 운영 로그가 `endpoint` 전체를 그대로 찍던 결함. push subscription resource path 는 push provider 가 발급한 per-device token (RFC 8030 §5) 이라 그 자체가 발송 권한 자격 — 로그 노출은 다른 회원에게 푸시 보낼 수 있는 자격 누출. `maskEndpoint(String)` 헬퍼 신설 (scheme+host[:port] 만 보존, 파싱 실패 시 `(invalid)` — 절대 원본 fallback X). 정상 provider host (FCM/APNs/Mozilla/WNS) 별 호출 분류는 그대로 가능. **(2) UPSERT race ErrorCode 정밀화**: `PushService.upsertWithRetry` 가 1회 retry 후에도 `DuplicateKeyException`/`TransientDataAccessException` 잡힐 때 기존엔 `ErrorCode.INTERNAL_SERVER_ERROR` (500) 로 던져 클라이언트가 unrecoverable bug 로 오인하던 결함. 본질적으로 "일시적 contention, 잠시 후 재시도" 상태라 신규 `ErrorCode.PUSH_SUBSCRIBE_CONFLICT` (503) 로 격상 → 클라이언트가 retry 가능. 로그는 ERROR 유지 (빈번 시 동시성 재검토 신호). §1.6 ErrorCode 표 + §7.1 에러 표에 신규 코드 명시. **(3) `DELETE /push/subscribe/{subscriptionId}` strict ULID 검증**: 기존엔 `IdPrefixes.strip` 로 silent strip 후 DB lookup 까지 흘려보내 형식 자체가 위반된 입력도 `404 SUBSCRIPTION_NOT_FOUND` 로 응답되어 클라이언트 진단 모호 + 무의미한 DB quota 소비. `IdPrefixes.stripAndValidateUlid` 신설 (prefix 필수 + 본문 Crockford Base32 `[0-9A-HJKMNP-TV-Z]{26}` 정합 검증), 위반 시 `400 VALIDATION_ERROR`. 회귀 가드: `PushSenderTest` (마스킹 6 case, null/blank/invalid 원본 누출 차단 어설션 포함), `PushControllerIntegrationTest.잘못된_형식_subscriptionId_해제시_400_VALIDATION_ERROR` (prefix 누락 / 잘못된 prefix / 길이 위반 / 금지문자 I·O / 소문자 7 case).** |
 | **v1.1.34** | **2026-05-16** | **§4.1 `nearestSchedule` corrupted coordinate graceful 직렬화 (이상진) — `NearestScheduleDto.from(Schedule)` 가 `originLat/Lng/destinationLat/Lng` 중 하나라도 null 인 경우 기존엔 `IllegalStateException` 을 throw 해 `GlobalExceptionHandler.handleUnknown` 이 500 `INTERNAL_SERVER_ERROR` 로 떨어뜨렸음. JPA `@Column(nullable=false)` + `PlaceDto` Bean Validation (v1.1.33) 가 일반 경로의 boundary 가드라 정상 흐름에선 발생할 수 없지만, 직접 SQL / 마이그레이션 사고 / 외부 도구 INSERT 등으로 corrupted row 가 1건이라도 흘러들어오면 그 회원의 `/main` 이 영구 500 으로 죽어 첫 화면 진입 자체 불가하던 critical 결함. mapper 가 null 반환 + WARN 로그 (`scheduleUid`) 격하 → caller (`MainService.resolveNearest`) 의 `Optional.map(NearestScheduleDto::from)` 가 `Optional.empty()` 로 흡수 → 응답 `nearestSchedule=null` graceful 직렬화 (명세 §4.1 의 "일정 없음" 직렬화 경로와 정합). 운영 진단 가능성은 WARN 의 `scheduleUid` 로 보존 — 모니터링이 WARN 패턴 매칭으로 corrupted row alert 가능. 회귀 가드: `NearestScheduleDtoTest` (정상 변환 + 4 null 좌표 케이스 각각 null 반환).** |
 | **v1.1.33** | **2026-05-16** | **§11.1 `Place` lat/lng 범위 가드 + ODsay/TMAP 좌표 로그 PII 마스킹 (이상진) — (1) `PlaceDto.lat` 에 `@DecimalMin(-90)`/`@DecimalMax(90)`, `PlaceDto.lng` 에 `@DecimalMin(-180)`/`@DecimalMax(180)` 추가. 기존엔 `@NotNull BigDecimal` 만 두어 잘못된 좌표가 ODsay `searchPubTransPathT` 외부 호출 단계까지 흘러가 5xx/빈 경로 응답이 우리쪽 500 으로 누출되던 결함. v1.1.19 `GeocodeRequest` 진입점 검증 패턴 정합 → `400 VALIDATION_ERROR` fail-fast. (2) `OdsayClient.searchPubTransPathT` / `TmapClient.routesPedestrian` 의 `log.debug` 좌표 출력에 `%.1f*` 마스킹 적용 (~10km 도시급 정확도). 운영 DEBUG 가 진단 목적으로 일시 켜진 환경에서 사용자 정확 위치 PII 누출 차단. 디버깅 가치는 보존 (호출 라우팅 / 권역 식별 가능). 회귀 가드: `ScheduleControllerIntegrationTest.create_whenCoordOutOfRange_returns400_VALIDATION_ERROR` (origin lat±91 / destination lng±181 4 cases, `RouteService` 미호출 검증).** |
 | **v1.1.32** | **2026-05-16** | **§7.1 `endpoint` scheme 가드 (이상진) — `PushSubscribeRequest.endpoint` 에 `@Pattern("^https://\\S+$")` 추가. 배경: Web Push 표준 RFC 8030 은 push service endpoint 가 HTTPS 임을 요구하는데 기존 `@NotBlank + @Size(max=2048)` 만으로는 클라이언트가 실수/악의로 보낸 `http://` / `file://` / `data:` / `javascript:` / 공백 포함 URL 이 통과해 push provider 호출 단계에서 NPE/`MalformedURLException` 류로 500 `INTERNAL_SERVER_ERROR` 누출. fail-fast 로 `400 VALIDATION_ERROR` 변환. 정규식은 scheme 강제 + 공백 차단만 (host/path 형식은 의도적으로 느슨 — IDN/IPv6/미래 provider 호스트명 silent 차단 회피). §7.1 본문에 응답 schema field 표 (`data.subscriptionId` `sub_` + ULID26 = 30char) + 에러 표에 `400 VALIDATION_ERROR` (scheme) / `403 FORBIDDEN_RESOURCE` 명시 동반. 회귀 가드: `PushControllerIntegrationTest.endpoint_https_아니면_400_VALIDATION_ERROR` (5 invalid scheme cases).** |
@@ -155,6 +156,7 @@ Authorization: Bearer {accessToken}
 | 404 | `SUBSCRIPTION_NOT_FOUND` | 푸시 구독 없음 |
 | **404** | **`RESOURCE_NOT_FOUND`** | **매핑되지 않은 URL 경로 호출. `GlobalExceptionHandler` 가 `NoResourceFoundException` / `NoHandlerFoundException` 을 404 로 변환 — v1.1.23 추가** |
 | 409 | `LOGIN_ID_DUPLICATED` | 로그인 ID 중복 |
+| **503** | **`PUSH_SUBSCRIBE_CONFLICT`** | **푸시 구독 UPSERT race 가 1회 retry 후에도 해소 안 됨 (일시적 contention) — v1.1.35 추가** |
 | 502 | `EXTERNAL_ROUTE_API_FAILED` | ODsay 호출 실패 (5xx / 네트워크 장애 / 일반 4xx — 401/403 제외) |
 | **503** | **`EXTERNAL_AUTH_MISCONFIGURED`** | **외부 API 키 미설정 또는 인증 실패. 운영자 조치 필요 (일반 외부장애와 구분) — v1.1.4 추가** |
 | 503 | `MAP_PROVIDER_UNAVAILABLE` | 지도 SDK 설정 조회 불가 |
@@ -1024,6 +1026,7 @@ Web Push 표준 PushSubscription 객체를 등록.
 #### 에러
 - `400 VALIDATION_ERROR` — 필드 누락 / `endpoint` 길이 초과 / `endpoint` scheme 위반 (v1.1.32)
 - `403 FORBIDDEN_RESOURCE` — 다른 회원이 이미 동일 `endpoint` 로 구독한 경우 (§7.1 v1.1.13)
+- `503 PUSH_SUBSCRIBE_CONFLICT` — UPSERT race 가 1회 retry 후에도 해소 안 됨 (v1.1.35). 일시적 contention, 클라이언트는 잠시 후 재시도 권장
 
 #### DB 매핑
 - `push_subscription` UPSERT (endpoint 기준)
@@ -1036,13 +1039,14 @@ Web Push 표준 PushSubscription 객체를 등록.
 `DELETE /push/subscribe/{subscriptionId}` — 인증 필요
 
 #### Path
-- `subscriptionId`
+- `subscriptionId` — **v1.1.35** `sub_` prefix + Crockford Base32 26자 ULID 본문 strict 검증. 위반 시 `400 VALIDATION_ERROR` (DB lookup 까지 흘려보내지 않음)
 
 요청 바디 없음.
 
 #### Response — `204 No Content`
 
 #### 에러
+- `400 VALIDATION_ERROR` — `subscriptionId` 형식 위반 (prefix 누락 / 본문 길이 ≠ 26 / 금지문자 `I/L/O/U` / 소문자) (v1.1.35)
 - `404 SUBSCRIPTION_NOT_FOUND`
 - `403 FORBIDDEN_RESOURCE`
 

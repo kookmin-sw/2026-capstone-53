@@ -1,5 +1,7 @@
 package com.todayway.backend.push.controller;
 
+import com.todayway.backend.common.exception.BusinessException;
+import com.todayway.backend.common.exception.ErrorCode;
 import com.todayway.backend.common.response.ApiResponse;
 import com.todayway.backend.common.web.CurrentMember;
 import com.todayway.backend.common.web.IdPrefixes;
@@ -44,7 +46,14 @@ public class PushController {
     public ResponseEntity<Void> unsubscribe(
             @CurrentMember String memberUid,
             @PathVariable String subscriptionId) {
-        pushService.unsubscribe(memberUid, IdPrefixes.strip(subscriptionId, IdPrefixes.SUBSCRIPTION));
+        // v1.1.35 — strict 검증: `sub_` prefix + ULID26 본문 형식 둘 다 만족해야 통과.
+        // 위반 시 400 VALIDATION_ERROR. silent strip 으로 DB lookup 까지 흘려보내면 형식 자체가
+        // 잘못된 입력도 404 SUBSCRIPTION_NOT_FOUND 로 응답해 클라이언트 진단 모호 + quota 낭비.
+        String subscriptionUid = IdPrefixes.stripAndValidateUlid(subscriptionId, IdPrefixes.SUBSCRIPTION);
+        if (subscriptionUid == null) {
+            throw new BusinessException(ErrorCode.VALIDATION_ERROR);
+        }
+        pushService.unsubscribe(memberUid, subscriptionUid);
         return ResponseEntity.noContent().build();
     }
 }

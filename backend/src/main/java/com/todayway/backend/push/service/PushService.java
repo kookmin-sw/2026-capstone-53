@@ -71,8 +71,13 @@ public class PushService {
             try {
                 return upserter.upsert(memberId, req, userAgent);
             } catch (DuplicateKeyException | TransientDataAccessException retryEx) {
-                log.error("Push subscribe UPSERT inconsistency after retry", retryEx);
-                throw new BusinessException(ErrorCode.INTERNAL_SERVER_ERROR);
+                // v1.1.35 — 기존엔 INTERNAL_SERVER_ERROR (500) 로 던져 클라이언트가 unrecoverable bug
+                // 로 오인하던 결함. 1회 retry 후에도 잡히는 DuplicateKey/Transient 는 본질적으로
+                // "일시적 contention, 잠시 후 재시도" 상태라 503 SERVICE_UNAVAILABLE 시맨틱이 맞다.
+                // 로그는 ERROR 유지 — 빈번하게 찍히면 동시성 처리 재검토 필요.
+                log.error("Push subscribe UPSERT inconsistency after retry — cause={}",
+                        retryEx.getClass().getSimpleName(), retryEx);
+                throw new BusinessException(ErrorCode.PUSH_SUBSCRIBE_CONFLICT);
             }
         }
     }

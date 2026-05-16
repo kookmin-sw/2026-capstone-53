@@ -20,6 +20,7 @@ public enum ErrorCode {
     SUBSCRIPTION_NOT_FOUND(HttpStatus.NOT_FOUND, "푸시 구독을 찾을 수 없습니다"),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "요청한 자원을 찾을 수 없습니다"),
     LOGIN_ID_DUPLICATED(HttpStatus.CONFLICT, "이미 사용 중인 로그인 ID입니다"),
+    PUSH_SUBSCRIBE_CONFLICT(HttpStatus.SERVICE_UNAVAILABLE, "푸시 구독이 일시적 충돌로 실패했습니다. 잠시 후 다시 시도해 주세요"),
     EXTERNAL_ROUTE_API_FAILED(HttpStatus.BAD_GATEWAY, "경로 API 호출에 실패했습니다"),
     EXTERNAL_AUTH_MISCONFIGURED(HttpStatus.SERVICE_UNAVAILABLE, "외부 API 인증 설정에 문제가 있습니다"),
     MAP_PROVIDER_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "지도 설정을 가져올 수 없습니다"),

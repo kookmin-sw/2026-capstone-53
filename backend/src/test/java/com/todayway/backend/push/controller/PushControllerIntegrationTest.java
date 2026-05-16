@@ -120,10 +120,38 @@ class PushControllerIntegrationTest {
     void 존재하지_않는_subscriptionId_해제시_404_SUBSCRIPTION_NOT_FOUND() throws Exception {
         String token = signupAndGetToken("pushrm404", "없는구독");
 
-        mockMvc.perform(delete("/api/v1/push/subscribe/sub_01HXX0000NOEXIST123456ABCDE")
+        // v1.1.35 — strict ULID 검증 통과는 시키되 DB 에 없는 값. Crockford Base32 alphabet
+        // (0-9 A-H J K M N P-T V-Z) 26자 정합. 기존엔 27자 + 금지문자 (I,O) 포함이었는데
+        // strict 검증 도입 후 400 으로 떨어지는 무관한 신호가 되어 회귀 의도 변형.
+        mockMvc.perform(delete("/api/v1/push/subscribe/sub_01HXXAAAAAAAAAAAAAAAAAAAAA")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("SUBSCRIPTION_NOT_FOUND"));
+    }
+
+    /**
+     * v1.1.35 — strict 검증: prefix 누락 / ULID 본문 길이 / 금지문자 (I,L,O,U) / 소문자 모두 400.
+     * 이전엔 silent strip 으로 DB lookup 까지 흘러가 형식 위반 입력도 404 로 응답되던 결함.
+     */
+    @Test
+    void 잘못된_형식_subscriptionId_해제시_400_VALIDATION_ERROR() throws Exception {
+        String token = signupAndGetToken("pushrm400", "형식검증");
+
+        String[] invalidIds = {
+                "01HXXAAAAAAAAAAAAAAAAAAAAA",                  // prefix 누락
+                "sch_01HXXAAAAAAAAAAAAAAAAAAAAA",              // 잘못된 prefix
+                "sub_01HXX",                                   // 너무 짧음
+                "sub_01HXXAAAAAAAAAAAAAAAAAAAAAA",             // 너무 김 (27자)
+                "sub_01HXXIIIIIIIIIIIIIIIIIIIIII",             // I 금지문자
+                "sub_01HXXOOOOOOOOOOOOOOOOOOOOOO",             // O 금지문자
+                "sub_01hxxaaaaaaaaaaaaaaaaaaaaaa"              // 소문자
+        };
+        for (String bad : invalidIds) {
+            mockMvc.perform(delete("/api/v1/push/subscribe/" + bad)
+                            .header("Authorization", "Bearer " + token))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
     }
 
     @Test

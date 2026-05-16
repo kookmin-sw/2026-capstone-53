@@ -13,6 +13,12 @@ public final class IdPrefixes {
     public static final String SCHEDULE = "sch_";
     public static final String SUBSCRIPTION = "sub_";
 
+    /**
+     * Crockford Base32 정규 alphabet (소문자 매칭 X — {@link com.todayway.backend.common.ulid.UlidGenerator}
+     * 가 항상 대문자 26자 생성). I/L/O/U 제외 (가독성 + 모호자 회피) — RFC 호환 ULID 정합.
+     */
+    public static final java.util.regex.Pattern ULID_BODY = java.util.regex.Pattern.compile("^[0-9A-HJKMNP-TV-Z]{26}$");
+
     private IdPrefixes() {
     }
 
@@ -27,5 +33,22 @@ public final class IdPrefixes {
             return externalId.substring(prefix.length());
         }
         return externalId;
+    }
+
+    /**
+     * v1.1.35 — strict 검증 변형. {@code prefix} 가 있어야 하고 (없으면 fail), prefix 제거 후 본문이
+     * Crockford Base32 26자 ULID 형식이어야 한다. 부적합 시 {@code null} 반환 — caller 가
+     * {@code 400 VALIDATION_ERROR} 로 변환. 형식 위반 입력이 DB lookup 까지 흘러가 silent 404 가
+     * 되는 정보 누출 / quota 낭비 차단.
+     */
+    public static String stripAndValidateUlid(String externalId, String prefix) {
+        if (externalId == null || !externalId.startsWith(prefix)) {
+            return null;
+        }
+        String body = externalId.substring(prefix.length());
+        if (!ULID_BODY.matcher(body).matches()) {
+            return null;
+        }
+        return body;
     }
 }
