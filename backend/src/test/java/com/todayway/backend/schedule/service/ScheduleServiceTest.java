@@ -118,7 +118,8 @@ class ScheduleServiceTest {
                 "출발", BigDecimal.ZERO, BigDecimal.ZERO, null, null, null,
                 "도착", BigDecimal.ZERO, BigDecimal.ZERO, null, null, null,
                 pastArrival.minusMinutes(30), pastArrival, 5,
-                null, null, null
+                null, null, null,
+                null, null
         );
     }
 
@@ -129,7 +130,8 @@ class ScheduleServiceTest {
                 "출발", BigDecimal.ZERO, BigDecimal.ZERO, null, null, null,
                 "도착", BigDecimal.ZERO, BigDecimal.ZERO, null, null, null,
                 futureArrival.minusMinutes(30), futureArrival, 5,
-                null, null, null
+                null, null, null,
+                null, null
         );
     }
 }

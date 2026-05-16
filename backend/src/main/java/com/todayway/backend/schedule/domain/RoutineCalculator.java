@@ -33,12 +33,23 @@ public class RoutineCalculator {
 
         if (type == null || type == RoutineType.ONCE) return null;
 
-        return switch (type) {
+        OffsetDateTime next = switch (type) {
             case DAILY -> current.plusDays(1);
             case WEEKLY -> nextWeeklyOccurrence(current, s.getDaysOfWeekSet());
             case CUSTOM -> nextCustomOccurrence(current, s.getRoutineIntervalDays());
             case ONCE -> null;
         };
+
+        // v1.1.40 T4-Q3 — endDate 가드. 다음 occurrence 가 endDate 보다 미래면 null 반환
+        // → §9.2 advance 종료 → caller 가 reminder_at NULL 로 dormant 처리 ("자동 삭제 X" 슬랙 #2 정합).
+        // endDate KST 기준 — schedule.arrival_time 의 KST 변환 후 LocalDate 비교 (v1.1.25 패턴 정합).
+        if (next != null && s.getRoutineEndDate() != null) {
+            java.time.LocalDate nextKstDate = next.atZoneSameInstant(KST).toLocalDate();
+            if (nextKstDate.isAfter(s.getRoutineEndDate())) {
+                return null;
+            }
+        }
+        return next;
     }
 
     private OffsetDateTime nextWeeklyOccurrence(OffsetDateTime current, Set<DayOfWeek> days) {
