@@ -59,32 +59,72 @@ function markerStop(stopName, distText) {
 }
 
 function KakaoMap({ center, myLocation, stops, segments }) {
-  const mapRef  = useRef(null);
+  const mapRef         = useRef(null);
+  const mapInstanceRef = useRef(null);   // 카카오 Map 인스턴스 — 마운트 동안 재사용
+  const layersRef      = useRef([]);     // 레이어(오버레이/폴리라인/원) — 재그리기 전 정리
+  const lastContentKey = useRef(null);   // 동일 콘텐츠 리렌더 스킵
+  // 애니메이션 핸들: 각 애니메이션마다 새 객체를 발급하고 closure가 캡처.
+  // effect cleanup이 아니라, 콘텐츠가 실제로 바뀌거나 unmount될 때만 cancelled=true 로 전환.
+  const animHandleRef  = useRef({ rafId: null, cancelled: false });
   const [mapReady, setMapReady] = useState(null);
 
   useEffect(() => {
-    let cancelled = false;
-    let rafId     = null;
+    let initCancelled = false;   // 이 effect run 한정 — kakao SDK 로딩/redraw race 가드
+    let pollTimer = null;
+    let timeoutTimer = null;
 
-    function initMap() {
+    function initOrRedraw() {
       const kakao = window.kakao;
       if (!kakao || !kakao.maps) { setMapReady(false); return; }
 
       kakao.maps.load(() => {
-        if (cancelled || !mapRef.current) return;
+        if (initCancelled || !mapRef.current) return;
 
-        const map = new kakao.maps.Map(mapRef.current, {
-          center: new kakao.maps.LatLng(center.lat, center.lng),
-          level: 5,
+        // 동일 콘텐츠로 인한 부모 리렌더는 스킵 — 사용자의 줌/팬 + 진행 중인 애니메이션 보존
+        const contentKey = JSON.stringify({
+          segs: segments?.map(s => [s.mode, s.path?.length ?? 0, s.path?.[0]?.[0], s.path?.[0]?.[1]]) ?? null,
+          stops: stops?.map(s => [s.stopName, s.coordinates?.lat, s.coordinates?.lng]) ?? null,
+          my: [myLocation.lat, myLocation.lng],
         });
+        if (contentKey === lastContentKey.current && mapInstanceRef.current) {
+          return;
+        }
+        lastContentKey.current = contentKey;
+
+        // 콘텐츠가 실제로 바뀐 경우에만 이전 애니메이션 종료
+        const prevAnim = animHandleRef.current;
+        prevAnim.cancelled = true;
+        if (prevAnim.rafId !== null) {
+          cancelAnimationFrame(prevAnim.rafId);
+          prevAnim.rafId = null;
+        }
+
+        // 인스턴스: 한 번만 생성, 이후 재사용
+        let map = mapInstanceRef.current;
+        if (!map) {
+          map = new kakao.maps.Map(mapRef.current, {
+            center: new kakao.maps.LatLng(center.lat, center.lng),
+            level: 5,
+          });
+          mapInstanceRef.current = map;
+        }
+
+        // 이전 레이어 정리 (인스턴스는 유지하고 그 위 오버레이/폴리라인/원만 제거)
+        layersRef.current.forEach(l => { try { l.setMap?.(null); } catch (_) {} });
+        layersRef.current = [];
 
         const bounds = new kakao.maps.LatLngBounds();
 
         // 내 위치 점
         const myLL = new kakao.maps.LatLng(myLocation.lat, myLocation.lng);
-        new kakao.maps.Circle({ map, center: myLL, radius: 14, strokeWeight: 0, fillColor: '#fff',    fillOpacity: 1 });
-        new kakao.maps.Circle({ map, center: myLL, radius:  9, strokeWeight: 0, fillColor: '#3B82F6', fillOpacity: 1 });
+        const c1 = new kakao.maps.Circle({ map, center: myLL, radius: 14, strokeWeight: 0, fillColor: '#fff',    fillOpacity: 1 });
+        const c2 = new kakao.maps.Circle({ map, center: myLL, radius:  9, strokeWeight: 0, fillColor: '#3B82F6', fillOpacity: 1 });
+        layersRef.current.push(c1, c2);
         bounds.extend(myLL);
+
+        // 이번 redraw 전용 애니메이션 핸들 (closure 캡처) — 외부에서 cancelled=true 로 종료시킬 수 있음
+        const anim = { rafId: null, cancelled: false };
+        animHandleRef.current = anim;
 
         // ── 경로 애니메이션 ──────────────────────────────────────────
         if (segments && segments.length > 0) {
@@ -97,37 +137,42 @@ function KakaoMap({ center, myLocation, stops, segments }) {
 
           // 출발 마커
           const fp = densePaths[0][0];
-          new kakao.maps.CustomOverlay({ map, yAnchor: 1.2, xAnchor: 0.5,
+          const startOv = new kakao.maps.CustomOverlay({ map, yAnchor: 1.2, xAnchor: 0.5,
             position: new kakao.maps.LatLng(fp[1], fp[0]),
             content: markerStart() });
+          layersRef.current.push(startOv);
 
           // 도착 마커
           const lp = densePaths[densePaths.length - 1];
           const ep = lp[lp.length - 1];
-          new kakao.maps.CustomOverlay({ map, yAnchor: 1.2, xAnchor: 0.5,
+          const endOv = new kakao.maps.CustomOverlay({ map, yAnchor: 1.2, xAnchor: 0.5,
             position: new kakao.maps.LatLng(ep[1], ep[0]),
             content: markerEnd() });
+          layersRef.current.push(endOv);
 
 
           // 환승 지점 회색 점 (세그먼트 경계, 첫/끝 제외)
           for (let i = 1; i < densePaths.length; i++) {
             const [lng, lat] = densePaths[i][0];
-            new kakao.maps.CustomOverlay({ map, yAnchor: 0.5, xAnchor: 0.5,
+            const tOv = new kakao.maps.CustomOverlay({ map, yAnchor: 0.5, xAnchor: 0.5,
               position: new kakao.maps.LatLng(lat, lng),
               content: markerTransfer() });
+            layersRef.current.push(tOv);
           }
 
           // 세그먼트별 Polyline (처음엔 빈 경로)
-          const polylines = segments.map(seg =>
-            new kakao.maps.Polyline({
+          const polylines = segments.map(seg => {
+            const pl = new kakao.maps.Polyline({
               map,
               path: [],
               strokeWeight: 4,
               strokeColor: '#3B82F6',
               strokeOpacity: 0.88,
               strokeStyle: MODE_STROKE[seg.mode] || 'solid',
-            })
-          );
+            });
+            layersRef.current.push(pl);
+            return pl;
+          });
 
           // 이동 점 오버레이
           const dotDiv = document.createElement('div');
@@ -138,6 +183,7 @@ function KakaoMap({ center, myLocation, stops, segments }) {
             'transform:translate(-50%,-50%)',
           ].join(';');
           const dotOverlay = new kakao.maps.CustomOverlay({ content: dotDiv, zIndex: 10 });
+          layersRef.current.push(dotOverlay);
 
           const allDense  = densePaths.flat();
           const totalPts  = allDense.length;
@@ -147,7 +193,7 @@ function KakaoMap({ center, myLocation, stops, segments }) {
           let phase       = 'drawing';
 
           function animate(ts) {
-            if (cancelled) return;
+            if (anim.cancelled) return;
 
             if (phase === 'drawing') {
               if (!startTime) startTime = ts;
@@ -166,12 +212,12 @@ function KakaoMap({ center, myLocation, stops, segments }) {
               }
 
               if (raw < 1) {
-                rafId = requestAnimationFrame(animate);
+                anim.rafId = requestAnimationFrame(animate);
               } else {
                 phase     = 'moving';
                 startTime = null;
                 dotOverlay.setMap(map);
-                rafId = requestAnimationFrame(animate);
+                anim.rafId = requestAnimationFrame(animate);
               }
 
             } else {
@@ -180,11 +226,11 @@ function KakaoMap({ center, myLocation, stops, segments }) {
               const idx   = Math.min(Math.floor(loopP * totalPts), totalPts - 1);
               const [lng, lat] = allDense[idx];
               dotOverlay.setPosition(new kakao.maps.LatLng(lat, lng));
-              rafId = requestAnimationFrame(animate);
+              anim.rafId = requestAnimationFrame(animate);
             }
           }
 
-          rafId = requestAnimationFrame(animate);
+          anim.rafId = requestAnimationFrame(animate);
 
         } else {
           // ── 세그먼트 없을 때: 기존 정류장 마커 ────────────────────
@@ -195,41 +241,54 @@ function KakaoMap({ center, myLocation, stops, segments }) {
               : '';
             const pos = new kakao.maps.LatLng(lat, lng);
             bounds.extend(pos);
-            new kakao.maps.CustomOverlay({
+            const ov = new kakao.maps.CustomOverlay({
               map, position: pos,
               content: markerStop(stop.stopName, distText),
               yAnchor: 1, xAnchor: 0.5,
             });
+            layersRef.current.push(ov);
           });
         }
 
-        if (!cancelled) {
-          map.setBounds(bounds, 70, 70, 70, 70);
-          setMapReady(true);
-        }
+        // 콘텐츠가 실제로 바뀐 경우에만 카메라 fit — 동일 콘텐츠 리렌더에서는 위에서 일찍 return 됨
+        map.setBounds(bounds, 70, 70, 70, 70);
+        setMapReady(true);
       });
     }
 
     if (window.kakao && window.kakao.maps) {
-      initMap();
+      initOrRedraw();
     } else {
-      const timer   = setInterval(() => {
-        if (window.kakao && window.kakao.maps) { clearInterval(timer); initMap(); }
+      pollTimer = setInterval(() => {
+        if (window.kakao && window.kakao.maps) { clearInterval(pollTimer); initOrRedraw(); }
       }, 100);
-      const timeout = setTimeout(() => {
-        clearInterval(timer);
-        if (!cancelled) setMapReady(false);
+      timeoutTimer = setTimeout(() => {
+        clearInterval(pollTimer);
+        if (!initCancelled) setMapReady(false);
       }, 5000);
-      return () => {
-        cancelled = true;
-        clearInterval(timer);
-        clearTimeout(timeout);
-        if (rafId) cancelAnimationFrame(rafId);
-      };
     }
 
-    return () => { cancelled = true; if (rafId) cancelAnimationFrame(rafId); };
+    return () => {
+      // 의도적으로 진행 중인 애니메이션은 건드리지 않음 — 부모의 transient 리렌더로
+      // effect가 재실행되어도 콘텐츠 키가 동일하면 애니메이션이 그대로 이어져야 함.
+      // 실제 unmount 정리는 아래의 마운트-only effect가 담당.
+      initCancelled = true;
+      if (pollTimer) clearInterval(pollTimer);
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+    };
   }, [center, myLocation, stops, segments]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 마운트-only: 컴포넌트가 진짜 unmount될 때만 진행 중인 애니메이션 종료
+  useEffect(() => {
+    return () => {
+      const a = animHandleRef.current;
+      a.cancelled = true;
+      if (a.rafId !== null) {
+        cancelAnimationFrame(a.rafId);
+        a.rafId = null;
+      }
+    };
+  }, []);
 
   return (
     <div className="kakao-map-wrapper">
