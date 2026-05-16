@@ -85,13 +85,20 @@ class RoutineCalculatorTest {
 
     private static Schedule newSchedule(OffsetDateTime arrivalTime, RoutineType type,
                                         String daysOfWeek, Integer intervalDays) {
+        return newSchedule(arrivalTime, type, daysOfWeek, intervalDays, null, null);
+    }
+
+    private static Schedule newSchedule(OffsetDateTime arrivalTime, RoutineType type,
+                                        String daysOfWeek, Integer intervalDays,
+                                        java.time.LocalDate startDate, java.time.LocalDate endDate) {
         OffsetDateTime depart = arrivalTime.minusMinutes(30);
         return Schedule.create(
                 1L, "title",
                 "출발", BigDecimal.ZERO, BigDecimal.ZERO, null, null, null,
                 "도착", BigDecimal.ZERO, BigDecimal.ZERO, null, null, null,
                 depart, arrivalTime, 5,
-                type, daysOfWeek, intervalDays
+                type, daysOfWeek, intervalDays,
+                startDate, endDate
         );
     }
 }

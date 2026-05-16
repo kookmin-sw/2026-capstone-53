@@ -15,6 +15,7 @@ import com.todayway.backend.common.jwt.JwtProvider;
 import com.todayway.backend.common.util.Sha256Hasher;
 import com.todayway.backend.common.web.IdPrefixes;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -27,6 +28,7 @@ import java.time.temporal.ChronoUnit;
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
+@Slf4j
 public class AuthService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
@@ -68,6 +70,13 @@ public class AuthService {
 
     @Transactional
     public LoginResponse login(LoginRequest req) {
+        // v1.1.40 — 슬랙 #5 (회원가입→로그아웃→재로그인 안 됨) 디버그용. FE 합동 재현 시
+        // payload 의 length / null 여부로 자동완성/IME silent 공백 등을 식별. PII 차단 — loginId
+        // 와 password length 만, 평문 X. 데모 직후 제거 권고 (T2 별 task 검증 완료 후).
+        log.debug("login attempt: loginId={}, providedPwLen={}",
+                req.loginId(),
+                req.password() == null ? -1 : req.password().length());
+
         // loginId 존재 안 함과 password 불일치 모두 INVALID_CREDENTIALS로 통일 (api-spec §2.2, 사용자 존재 여부 leak 방지)
         Member member = memberRepository.findByLoginId(req.loginId())
                 .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_CREDENTIALS));

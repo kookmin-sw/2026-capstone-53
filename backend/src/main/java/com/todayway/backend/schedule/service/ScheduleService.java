@@ -23,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -59,14 +60,23 @@ public class ScheduleService {
                 req.reminderOffsetMinutes(),
                 routineType(req.routineRule()),
                 routineDaysCsv(req.routineRule()),
-                routineInterval(req.routineRule())
+                routineInterval(req.routineRule()),
+                routineStartDate(req.routineRule()),
+                routineEndDate(req.routineRule())
         );
         scheduleRepository.save(s);
 
         // ODsay 동기 호출 — graceful degradation은 RouteService 내부에서 처리 (false 반환)
         routeService.refreshRouteSync(s);
 
-        return ScheduleResponse.from(s);
+        // v1.1.40 T5 — 사용자가 userDepartureTime 미입력 시 BE 가 recommendedDepartureTime 으로 자동 채움.
+        // ODsay 실패 (recommended=null) 케이스는 noop — userDepartureTime null 유지.
+        s.autoFillUserDepartureTime(s.getRecommendedDepartureTime());
+
+        // v1.1.40 R4 + R4-Q2 — reminderAt clamp/skip 가드 (등록 시점)
+        ClampResult clamp = applyReminderAtGuard(s);
+
+        return ScheduleResponse.withClampMeta(s, clamp.clamped(), clamp.skipped());
     }
 
     public ScheduleResponse get(String memberUid, String scheduleUid) {
@@ -147,7 +157,9 @@ public class ScheduleService {
                 ? new Schedule.RoutineUpdate(
                         req.routineRule().type(),
                         routineDaysCsv(req.routineRule()),
-                        req.routineRule().intervalDays())
+                        req.routineRule().intervalDays(),
+                        req.routineRule().startDate(),
+                        req.routineRule().endDate())
                 : null;
 
         boolean placeOrArrivalChanged = s.applyUpdate(
@@ -164,7 +176,10 @@ public class ScheduleService {
             s.recalculateDepartureAdvice();
         }
 
-        return ScheduleResponse.from(s);
+        // v1.1.40 R4 + R4-Q2 — reminderAt clamp/skip 가드 (수정 시점)
+        ClampResult clamp = applyReminderAtGuard(s);
+
+        return ScheduleResponse.withClampMeta(s, clamp.clamped(), clamp.skipped());
     }
 
     @Transactional
@@ -192,8 +207,9 @@ public class ScheduleService {
     }
 
     private void validateTimes(OffsetDateTime userDepart, OffsetDateTime arrival) {
-        if (userDepart == null || arrival == null) return;
-        if (!userDepart.isBefore(arrival)) {
+        if (arrival == null) return;
+        // v1.1.40 T5 — userDepart null 허용 (BE 자동 계산). null 시 순서 검증 skip.
+        if (userDepart != null && !userDepart.isBefore(arrival)) {
             // 명세 §5.1 에러: userDepartureTime > arrivalTime 또는 동일 시각
             throw new BusinessException(ErrorCode.VALIDATION_ERROR);
         }
@@ -255,6 +271,51 @@ public class ScheduleService {
 
     private record CursorKey(OffsetDateTime arrivalTime, Long id) {}
 
+    /**
+     * v1.1.40 R4 + R4-Q2 — 등록/수정 시 {@code reminderAt} 가드.
+     *
+     * <p>현 BE 의 {@code reminderAt} 은 {@code recommendedDepartureTime - reminderOffsetMinutes} 로
+     * 계산되는데, 가까운 일정 + 큰 offset 조합 시 이미 과거 시각이 되어 dispatcher 5분 폴링
+     * 윈도우 (NOW()-5min ~ NOW(), §9.1) 밖이면 silent 누락. T6 default = 30 채택 후 흔해질 시나리오.
+     *
+     * <p>3가지 분기:
+     * <ul>
+     *   <li>정상: {@code floor < reminderAt ≤ ceiling} — 그대로 두고 clamped/skipped 둘 다 false</li>
+     *   <li>clamp: {@code reminderAt < floor} (= NOW()+60s) — floor 로 override, clamped=true</li>
+     *   <li>skip: {@code ceiling} (= arrivalTime-1min) {@code < floor} — arrivalTime 자체가 너무
+     *       가까워 의미 있는 알림 불가능. reminderAt=null override, skipped=true</li>
+     * </ul>
+     */
+    private ClampResult applyReminderAtGuard(Schedule s) {
+        OffsetDateTime reminderAt = s.getReminderAt();
+        if (reminderAt == null) {
+            // ODsay 실패 / 자동 계산 미적용 등 — 가드 무의미
+            return ClampResult.none();
+        }
+        OffsetDateTime now = OffsetDateTime.now(KST);
+        OffsetDateTime floor = now.plusSeconds(60);
+        OffsetDateTime ceiling = s.getArrivalTime() != null
+                ? s.getArrivalTime().minusMinutes(1) : null;
+
+        if (ceiling != null && ceiling.isBefore(floor)) {
+            // arrivalTime 자체가 너무 가까움 — 알림 불가능
+            s.overrideReminderAt(null);
+            return ClampResult.skipped();
+        }
+        if (reminderAt.isBefore(floor)) {
+            s.overrideReminderAt(floor);
+            return ClampResult.clamped();
+        }
+        // 정상 (또는 ceiling 가드 무관 케이스 — arrivalTime null 흐름)
+        return ClampResult.none();
+    }
+
+    private record ClampResult(boolean clamped, boolean skipped) {
+        static ClampResult none()    { return new ClampResult(false, false); }
+        static ClampResult clamped() { return new ClampResult(true,  false); }
+        static ClampResult skipped() { return new ClampResult(false, true);  }
+    }
+
     private static com.todayway.backend.schedule.domain.RoutineType routineType(RoutineRuleDto r) {
         return r != null ? r.type() : null;
     }
@@ -265,5 +326,13 @@ public class ScheduleService {
 
     private static Integer routineInterval(RoutineRuleDto r) {
         return r != null ? r.intervalDays() : null;
+    }
+
+    private static LocalDate routineStartDate(RoutineRuleDto r) {
+        return r != null ? r.startDate() : null;
+    }
+
+    private static LocalDate routineEndDate(RoutineRuleDto r) {
+        return r != null ? r.endDate() : null;
     }
 }

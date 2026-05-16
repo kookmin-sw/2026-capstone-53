@@ -394,4 +394,101 @@ class ScheduleControllerIntegrationTest {
                 }
                 """.formatted(depart, arrival);
     }
+
+    // ───── v1.1.40 슬랙 follow-up 회귀 가드 ─────
+
+    /**
+     * v1.1.40 T1 — 목록 응답에 {@code routineRule} 등 풀필드 포함 (캘린더 반복 일정 표시 버그 #2 직접 원인 회귀 가드).
+     */
+    @Test
+    void list_response_includes_routineRule_fullFields() throws Exception {
+        when(routeService.refreshRouteSync(any(Schedule.class))).thenReturn(false);
+        String accessToken = signupAndGetToken("schfull01", "풀필드");
+
+        OffsetDateTime arrival = arrivalIn(60);
+        OffsetDateTime depart = arrival.minusMinutes(30);
+        String body = """
+                {
+                  "title": "주간 반복",
+                  "origin": {"name":"우이동","lat":37.6612,"lng":127.0124},
+                  "destination": {"name":"국민대","lat":37.6103,"lng":126.9969},
+                  "userDepartureTime": "%s",
+                  "arrivalTime": "%s",
+                  "reminderOffsetMinutes": 5,
+                  "routineRule": {"type":"WEEKLY","daysOfWeek":["MON","TUE","WED","THU","FRI"]}
+                }
+                """.formatted(depart, arrival);
+        mockMvc.perform(post("/api/v1/schedules")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated());
+
+        mockMvc.perform(get("/api/v1/schedules?limit=10")
+                        .header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].routineRule.type").value("WEEKLY"))
+                .andExpect(jsonPath("$.data.items[0].routineRule.daysOfWeek[0]").value("MON"))
+                .andExpect(jsonPath("$.data.items[0].userDepartureTime").exists())
+                .andExpect(jsonPath("$.data.items[0].reminderOffsetMinutes").value(5))
+                .andExpect(jsonPath("$.data.items[0].departureAdviceReliable").exists());
+    }
+
+    /**
+     * v1.1.40 R1 + R3 — {@code reminderOffsetMinutes} {@code @Min(0) @Max(1440)} 범위 위반 → 400.
+     */
+    @Test
+    void create_reminderOffsetMinutes_outOfRange_returns400_VALIDATION_ERROR() throws Exception {
+        String accessToken = signupAndGetToken("schoff01", "오프셋");
+        OffsetDateTime arrival = arrivalIn(60);
+        OffsetDateTime depart = arrival.minusMinutes(30);
+
+        int[] invalidOffsets = {-1, -30, 1441, 10000};
+        for (int bad : invalidOffsets) {
+            String body = """
+                    {
+                      "title": "범위위반",
+                      "origin": {"name":"우이동","lat":37.6612,"lng":127.0124},
+                      "destination": {"name":"국민대","lat":37.6103,"lng":126.9969},
+                      "userDepartureTime": "%s",
+                      "arrivalTime": "%s",
+                      "reminderOffsetMinutes": %d
+                    }
+                    """.formatted(depart, arrival, bad);
+            mockMvc.perform(post("/api/v1/schedules")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
+    }
+
+    /**
+     * v1.1.40 T5 — {@code userDepartureTime} 미입력 등록 정상 처리 (BE 자동 채움 흐름).
+     * ODsay 실패 (PENDING_RETRY) 케이스라 자동 채움도 X 하지만 등록 자체는 통과해야.
+     */
+    @Test
+    void create_userDepartureTime_미입력_등록_통과() throws Exception {
+        when(routeService.refreshRouteSync(any(Schedule.class))).thenReturn(false);
+        String accessToken = signupAndGetToken("schoptdep01", "옵셔널출발");
+
+        OffsetDateTime arrival = arrivalIn(60);
+        String body = """
+                {
+                  "title": "출발시각 미입력",
+                  "origin": {"name":"우이동","lat":37.6612,"lng":127.0124},
+                  "destination": {"name":"국민대","lat":37.6103,"lng":126.9969},
+                  "arrivalTime": "%s",
+                  "reminderOffsetMinutes": 5
+                }
+                """.formatted(arrival);
+        mockMvc.perform(post("/api/v1/schedules")
+                        .header("Authorization", "Bearer " + accessToken)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                // recommendedDepartureTime 이 null (ODsay 실패) 이라 자동 채움도 X → autoFilled=false → reliable=true
+                .andExpect(jsonPath("$.data.departureAdviceReliable").value(true));
+    }
 }

@@ -486,7 +486,8 @@ class OdsayRouteServiceTest {
                 "서울시청", new BigDecimal("37.5665"), new BigDecimal("126.978"),
                 null, null, null,
                 FIXED_NOW.minusHours(1), FIXED_NOW.plusMinutes(30),
-                5, null, null, null
+                5, null, null, null,
+                null, null
         );
     }
 

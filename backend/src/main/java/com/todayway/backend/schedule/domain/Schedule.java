@@ -21,6 +21,7 @@ import org.hibernate.annotations.SQLRestriction;
 import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Arrays;
@@ -143,6 +144,30 @@ public class Schedule extends BaseEntity {
     @Column(name = "routine_interval_days")
     private Integer routineIntervalDays;
 
+    /**
+     * v1.1.40 T5-Q4 — userDepartureTime 이 BE 자동 채움인지 사용자 명시 입력인지 표시.
+     * 응답 schema 의 {@code departureAdviceReliable} = {@code !userDepartureTimeAutoFilled}.
+     * dispatcher 동작 무관 — 응답 노출 전용. 등록 시 한 번 set 후 PATCH 의 userDepartureTime
+     * 명시 변경 시 false 로 갱신.
+     */
+    @Column(name = "user_departure_time_auto_filled", nullable = false)
+    private boolean userDepartureTimeAutoFilled = false;
+
+    /**
+     * v1.1.40 — 반복 시작 날짜. NULL = 등록 시점부터 (backward compat). 과거 허용 — dispatcher 가
+     * {@code reminder_at > NOW()} 만 발송이라 과거 occurrence silent skip.
+     */
+    @Column(name = "routine_start_date")
+    private LocalDate routineStartDate;
+
+    /**
+     * v1.1.40 — 반복 종료 날짜. NULL = 무한반복 (default, 슬랙 정합).
+     * {@link RoutineCalculator#calculateNextOccurrence} 가 endDate 도달 시 null 반환 →
+     * §9.2 advance 종료 → reminder_at NULL dormant ("자동 삭제 X" 슬랙 #2 정합).
+     */
+    @Column(name = "routine_end_date")
+    private LocalDate routineEndDate;
+
     // ─── 소프트 삭제 ───
     @Column(name = "deleted_at")
     private OffsetDateTime deletedAt;
@@ -154,7 +179,8 @@ public class Schedule extends BaseEntity {
                      String destinationAddress, String destinationPlaceId, PlaceProvider destinationProvider,
                      OffsetDateTime userDepartureTime, OffsetDateTime arrivalTime,
                      Integer reminderOffsetMinutes,
-                     RoutineType routineType, String routineDaysOfWeek, Integer routineIntervalDays) {
+                     RoutineType routineType, String routineDaysOfWeek, Integer routineIntervalDays,
+                     LocalDate routineStartDate, LocalDate routineEndDate) {
         this.memberId = memberId;
         this.title = title;
         this.originName = originName;
@@ -175,6 +201,8 @@ public class Schedule extends BaseEntity {
         this.routineType = routineType;
         this.routineDaysOfWeek = routineDaysOfWeek;
         this.routineIntervalDays = routineIntervalDays;
+        this.routineStartDate = routineStartDate;
+        this.routineEndDate = routineEndDate;
     }
 
     public static Schedule create(Long memberId, String title,
@@ -184,12 +212,14 @@ public class Schedule extends BaseEntity {
                                   String destinationAddress, String destinationPlaceId, PlaceProvider destinationProvider,
                                   OffsetDateTime userDepartureTime, OffsetDateTime arrivalTime,
                                   Integer reminderOffsetMinutes,
-                                  RoutineType routineType, String routineDaysOfWeek, Integer routineIntervalDays) {
+                                  RoutineType routineType, String routineDaysOfWeek, Integer routineIntervalDays,
+                                  LocalDate routineStartDate, LocalDate routineEndDate) {
         return new Schedule(memberId, title,
                 originName, originLat, originLng, originAddress, originPlaceId, originProvider,
                 destinationName, destinationLat, destinationLng, destinationAddress, destinationPlaceId, destinationProvider,
                 userDepartureTime, arrivalTime, reminderOffsetMinutes,
-                routineType, routineDaysOfWeek, routineIntervalDays);
+                routineType, routineDaysOfWeek, routineIntervalDays,
+                routineStartDate, routineEndDate);
     }
 
     @PrePersist
@@ -255,7 +285,11 @@ public class Schedule extends BaseEntity {
             placeOrArrivalChanged = true;
         }
 
-        if (userDepartureTime != null) this.userDepartureTime = userDepartureTime;
+        if (userDepartureTime != null) {
+            this.userDepartureTime = userDepartureTime;
+            // v1.1.40 T5-Q4 — PATCH 로 사용자 명시 변경 시 autoFilled=false
+            this.userDepartureTimeAutoFilled = false;
+        }
 
         if (arrivalTime != null) {
             this.arrivalTime = arrivalTime;
@@ -271,6 +305,8 @@ public class Schedule extends BaseEntity {
             this.routineType = routine.type();
             this.routineDaysOfWeek = routine.daysOfWeek();
             this.routineIntervalDays = routine.intervalDays();
+            this.routineStartDate = routine.startDate();
+            this.routineEndDate = routine.endDate();
         }
 
         return placeOrArrivalChanged;
@@ -338,6 +374,40 @@ public class Schedule extends BaseEntity {
     }
 
     /**
+     * v1.1.40 R4 — service 가 clamp 결과로 {@code reminderAt} 을 직접 override.
+     * {@code null} 도 허용 (skip 케이스). dispatcher 폴링 5분 윈도우 (NOW()-5min ~ NOW()) 안에
+     * 못 잡히는 과거 reminder_at 을 floor(NOW()+60s) 로 clamp 하거나, arrivalTime 이 너무 가까워
+     * 의미 있는 알림이 불가능한 케이스에서 null 로 skip 하는 용도. 일반 흐름의
+     * {@code recalculateReminderAt} 후처리 단계에서만 호출.
+     */
+    public void overrideReminderAt(OffsetDateTime newReminderAt) {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_NOT_FOUND);
+        }
+        this.reminderAt = newReminderAt;
+    }
+
+    /**
+     * v1.1.40 T5 — 등록 시 사용자가 {@code userDepartureTime} 미입력 시 BE 가 ODsay 응답의
+     * {@code recommendedDepartureTime} 으로 자동 채움. {@code userDepartureTimeAutoFilled=true}
+     * 동시 set — 응답의 {@code departureAdviceReliable} 메타에 사용.
+     *
+     * <p>이미 userDepartureTime 이 채워져 있거나 (사용자 명시 입력) recommended 가 null
+     * (ODsay 실패) 이면 noop. 한 번 자동 채움 후 사용자가 PATCH 로 명시 변경 시
+     * {@link #applyUpdate} 에서 autoFilled=false 로 갱신.
+     */
+    public void autoFillUserDepartureTime(OffsetDateTime recommended) {
+        if (deletedAt != null) {
+            throw new BusinessException(ErrorCode.SCHEDULE_NOT_FOUND);
+        }
+        if (this.userDepartureTime == null && recommended != null) {
+            this.userDepartureTime = recommended;
+            this.userDepartureTimeAutoFilled = true;
+            recalculateDepartureAdvice();
+        }
+    }
+
+    /**
      * 명세 §9.2 — 루틴 일정 다음 occurrence 로 갱신. ODsay 재호출 X
      * ({@code estimatedDurationMinutes} 마지막 호출값 그대로 사용).
      *
@@ -378,10 +448,12 @@ public class Schedule extends BaseEntity {
             PlaceProvider provider
     ) {}
 
-    /** PATCH 부분 업데이트용 입력 DTO — 루틴 묶음. */
+    /** PATCH 부분 업데이트용 입력 DTO — 루틴 묶음. v1.1.40 — startDate/endDate 추가. */
     public record RoutineUpdate(
             RoutineType type,
             String daysOfWeek,
-            Integer intervalDays
+            Integer intervalDays,
+            LocalDate startDate,
+            LocalDate endDate
     ) {}
 }

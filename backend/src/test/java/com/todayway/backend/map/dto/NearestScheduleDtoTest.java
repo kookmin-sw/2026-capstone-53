@@ -61,7 +61,8 @@ class NearestScheduleDtoTest {
                 "우이동", oLat, oLng, null, null, PlaceProvider.MANUAL,
                 "국민대", dLat, dLng, null, null, PlaceProvider.MANUAL,
                 ARRIVAL.minusMinutes(30), ARRIVAL, 5,
-                RoutineType.ONCE, null, null);
+                RoutineType.ONCE, null, null,
+                null, null);
     }
 
     private static BigDecimal bd(String v) {
