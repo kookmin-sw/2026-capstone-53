@@ -38,10 +38,16 @@ public record NearestScheduleDto(
      * {@code scheduleUid} 로 보존.
      */
     public static NearestScheduleDto from(Schedule s) {
-        if (hasNullCoord(s.getOriginLat(), s.getOriginLng())
-                || hasNullCoord(s.getDestinationLat(), s.getDestinationLng())) {
-            log.warn("nearest schedule skip — corrupted coordinate detected. scheduleUid={}",
-                    s.getScheduleUid());
+        boolean originNull = hasNullCoord(s.getOriginLat(), s.getOriginLng());
+        boolean destinationNull = hasNullCoord(s.getDestinationLat(), s.getDestinationLng());
+        if (originNull || destinationNull) {
+            // v1.1.38 — side 표기 추가. 4 케이스 (originLat / originLng / destinationLat /
+            // destinationLng) 가 같은 WARN 메시지로 묻혀 운영 진단 시 DB 재조회 없이 root cause
+            // 분리가 안 되던 결함. PII 없이 정보량만 증가 — alert 매칭과 root cause 둘 다 가능.
+            String side = (originNull && destinationNull) ? "ORIGIN+DESTINATION"
+                    : originNull ? "ORIGIN" : "DESTINATION";
+            log.warn("nearest schedule skip — corrupted coordinate detected. side={}, scheduleUid={}",
+                    side, s.getScheduleUid());
             return null;
         }
         return new NearestScheduleDto(

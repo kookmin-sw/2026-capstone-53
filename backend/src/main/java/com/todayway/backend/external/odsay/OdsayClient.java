@@ -21,6 +21,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.net.SocketTimeoutException;
+import java.util.Locale;
 
 /**
  * ODsay 대중교통 길찾기 / 노선 그래픽 API 클라이언트. 명세 §5.1 / §6.1 v1.1.10 —
@@ -125,9 +126,11 @@ public class OdsayClient {
         }
     }
 
-    /** v1.1.33 — 좌표 PII 마스킹 헬퍼. 소수점 1자리 절단 (~10km 도시급 정확도). */
+    /** v1.1.33 — 좌표 PII 마스킹 헬퍼. 소수점 1자리 절단 (~10km 도시급 정확도).
+     *  v1.1.38 — {@link Locale#ROOT} 고정. JVM default locale 이 유럽권 (예: {@code de_DE}) 이면
+     *  {@code "37,5*"} 로 직렬화되어 운영 로그의 정규 grep / 로그 파서 호환성이 깨지던 잠재 결함. */
     private static String maskCoord(double v) {
-        return String.format("%.1f*", v);
+        return String.format(Locale.ROOT, "%.1f*", v);
     }
 
     /**

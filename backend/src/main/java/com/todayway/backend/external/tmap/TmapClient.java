@@ -22,6 +22,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.net.SocketTimeoutException;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -165,8 +166,9 @@ public class TmapClient {
         }
     }
 
-    /** v1.1.33 — 좌표 PII 마스킹 헬퍼. {@link com.todayway.backend.external.odsay.OdsayClient} 와 동일. */
+    /** v1.1.33 — 좌표 PII 마스킹 헬퍼. {@link com.todayway.backend.external.odsay.OdsayClient} 와 동일.
+     *  v1.1.38 — {@link Locale#ROOT} 고정 (locale 의존 silent break 차단). */
     private static String maskCoord(double v) {
-        return String.format("%.1f*", v);
+        return String.format(Locale.ROOT, "%.1f*", v);
     }
 }

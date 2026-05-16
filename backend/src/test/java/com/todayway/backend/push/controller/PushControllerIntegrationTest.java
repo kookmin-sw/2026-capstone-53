@@ -211,6 +211,35 @@ class PushControllerIntegrationTest {
         }
     }
 
+    @Test
+    void keys_base64url_아니면_400_VALIDATION_ERROR() throws Exception {
+        String token = signupAndGetToken("pushval04", "키검증");
+
+        // base64url alphabet (A-Za-z0-9_-) + 후행 = padding 외 문자 reject.
+        // 공백 / + (base64 표준 X, base64url X) / / / @ / 한글 등.
+        String[] invalidKeys = {"has space", "plus+sign", "slash/sign", "at@sign", "한글"};
+
+        for (String bad : invalidKeys) {
+            // p256dh 만 invalid
+            mockMvc.perform(post("/api/v1/push/subscribe")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(subscribeBody(
+                                    "https://fcm.googleapis.com/fcm/send/ok", bad, "validAuth")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+            // auth 만 invalid
+            mockMvc.perform(post("/api/v1/push/subscribe")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(subscribeBody(
+                                    "https://fcm.googleapis.com/fcm/send/ok", "validP256dh", bad)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
+    }
+
     // ───── helpers ─────
 
     private String signupAndGetToken(String loginId, String nickname) throws Exception {
