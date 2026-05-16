@@ -178,6 +178,13 @@ public class GeocodeService {
                         e.getType(), e.getHttpStatus(), e);
             }
             throw mapToBusinessException(e);
+        } catch (BusinessException be) {
+            // v1.1.39 — `BusinessException extends RuntimeException` 이라 아래 `catch (RuntimeException)`
+            // 가 도메인 BusinessException 까지 흡수해 502 로 silent 변환할 위험. 현 KakaoLocalClient 는
+            // BusinessException 을 던지지 않지만, 향후 client 내부에서 도메인 예외를 던지게 되면 의도와
+            // 어긋남. v1.1.37 커밋 메시지의 "명세상 BusinessException 은 우선 catch 로 그대로 propagate"
+            // 의도와 일치하도록 명시 가드.
+            throw be;
         } catch (RuntimeException e) {
             // v1.1.37 P1#7 — KakaoLocalClient 가 throw 예상 외 unchecked 예외 (응답 deserialize 중
             // IllegalStateException, Jackson 매핑 예외 등) 가 controller 까지 propagate 되면 사용자에

@@ -18,14 +18,14 @@
 |--------|----------------|---------------------|----------------------|------|
 | Auth (로그인/회원가입/JWT) | **0건** | — | — | ✅ 정합 |
 | Members | **0건** | — | 1건 (typedef) | ✅ 정합 |
-| Schedules | **1건 (P2)** | 2건 | — | ⚠ scheduleId strict validate 비대칭 |
+| Schedules | **1건 (P2)** | 2건 | — | ⚠ scheduleId strict validate 미적용 (Route/Schedule 두 controller 공통) |
 | Route | **0건** | 11건 (v1.1.36) | — | ✅ 정합 |
 | Push | **0건** | — | 2건 (mock 데이터) | ✅ 정합 |
 | Main / Map | **0건** | — | — | ✅ 정합 (3-way diff 검증 완료) |
 | Geocode | **0건** | 5건 (v1.1.37) | — | ✅ 정합 |
 | Common (envelope/auth/CORS/시간) | **0건** | — | — | ✅ 정합 |
 
-**총 백엔드 fix 후보**: P1 0건, P2 1건 (Schedules `scheduleId` strict validate — 황찬우 영역), Nit 0건. **데모 (2026-05-22) 블로커 없음.**
+**총 백엔드 fix 후보**: P1 0건, P2 1건 (Route/Schedule `scheduleId` path strict validate — 두 controller 일괄 정비, 황찬우 영역), Nit 0건. **데모 (2026-05-22) 블로커 없음.**
 
 ---
 
@@ -70,12 +70,14 @@
 
 ### 백엔드 fix 후보
 
-#### [P2] scheduleId strict validate 정책 비대칭
-- **현상**: `RouteController` 는 path `scheduleId` 에 ULID 형식 `@Pattern` (또는 strict validator) 적용되어 invalid 시 400 으로 폴백. `ScheduleController` 의 DELETE/GET-by-id 는 동일 검증이 부재 — invalid 입력이 그대로 service 로 흘러가 404 매핑까지 도달.
+#### [P2] scheduleId path strict validate 미적용 (Route/Schedule 두 controller 공통)
+- **현상**: `RouteController.java:30` `@PathVariable String scheduleId` 와 `ScheduleController.java:58~78` `@PathVariable String scheduleId` 둘 다 `@Pattern` 등 strict validator 미부착. 두 controller 모두 `IdPrefixes.strip(...)` 으로 silent strip 후 service 까지 흘려보내 형식 위반 입력이 404 (NOT_FOUND) 로 응답.
+  - (v1.1.39 정정 — v1.1.37 audit 본문이 "RouteController 만 strict 적용됨, ScheduleController 와 비대칭" 으로 기술했으나 실제 코드 확인 결과 둘 다 미적용. v1.1.35 의 `PushController.unsubscribe` 만 strict — `IdPrefixes.stripAndValidateUlid` 도입.)
 - **영향**: 운영/관측 일관성. 데모 동작에는 영향 없음 (실 클라이언트는 유효 ULID 만 송신).
-- **권고 fix**:
-  - `ScheduleController` path variable 에 `@Pattern(regexp = "^[0-9A-HJ-KM-NP-TV-Z]{26}$")` 추가 (Crockford Base32, ULID 26 자)
-  - 또는 공용 `@UlidPath` 메타 어노테이션 신설 후 두 컨트롤러에 일괄 적용
+- **권고 fix** (후속 PR 백로그):
+  - 공용 `@UlidPath` 메타 어노테이션 신설 (`@Pattern(regexp = "^[0-9A-HJKMNP-TV-Z]{26}$")` 래퍼) 후 RouteController / ScheduleController path variable 에 일괄 적용
+  - 또는 `IdPrefixes.stripAndValidateUlid` 호출 패턴 (v1.1.35 push 동일) 을 두 controller 에 확산 — 위반 시 `400 VALIDATION_ERROR` propagate
+  - 본 follow-up PR (v1.1.39) 에선 audit 본문 정정만, 코드 fix 는 후속 PR 대상
 
 #### [이미 처리됨] GeocodeResponse provider 변환
 - v1.1.30 에서 `KAKAO` 도메인 ENUM 값으로 응답 단계 변환 완료. 프론트가 `kakao` (lower) 사용 시 case-insensitive 비교 또는 toLowerCase 변환은 프론트 PR 대상.
@@ -114,15 +116,16 @@
 
 ### 검증 영역
 - POST `/push/subscribe` (endpoint + p256dh + auth)
-- DELETE `/push/subscriptions/{id}`
-- VAPID public key endpoint
+- DELETE `/push/subscribe/{subscriptionId}`
 - RFC 8030 push gateway 호출
+- VAPID 키페어 (`vapid.publicKey` / `vapid.privateKey`) — `application.yml` 환경변수 주입 (frontend 는 빌드 시 env 로 별도 주입, HTTP endpoint 없음)
 - 프론트 `mocks/handlers/push.js` / `NotificationPage.jsx` ↔ 백엔드 `PushController` + `WebPushService`
 
 ### 결과
 **백엔드 fix 필요: 0건.**
-- `PUSH_SUBSCRIBE_CONFLICT` 응답 코드 백엔드 매핑 정상 (UNIQUE INDEX 위반 → 409 envelope)
-- endpoint 응답 마스킹/보안 정상 (서비스 도메인만 노출, query 미노출)
+- `PUSH_SUBSCRIBE_CONFLICT` 응답 코드 백엔드 매핑 정상 (UPSERT race contention — `upsertWithRetry` 1회 retry 후에도 잡힌 DuplicateKey/Transient → 503 SERVICE_UNAVAILABLE envelope, v1.1.35)
+- endpoint 응답 마스킹/보안 정상 (scheme+host[:port] 만 보존, path 절단, v1.1.35)
+- (v1.1.39 정정 — v1.1.37 audit 본문이 DELETE path 를 `/push/subscriptions/{id}` 로, `PUSH_SUBSCRIBE_CONFLICT` 를 "UNIQUE INDEX 위반 → 409" 로 기술했으나 실 controller path 는 `/push/subscribe/{subscriptionId}` (singular) 이고, ErrorCode HTTP status 는 503. 검증 영역에 등재했던 "VAPID public key endpoint" 도 실 존재하지 않는 endpoint 였음 — VAPID 는 config 차원이지 HTTP 노출 X.)
 
 ### 프론트 fix 영역 (제외)
 - 프론트 `errors.js` 에 `PUSH_SUBSCRIBE_CONFLICT` typedef 누락 → 프론트 PR 대상
@@ -222,7 +225,7 @@
 
 | # | 도메인 | 항목 | 우선순위 | 담당 | 비고 |
 |---|--------|------|---------|------|------|
-| 1 | Schedules | scheduleId path strict validate (ULID 26자 `@Pattern`) | P2 | 황찬우 | RouteController 와 대칭화 |
+| 1 | Schedules / Route | scheduleId path strict validate (ULID 26자 `@Pattern`) | P2 | 황찬우 | 두 controller 다 미적용 — `@UlidPath` 메타 어노테이션 신설 후 일괄 적용 (후속 PR) |
 
 ### 데모 (2026-05-22) 블로커
 **없음.** P1 항목 0건. P2 1건은 황찬우 영역 운영/관측 일관성 이슈로, 실 사용자 흐름 (로그인 → 일정 등록 → 경로 조회 → 푸시) 은 모두 정합.
@@ -242,11 +245,24 @@
 | MemberController | /members/* | Settings.js | ✅ |
 | ScheduleController | /schedules, /schedules/{id} | Calendar.js | ⚠ (P2 §3) |
 | RouteController | /schedules/{id}/route | RouteCard.js | ✅ |
-| PushController | /push/subscribe, /push/subscriptions/{id}, /push/vapid | NotificationPage.jsx | ✅ |
+| PushController | /push/subscribe, /push/subscribe/{subscriptionId} | NotificationPage.jsx | ✅ |
 | MapController.main | /main | (typedef 정의만, 직접 호출 없음) | ✅ |
 | GeocodeController | /geocode, /geocode/search | (검색 UI) | ✅ |
 | Kakao Map SDK | — | KakaoMap.js, MapPage.jsx | ✅ |
 
 ---
 
-**감사 결론**: 본인 담당 (route/push/map/geocode) v1.1.34~v1.1.37 작업으로 owned 도메인은 모두 정합. 비담당 도메인 (auth/members/schedules/main) 도 큰 결함 없음. 백엔드 fix 후보는 P2 2건 (Schedules path validate 대칭화, Main DTO 3-way diff) 뿐이며, 두 건 모두 별도 PR 로 분리 가능한 운영성 개선 항목.
+**감사 결론**: 본인 담당 (route/push/map/geocode) v1.1.34~v1.1.37 작업으로 owned 도메인은 모두 정합. 비담당 도메인 (auth/members/schedules/main) 도 큰 결함 없음. 백엔드 fix 후보는 P2 1건 (Route/Schedule path validate 일괄 정비) 으로, 별도 PR 로 분리 가능한 운영성 개선 항목.
+
+---
+
+## 12. v1.1.39 정정 이력 (2026-05-16)
+
+PR #54 머지 후 follow-up 리뷰에서 본 문서의 사실 오류 4건 정정 — owned 도메인 (push/route) 의 실 코드 좌표 검증 누락. 백엔드 fix 결론 (P1 0건 / P2 1건) 자체는 유지하되 본문 사실성 보강.
+
+| 정정 | 위치 | 수정 전 | 수정 후 |
+|---|---|---|---|
+| 1 | §5 검증영역 + §11 추적표 | `DELETE /push/subscriptions/{id}` (plural) | `/push/subscribe/{subscriptionId}` (singular, `PushController.java:43`) |
+| 2 | §5 결과 bullet | "UNIQUE INDEX 위반 → 409 envelope" | "UPSERT race contention → 503 SERVICE_UNAVAILABLE" (v1.1.35 `ErrorCode.PUSH_SUBSCRIBE_CONFLICT(SERVICE_UNAVAILABLE)`) |
+| 3 | §5 검증영역 + §11 추적표 | "VAPID public key endpoint" verified 표기 | endpoint 미존재 — config 차원만 (`vapid.*` application.yml 키, HTTP endpoint X) |
+| 4 | §3 P2 본문 + §10 결론표 | "RouteController strict 적용됨, ScheduleController 와 비대칭" | 두 controller 다 strict 미적용, `@UlidPath` 도입 후 일괄 적용 권고 (후속 PR) |
