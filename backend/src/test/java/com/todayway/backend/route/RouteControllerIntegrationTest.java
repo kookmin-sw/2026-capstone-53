@@ -109,6 +109,9 @@ class RouteControllerIntegrationTest {
         when(routeService.refreshRouteSync(any(Schedule.class))).thenReturn(false);
         when(routeService.getRoute(any(Schedule.class), eq(true))).thenAnswer(inv -> {
             Schedule s = inv.getArgument(0);
+            // v1.1.36 — RouteResponse.calculatedAt non-null 강제. 실 OdsayRouteService 흐름 시뮬레이션
+            s.updateRouteInfo(34, s.getArrivalTime().minusMinutes(34),
+                    "{\"path\":{},\"lane\":null}", OffsetDateTime.now(KST));
             return RouteResponse.of(s, fakeRoute(34));
         });
 
@@ -189,6 +192,9 @@ class RouteControllerIntegrationTest {
         when(routeService.refreshRouteSync(any(Schedule.class))).thenReturn(false);
         when(routeService.getRoute(any(Schedule.class), eq(false))).thenAnswer(inv -> {
             Schedule s = inv.getArgument(0);
+            // v1.1.36 — RouteResponse.calculatedAt non-null 강제. 실 OdsayRouteService 흐름 시뮬레이션
+            s.updateRouteInfo(34, s.getArrivalTime().minusMinutes(34),
+                    "{\"path\":{},\"lane\":null}", OffsetDateTime.now(KST));
             return RouteResponse.of(s, fakeRoute(34));
         });
 
