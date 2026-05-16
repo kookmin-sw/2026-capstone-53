@@ -1,7 +1,7 @@
 # 오늘어디 (TodayWay) Backend API 명세
 
-> **버전**: v1.1.26-MVP
-> **최종 수정**: 2026-05-13 (황찬우 — §5.2 cursor 페이지네이션 keyset 합성키 (arrival_time, id) 명시. 이슈 #15 fix.)
+> **버전**: v1.1.31-MVP
+> **최종 수정**: 2026-05-16 (이상진 — v1.1.29 의 §9.3 "경유 노드별 알림" 롤백. 팀 피드백 #3 재해석 — "한 일정 = 1회 출발 알림 + 반복 일정은 매 occurrence 마다 알림" 으로 이미 v1.1.16 + RoutineCalculator 가 만족. multi-leg 데이터 모델/페이로드/마이그레이션 전부 제거, V5 로 컬럼 drop.)
 > **기준**: DB 스키마 v1.1-MVP (DB-SQL.txt, 2026-04-23)
 > **데모 일정**: 2026-05-22
 
@@ -41,6 +41,10 @@
 | **v1.1.23** | **2026-05-11** | **§1.6 `RESOURCE_NOT_FOUND` ErrorCode 추가 (이슈 #33). 매핑되지 않은 URL 호출 시 Spring 6.x 가 `NoResourceFoundException` throw → `GlobalExceptionHandler` catch-all 이 잡아 500 `INTERNAL_SERVER_ERROR` 로 폴백하던 결함 fix. 신규 핸들러는 404 + WARN 로깅 (`resourcePath` 한 줄, 스택 미포함 — 4xx 류 ERROR 가 운영 false alarm 의 원인이었음). `NoHandlerFoundException` 도 동시 매핑 (현 application.yml 미설정이라 미발생, future-proof). 405 `HttpRequestMethodNotSupportedException` 잘못 매핑 (400 → 405) 은 별 이슈로 분리.** |
 | **v1.1.22** | **2026-05-11** | **§3.3 회원 탈퇴 soft delete → hard delete 전환 (이슈 #31). soft delete + `login_id` UNIQUE 충돌로 동일 loginId 재가입 불가하던 버그 해소. DB FK ON DELETE CASCADE 가 refresh_token / schedule / push_subscription row 일괄 삭제 — 코드 cascade 메서드 (`ScheduleRepository.softDeleteByMemberId` / `PushSubscriptionRepository.revokeAllByMemberId`) 제거. push_log 는 FK 비대칭 동작 — `schedule_id` ON DELETE SET NULL (다른 회원의 schedule 삭제 시 이력 보존), `subscription_id` ON DELETE CASCADE (탈퇴 회원 본인의 발송 이력은 동반 삭제, 회원 데이터 완전 삭제 정책). schedule 개별 DELETE / push subscription unsubscribe 는 별개 정책으로 soft delete/revoke 유지. 멱등성 비고 (v1.1.7) 그대로 — 두 번째 DELETE 도 401 UNAUTHORIZED (member row 없음). V3 마이그레이션 (`V3__member_drop_deleted_at.sql`) 적용 시 옛 soft-deleted row 정리 (FK CASCADE 발동) + `deleted_at` 컬럼 drop.** |
 | **v1.1.24** | **2026-05-12** | **§1.9 CORS 정책 섹션 신규 추가 — `CorsConfigurationSource` Bean 등록 (`common.security.CorsProperties` + `SecurityConfig`). 화이트리스트 default `http://localhost:3000` (yml fallback, env `CORS_ALLOWED_ORIGINS` 콤마 구분 override), `allowCredentials=false` (JWT stateless 정합), `allowedHeaders="*"` (`Content-Type` / `Authorization` 커버), `maxAge=1800`. PR #29 (frontend 통합) unblock. 운영 도메인은 별 task (외부 노출) 진입 시 `CORS_ALLOWED_ORIGINS` env 로 보강.** |
+| **v1.1.31** | **2026-05-16** | **v1.1.29 §9.3 "경유 노드별 알림" 롤백 (이상진) — 팀 피드백 #3 재해석 후 v1.1.29 도입한 multi-leg reminder 모델/페이로드를 전부 제거. 실제 요구는 "여러 일정이 있으면 각 일정마다 출발 전 알림" + "N일/특정 요일 반복 일정도 매 occurrence 마다 알림" 이었고, 이는 v1.1.16 분리 패턴 + `RoutineCalculator.advanceToNextOccurrence` (§9.2) 가 이미 만족. multi-leg 는 한 일정 안에서 환승마다 알람을 추가하는 모델이라 요구와 무관 — 잉여로 판단 후 제거. 변경: `ReminderLeg` / `ReminderLegPlanner` 삭제, `Schedule` 의 `reminder_legs_json` / `reminder_leg_index` 필드+메서드 (`applyReminderLegs` / `advanceToNextLeg` / `clearReminderLegs`) 삭제, `PushReminderTransactional.advanceOrTerminate` 를 ONCE 종결/occurrence advance 단일 분기로 환원, `PushReminderDispatcher.buildPayloadJson` 에서 `legIndex/legMode/legFrom/legTo/legLineName` 키 제거 + `buildBody` 의 leg 합류 제거, `DispatchContext.currentLeg` 제거, `OdsayRouteService.applyToSchedule` 에서 leg 적용 호출 제거. DB: V4 (`reminder_legs_json` / `reminder_leg_index` 컬럼) 는 forward-only 원칙상 파일은 유지하되 V5 (`V5__drop_schedule_reminder_legs.sql`) 가 즉시 drop — dev DB 가 V4 를 적용한 환경도 schema_history 손상 없이 정합. §9.3 본문은 통째로 제거.** |
+| **v1.1.30** | **2026-05-15** | **§8.1/§8.2 응답 `provider` 정규화 (이상진) — 기존엔 캐시 row 의 세분 식별자 `KAKAO_LOCAL` 을 응답에 그대로 노출하던 결함. §8.1 v1.1.4 변환표상 `Place.provider` 도메인 ENUM 은 `KAKAO` 인데 §8.1/§8.2 응답에서만 `KAKAO_LOCAL` 이 노출되어 프론트 `PlaceProvider` typedef (`NAVER/KAKAO/ODSAY/MANUAL`) 와 불일치 → 클라이언트가 후보 선택 후 schedule 저장 단계에서 별도 변환을 해야 하는 부담. 변환 책임을 응답 단계로 끌어올려 (`GeocodeResponse.from` / `GeocodeService.searchCandidates`) frontend MSW 목 (`provider: 'KAKAO'`) 과도 자연 정합. DB 캐시 컬럼 / `GeocodeCacheProvider` ENUM 은 그대로 — 내부 식별자라 API 표면에 노출 안 함. 부수 fix: javadoc dead link `GeocodeSearchService` → `GeocodeService#searchCandidates` (`GeocodeCandidate`, `GeocodeSearchResponse`), 버전 drift "v1.1.28 이전" → "v1.1.29 이전" (`DispatchContext`, `PushReminderDispatcher`), §9.3 호환성 cutoff "v1.1.27 이전" → "v1.1.29 이전" (legs 컬럼 도입 시점이 v1.1.29 인데 본문이 v1.1.27 을 언급하던 drift), `GeocodeService.searchCandidates` x/y null skip 시 `log.debug` 보강. 명세 §8.1 v1.1.4 변환표 갱신 — 변환 책임 위치 명시. 회귀 가드: `GeocodeControllerIntegrationTest` 어설션 `KAKAO_LOCAL` → `KAKAO`.** |
+| **v1.1.29** | **2026-05-15** | **§9.3 신규 + §11.3 `Schedule` 컬럼 2개 추가 — 경유 노드별 알림 (팀 피드백 #3 "경유 노드별 N분 전 알림"). 기존 모델 (한 일정 = 1회 알림, 권장 출발시각 N분 전) 을 환승 포함 다중 알림으로 확장. ODsay route segments → `ReminderLegPlanner` 가 각 segment 시작 시각의 N분 전을 `ReminderLeg` 배열로 계산해 `schedule.reminder_legs_json` 에 저장 (V4 migration). `schedule.reminder_leg_index` 가 현재 발송 대기 leg 추적, `reminder_at` 은 denormalize 된 "현재 leg fireAt" — 스케줄러 폴링 쿼리 변경 X (`reminder_at <= now` 그대로). dispatcher advance: leg index 우선 advance (다음 leg fireAt 으로 `reminder_at` 갱신), 마지막 leg 도달 시 기존 occurrence 종결/advance 흐름. payload 에 현재 leg 의 `legIndex/legMode/legFrom/legTo/legLineName` 키 추가 — 환승 boarding 알림은 본문에 "○○에서 △△ 승차" 합류. v1.1.27 이전 schedule / ODsay 실패 fallback (legs JSON null) 은 기존 단발 알림 흐름과 동치 (회귀 안전망). (이상진).** |
+| **v1.1.27** | **2026-05-15** | **§8.2 신규 — `POST /geocode/search` 다중 후보 검색 엔드포인트. 일정 등록 입력 자동완성에서 §8.1 `POST /geocode` 가 첫 결과 1건만 노출하던 결함 (팀 피드백 #6 — "지오코딩 한 노드만 뜸") 보강. 응답 `candidates[]` 배열 (1~10건, `size` 파라미터 default 10 max 10 — 클라이언트가 생략하면 항상 상한까지 후보 노출). §8.1 단일-resolution 시맨틱 영향 X (좌표 확정 흐름 그대로). 캐시 미사용 — autocomplete 키스트로크 query 는 hit ratio 가 낮아 §8.1 의 `geocode_cache` 와 분리 (TTL/quota 그대로 §8.1 만 보호). Kakao Local 응답 매핑은 §8.1 v1.1.4 변환표 재사용 — `documents[].place_name/x/y/...` 를 `candidates[i]` 로 1:1 매핑. (이상진).** |
 | **v1.1.26** | **2026-05-13** | **§5.2 cursor 페이지네이션 keyset 합성키 명시 (이슈 #15 fix). `ScheduleRepository.findPage` keyset 술어가 `s.id > :cursorId` 단독이라 정렬 `(arrival_time ASC, id ASC)` 과 어긋날 때 (arrival 이른 일정이 더 큰 id 보유) 다음 페이지에서 영구 누락. 술어를 `(arrivalTime > :cArr OR (arrivalTime = :cArr AND id > :cId))` 합성키로 교체. cursor 인코딩도 `id:N` (v1) → `v2:<ISO_UTC>|<id>` 로 변경, v1 cursor 는 `VALIDATION_ERROR` (400) 로 거부 — 명세 §1.5 opaque 정책상 클라이언트는 1페이지부터 재요청. 회귀 가드 `ScheduleControllerIntegrationTest.list_keysetHandlesAsymmetricArrivalAndId_doesNotDropSchedules` + `list_whenInvalidCursorFormat_returns400`.** |
 | **v1.1.25** | **2026-05-12** | **§9.2 WEEKLY routine 요일 비교 `Asia/Seoul` (KST) 기준 명시 (이슈 #36 fix). `RoutineCalculator.nextWeeklyOccurrence` 가 `cand.getDayOfWeek()` 를 사용하던 결함 — `OffsetDateTime` 영속화 후 displayed offset 이 UTC 로 reconstruct 되어 KST 가 아닌 UTC 기준 요일 평가 → KST 새벽 시간대 일정의 advance 가 `daysOfWeek` 에 없는 요일 (예: MON/WED/FRI 일정이 THU 로) 반환. `cand.atZoneSameInstant(KST).getDayOfWeek()` 로 정정. 회귀 가드 추가 (`PushReminderDispatcherIntegrationTest.S5B` 명시 KST 새벽 시각). 데모 시연 (정오) 직접 영향 ⚪ 낮음 — KST/UTC 동일 요일 시간대. DAILY/CUSTOM (`plusDays(N)` instant 기준) / `reminderAt` 계산 (instant 기준) 영향 0.** |
 
@@ -189,6 +193,7 @@ JWT의 `sub` claim에는 `member.member_uid` 값(prefix 없는 raw ULID 26자, C
 | 6.1 | POST | `/push/subscribe` | ✓ | push |
 | 6.2 | DELETE | `/push/subscribe/{subscriptionId}` | ✓ | push |
 | 7.1 | POST | `/geocode` | ✓ | geocode |
+| 7.2 | POST | `/geocode/search` | ✓ | geocode |
 
 > △: 게스트 허용. 인증 시 추가 정보 반환.
 
@@ -1066,7 +1071,7 @@ Web Push 표준 PushSubscription 객체를 등록.
     "lat": 37.6103,
     "lng": 126.9969,
     "placeId": "1234567",
-    "provider": "KAKAO_LOCAL"
+    "provider": "KAKAO"
   }
 }
 ```
@@ -1083,7 +1088,7 @@ Web Push 표준 PushSubscription 객체를 등록.
 | `lat` | `documents[0].y` | **`Double.parseDouble`** ⚠️ Kakao는 string 반환 |
 | `lng` | `documents[0].x` | **`Double.parseDouble`** ⚠️ 위와 동일 |
 | `placeId` | `documents[0].id` | string |
-| `provider` | (고정값) | `"KAKAO_LOCAL"` |
+| `provider` | (고정값) | **v1.1.30** `"KAKAO"` (응답 단계에서 도메인 ENUM 값으로 변환 완료 — `Place.provider` 와 동일 ENUM 공간 `NAVER/KAKAO/ODSAY/MANUAL`. 캐시 row 의 세분 식별자 `KAKAO_LOCAL` 은 backend 내부에서만 사용, API 표면 노출 X) |
 
 **예외 처리**:
 - `documents`가 빈 배열 → `404 GEOCODE_NO_MATCH`
@@ -1091,14 +1096,15 @@ Web Push 표준 PushSubscription 객체를 등록.
 - Kakao 5xx → `502 EXTERNAL_ROUTE_API_FAILED`
 - Kakao 타임아웃 → `504 EXTERNAL_TIMEOUT`
 
-#### 🆕 v1.1.4 — Provider 값 변환 규칙
+#### 🆕 v1.1.4 — Provider 값 변환 규칙 (v1.1.30 변환 책임 명시)
 
-DB ENUM 두 개가 다르게 정의돼 있어 **저장 위치별로 변환** 필수:
+DB ENUM 두 개가 다르게 정의돼 있어 **저장/응답 위치별로 변환** 필수:
 
-| 저장 위치 | DB ENUM 값 | 매핑 |
+| 위치 | ENUM 값 공간 | 매핑 |
 |---|---|---|
-| `geocode_cache.provider` | `'NAVER', 'KAKAO_LOCAL'` | `"KAKAO_LOCAL"` 그대로 저장 |
-| `schedule.origin_provider`<br>`schedule.destination_provider`<br>`Place.provider` (§11.1) | `'NAVER', 'KAKAO', 'ODSAY', 'MANUAL'` | `"KAKAO_LOCAL"` → **`"KAKAO"`** 변환 |
+| `geocode_cache.provider` (DB 내부) | `'NAVER', 'KAKAO_LOCAL'` | `"KAKAO_LOCAL"` 그대로 저장 |
+| **§8.1 / §8.2 응답 `provider`** | `'NAVER', 'KAKAO', 'ODSAY', 'MANUAL'` | **v1.1.30 — 응답 단계에서 `"KAKAO"` 로 변환 완료** (`GeocodeResponse.from` / `GeocodeService.searchCandidates`) |
+| `schedule.origin_provider`<br>`schedule.destination_provider`<br>`Place.provider` (§11.1) | `'NAVER', 'KAKAO', 'ODSAY', 'MANUAL'` | `"KAKAO"` 그대로 저장 (응답 단계 변환 완료라 schedule 저장 시 추가 변환 불필요) |
 
 **변환 함수** (구현 참고):
 ```java
@@ -1107,7 +1113,7 @@ public static String toPlaceProvider(String geocodeProvider) {
 }
 ```
 
-**이유**: `Place.provider`는 도메인 추상화 ENUM (`NAVER/KAKAO/ODSAY/MANUAL`). `KAKAO_LOCAL`은 Kakao 내부 API 세분 구분이라 도메인 모델에 노출 불필요. 반면 `geocode_cache`는 캐시 키 구분용이라 세분 구분 필요.
+**이유**: `Place.provider`는 도메인 추상화 ENUM (`NAVER/KAKAO/ODSAY/MANUAL`). `KAKAO_LOCAL`은 Kakao 내부 API 세분 구분이라 도메인 모델 / API 표면 어디에도 노출 불필요. 반면 `geocode_cache`는 캐시 키 구분용이라 세분 구분 필요. **v1.1.30 변경 전엔 §8.1/§8.2 응답에서만 `KAKAO_LOCAL` 이 새어 나가 프론트 `PlaceProvider` typedef 와 불일치하던 결함이 있었음 — 응답 단계에서 변환을 끌어올려 frontend 가 추가 변환 없이 후보를 그대로 schedule payload 로 흘려보낼 수 있게 정합.**
 
 #### 🆕 v1.1.17 — `query_hash` 정규화 룰
 
@@ -1144,8 +1150,8 @@ WHERE query_hash = ?     -- application 측에서 canonical hash 전달
   AND cached_at > NOW() - INTERVAL 30 DAY
 ```
 - 캐시 miss 시 KAKAO Local 또는 NAVER 호출 → `geocode_cache` INSERT
-- `provider` 컬럼은 `'KAKAO_LOCAL'` 저장
-- schedule에 좌표 저장 시엔 `'KAKAO'`로 변환 (위 매핑 규칙 적용)
+- `provider` 컬럼은 `'KAKAO_LOCAL'` 저장 (DB 내부 식별자)
+- §8.1/§8.2 응답 단계에서 `'KAKAO'` 로 변환해 노출 (v1.1.30) — 프론트가 추가 변환 없이 schedule 저장 payload 로 흘려보낼 수 있음
 
 #### 🆕 v1.1.18 — TTL eviction (`GeocodeCacheCleanupScheduler`)
 
@@ -1158,6 +1164,67 @@ WHERE query_hash = ?     -- application 측에서 canonical hash 전달
 DELETE FROM geocode_cache
 WHERE cached_at < NOW() - INTERVAL 30 DAY
 ```
+
+### 8.2 주소/장소 다중 후보 검색 (v1.1.27)
+
+`POST /geocode/search` — 인증 필요
+
+일정 등록 화면의 입력 자동완성용 — 키워드 하나로 1~10건의 후보 (Kakao Local `documents[]` 상위 N) 를 반환한다.
+§8.1 `POST /geocode` 가 첫 결과만 노출해 "지오코딩 한 노드만 뜸" (팀 피드백 #6) 결함이 있어 분리 추가. §8.1 단일-resolution 시맨틱은 그대로 유지 — 사용자가 후보 중 하나를 골라 좌표 확정한 뒤 schedule 저장 흐름은 변동 없음.
+
+#### Request Body
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---|---|---|
+| `query` | string | Y | 주소 또는 장소명 (§8.1 와 동일 — `trim` 만 적용 후 Kakao 호출) |
+| `size` | int | N | 1~10. default 10 (생략 시 상한까지 노출). 11 이상 / 0 이하 / non-numeric → `400 VALIDATION_ERROR` |
+
+```json
+{ "query": "강남역", "size": 10 }
+```
+
+#### Response — `200 OK`
+
+```json
+{
+  "data": {
+    "candidates": [
+      {
+        "name": "강남역 2호선",
+        "address": "서울 강남구 역삼동 858",
+        "lat": 37.4979,
+        "lng": 127.0276,
+        "placeId": "21160606",
+        "provider": "KAKAO"
+      },
+      {
+        "name": "강남역 신분당선",
+        "address": "서울 강남구 강남대로 396",
+        "lat": 37.4980,
+        "lng": 127.0274,
+        "placeId": "1234567",
+        "provider": "KAKAO"
+      }
+    ]
+  }
+}
+```
+
+- `candidates[]` 는 Kakao 응답 `documents[0..size)` 를 §8.1 v1.1.4 변환표 그대로 매핑한 결과. `provider` 는 v1.1.30 응답 단계 변환 적용 → `"KAKAO"`.
+- 빈 검색 결과 → `404 GEOCODE_NO_MATCH` (§8.1 와 동일 ErrorCode 재사용 — 신규 ErrorCode 추가 X).
+- `lat`/`lng` 가 누락된 document 는 skip — 한 row 라도 valid 면 200, 전부 invalid 면 `502 EXTERNAL_ROUTE_API_FAILED`.
+
+#### 캐시 정책
+
+- `geocode_cache` 미사용 — autocomplete 키스트로크 query (예: `"강"`, `"강남"`, `"강남역"`) 는 hit ratio 가 낮아 캐시 ROI 가 부정적. §8.1 의 TTL/quota 보호는 그대로.
+- 향후 동일 query 의 다중 후보 캐시가 필요해지면 v1.1.x 에서 별도 컬럼 (`candidates_json`) 도입 검토.
+
+#### 에러
+- `400 VALIDATION_ERROR` — `query` 누락 / 빈 문자열 / `size` 범위 위반
+- `404 GEOCODE_NO_MATCH` — Kakao `documents` 빈 배열
+- `502 EXTERNAL_ROUTE_API_FAILED` — Kakao 5xx / 응답 형식 위반
+- `503 EXTERNAL_AUTH_MISCONFIGURED` — Kakao API 키 미설정/만료
+- `504 EXTERNAL_TIMEOUT` — Kakao 타임아웃
 
 ---
 

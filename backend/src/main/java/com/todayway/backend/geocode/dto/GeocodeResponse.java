@@ -1,6 +1,7 @@
 package com.todayway.backend.geocode.dto;
 
 import com.todayway.backend.geocode.domain.GeocodeCache;
+import com.todayway.backend.schedule.domain.PlaceProvider;
 
 /**
  * 명세 §8.1 — {@code POST /geocode} 응답.
@@ -9,9 +10,10 @@ import com.todayway.backend.geocode.domain.GeocodeCache;
  * 항상 매치된 결과 ({@code matched=true}) 만 표현. {@code matched} 필드 자체는 명세 §8.1 응답 예시에
  * 박혀있으니 그대로 노출.
  *
- * <p>{@code provider} 는 명세 §8.1 v1.1.4 변환표대로 {@code "KAKAO_LOCAL"} 그대로 노출 —
- * schedule 저장 payload 는 {@code "KAKAO"} 로 들어와야 한다는 invariant (명세 §8.1 v1.1.4 변환표).
- * 본 응답 단계는 변환 책임 X.
+ * <p>{@code provider} 는 명세 §8.1 v1.1.4 변환표 — 응답 단계에서 도메인 ENUM 값
+ * ({@link PlaceProvider#KAKAO}) 으로 변환 완료해 노출 (v1.1.30). 캐시 row 의 세분 구분
+ * ({@code KAKAO_LOCAL}) 은 backend 내부 식별자라 API 표면에 노출하지 않는다 — 프론트는
+ * {@code Place.provider} ENUM ({@code NAVER/KAKAO/ODSAY/MANUAL}) 만 사용.
  */
 public record GeocodeResponse(
         boolean matched,
@@ -45,7 +47,7 @@ public record GeocodeResponse(
                 c.getLat().doubleValue(),
                 c.getLng().doubleValue(),
                 c.getPlaceId(),
-                c.getProvider().name()
+                PlaceProvider.KAKAO.name()
         );
     }
 }

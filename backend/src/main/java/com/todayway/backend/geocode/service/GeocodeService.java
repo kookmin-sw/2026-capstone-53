@@ -8,9 +8,13 @@ import com.todayway.backend.external.kakao.dto.KakaoLocalSearchResponse;
 import com.todayway.backend.geocode.domain.GeocodeCache;
 import com.todayway.backend.geocode.domain.GeocodeCacheProvider;
 import com.todayway.backend.geocode.domain.MatchedFields;
+import com.todayway.backend.geocode.dto.GeocodeCandidate;
 import com.todayway.backend.geocode.dto.GeocodeRequest;
 import com.todayway.backend.geocode.dto.GeocodeResponse;
+import com.todayway.backend.geocode.dto.GeocodeSearchRequest;
+import com.todayway.backend.geocode.dto.GeocodeSearchResponse;
 import com.todayway.backend.geocode.repository.GeocodeCacheRepository;
+import com.todayway.backend.schedule.domain.PlaceProvider;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DuplicateKeyException;
@@ -24,7 +28,9 @@ import java.security.NoSuchAlgorithmException;
 import java.text.Normalizer;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 
@@ -102,6 +108,50 @@ public class GeocodeService {
         GeocodeCache saved = upsertWithRetry(
                 () -> cacheUpserter.upsertMatch(hash, trimmed, PROVIDER, m), hash);
         return GeocodeResponse.from(saved);
+    }
+
+    /**
+     * 명세 §8.2 v1.1.27 — 다중 후보 검색. {@link #geocode} 와 달리 cache 미사용 (autocomplete 키스트로크
+     * query 는 hit ratio 낮음). Kakao 호출 1회 → 상위 {@code size} 후보 매핑. 좌표 누락/parse 실패
+     * row 는 skip — 1건이라도 valid 면 200 반환, 전부 invalid 면 {@link ErrorCode#EXTERNAL_ROUTE_API_FAILED}.
+     */
+    public GeocodeSearchResponse searchCandidates(GeocodeSearchRequest req) {
+        String trimmed = req.query().trim();
+        int size = req.sizeOrDefault();
+
+        KakaoLocalSearchResponse raw = callKakao(trimmed);
+        if (raw.documents() == null || raw.documents().isEmpty()) {
+            throw new BusinessException(ErrorCode.GEOCODE_NO_MATCH);
+        }
+
+        int limit = Math.min(size, raw.documents().size());
+        List<GeocodeCandidate> candidates = new ArrayList<>(limit);
+        int dropped = 0;
+        for (int i = 0; i < limit; i++) {
+            KakaoLocalSearchResponse.Document doc = raw.documents().get(i);
+            if (doc.x() == null || doc.y() == null) {
+                // 보안: query PII 차단 — doc.id 만 노출 (Kakao 내부 식별자, 평문 검색어 X).
+                log.debug("Kakao Local 응답 후보 좌표 누락 skip kakaoDocId={}, x={}, y={}",
+                        doc.id(), doc.x(), doc.y());
+                dropped++;
+                continue;
+            }
+            try {
+                // 명세 §8.1 v1.1.4 + v1.1.30 — 응답 단계 provider 정규화 (KAKAO_LOCAL → KAKAO).
+                candidates.add(GeocodeCandidate.from(doc, PlaceProvider.KAKAO.name()));
+            } catch (NumberFormatException e) {
+                // 외부 응답 형식 위반. PII 차단 — query 평문/doc 내부 ID 만 hash 없이 출력 (id 는 Kakao 식별자).
+                log.warn("Kakao Local 응답 후보 매핑 실패 — x/y non-numeric kakaoDocId={}, x={}, y={}",
+                        doc.id(), doc.x(), doc.y());
+                dropped++;
+            }
+        }
+        if (candidates.isEmpty()) {
+            log.warn("Kakao Local 응답 후보 전체 invalid — documents={}, limit={}, dropped={}",
+                    raw.documents().size(), limit, dropped);
+            throw new BusinessException(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
+        }
+        return new GeocodeSearchResponse(candidates);
     }
 
     private KakaoLocalSearchResponse callKakao(String query) {
