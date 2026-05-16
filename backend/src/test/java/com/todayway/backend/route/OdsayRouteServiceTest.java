@@ -244,6 +244,53 @@ class OdsayRouteServiceTest {
         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
     }
 
+    /**
+     * v1.1.36 — 401/403 은 stale fallback 대상 X. 운영자 alert 가 다른 stale 응답에 가려져
+     * 영구 잠복하지 않도록 캐시 유무와 상관없이 503 EXTERNAL_AUTH_MISCONFIGURED 격상.
+     * 5xx / timeout / network 등 transient 외부 장애는 §6.1 비고대로 stale fallback 유지.
+     */
+    @ParameterizedTest
+    @ValueSource(ints = {401, 403})
+    void getRoute_ODsay_401_403_캐시있어도_stale_차단_503_격상(int status) {
+        Schedule s = newScheduleWithCache(FIXED_NOW.minusMinutes(15));
+        when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenThrow(new ExternalApiException(
+                        ExternalApiException.Source.ODSAY,
+                        ExternalApiException.Type.CLIENT_ERROR, status, "auth", null));
+
+        BusinessException ex = catchThrowableOfType(
+                BusinessException.class, () -> service.getRoute(s, false));
+
+        assertThat(ex).isNotNull();
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED);
+        // mapper 가 stale 매핑 시도 자체를 안 했어야 함 (cache 가 있어도 auth 분기 우선)
+        verify(mapper, never()).toRoute(anyString(), nullable(String.class),
+                anyDouble(), anyDouble(), anyDouble(), anyDouble());
+    }
+
+    /**
+     * v1.1.36 — RouteResponse.calculatedAt non-null invariant. `route_summary_json` 만 채워지고
+     * `route_calculated_at` 은 NULL 인 corruption row (직접 SQL / 부분 마이그레이션 사고) 가
+     * stale 응답에 silent leak 되지 않도록 tryMapCache 가 corrupted cache 로 취급해 skip.
+     */
+    @Test
+    void getRoute_routeCalculatedAt_null_corrupted_cache_stale_fallback_차단() {
+        Schedule s = newScheduleWithCorruptedCache();
+        when(odsayClient.searchPubTransPathT(anyDouble(), anyDouble(), anyDouble(), anyDouble()))
+                .thenThrow(new ExternalApiException(
+                        ExternalApiException.Source.ODSAY,
+                        ExternalApiException.Type.SERVER_ERROR, 500, "5xx", null));
+
+        BusinessException ex = catchThrowableOfType(
+                BusinessException.class, () -> service.getRoute(s, false));
+
+        assertThat(ex).isNotNull();
+        // stale 대신 502 — corrupted cache 가 silent stale 로 빠져나가지 못함
+        assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
+        verify(mapper, never()).toRoute(anyString(), nullable(String.class),
+                anyDouble(), anyDouble(), anyDouble(), anyDouble());
+    }
+
     @Test
     void getRoute_loadLane_정상호출_wrapped_저장() {
         // §6.1 v1.1.10 — searchPubTransPathT 응답에 mapObj 있으면 loadLane 호출 + wrapped 저장
@@ -460,5 +507,20 @@ class OdsayRouteServiceTest {
 
     private static Route fakeRoute(int totalDurationMinutes) {
         return new Route(totalDurationMinutes, 8704, 319, 1, 1500, List.of());
+    }
+
+    /**
+     * v1.1.36 — corruption 시뮬레이션. routeSummaryJson 은 채워졌는데 routeCalculatedAt 만 null.
+     * 정상 흐름에선 발생하지 않지만 직접 SQL / 부분 마이그레이션 사고로 흘러들어올 수 있는 상태.
+     */
+    private static Schedule newScheduleWithCorruptedCache() {
+        Schedule s = newSchedule();
+        s.updateRouteInfo(
+                34,
+                s.getArrivalTime().minusMinutes(34),
+                "{\"path\":{\"cached\":true},\"lane\":null}",
+                null   // 의도적 null — corruption 시뮬레이션
+        );
+        return s;
     }
 }

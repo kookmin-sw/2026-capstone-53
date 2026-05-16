@@ -22,6 +22,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.net.SocketTimeoutException;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -114,7 +115,9 @@ public class TmapClient {
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.CLIENT_ERROR,
                     null, "TMAP_APP_KEY 미설정", null);
         }
-        log.debug("TMAP pedestrian: ({},{})→({},{})", startLng, startLat, endLng, endLat);
+        // v1.1.33 — 좌표 PII 마스킹. OdsayClient 와 동일 패턴 (소수점 1자리 = ~10km 도시 정확도).
+        log.debug("TMAP pedestrian: ({},{})→({},{})",
+                maskCoord(startLng), maskCoord(startLat), maskCoord(endLng), maskCoord(endLat));
         Map<String, Object> body = Map.of(
                 "startX", startLng, "startY", startLat,
                 "endX", endLng, "endY", endLat,
@@ -161,5 +164,11 @@ public class TmapClient {
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.NETWORK, null,
                     "TMAP 호출 중 예외 (" + e.getClass().getSimpleName() + ")", null);
         }
+    }
+
+    /** v1.1.33 — 좌표 PII 마스킹 헬퍼. {@link com.todayway.backend.external.odsay.OdsayClient} 와 동일.
+     *  v1.1.38 — {@link Locale#ROOT} 고정 (locale 의존 silent break 차단). */
+    private static String maskCoord(double v) {
+        return String.format(Locale.ROOT, "%.1f*", v);
     }
 }

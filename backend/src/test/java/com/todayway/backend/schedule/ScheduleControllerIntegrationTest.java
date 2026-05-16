@@ -295,6 +295,49 @@ class ScheduleControllerIntegrationTest {
         verify(routeService, times(1)).refreshRouteSync(any(Schedule.class));  // create 1번만
     }
 
+    /**
+     * v1.1.33 §5.1 — origin/destination 의 lat ±90 / lng ±180 범위 이탈 입력은 fail-fast
+     * {@code 400 VALIDATION_ERROR}. PlaceDto {@code @DecimalMin/@DecimalMax} 가드. 외부
+     * (ODsay/TMAP) 호출 단계로 새지 않도록 routeService 가 호출되지 않음도 검증.
+     */
+    @Test
+    void create_whenCoordOutOfRange_returns400_VALIDATION_ERROR() throws Exception {
+        String accessToken = signupAndGetToken("schcoord01", "좌표검증");
+
+        OffsetDateTime arrival = OffsetDateTime.now(KST).plusMinutes(60);
+        OffsetDateTime depart = arrival.minusMinutes(30);
+
+        // origin 또는 destination 한쪽이 범위 이탈한 케이스 4종 — 모두 400.
+        record BadCoord(String label, double oLat, double oLng, double dLat, double dLng) {}
+        BadCoord[] cases = {
+                new BadCoord("origin lat > 90", 91.0, 127.0, 37.6, 127.0),
+                new BadCoord("origin lat < -90", -91.0, 127.0, 37.6, 127.0),
+                new BadCoord("destination lng > 180", 37.6, 127.0, 37.6, 181.0),
+                new BadCoord("destination lng < -180", 37.6, 127.0, 37.6, -181.0),
+        };
+
+        for (BadCoord c : cases) {
+            String body = """
+                    {
+                      "title": "범위이탈-%s",
+                      "origin": {"name":"출발","lat":%s,"lng":%s},
+                      "destination": {"name":"도착","lat":%s,"lng":%s},
+                      "userDepartureTime": "%s",
+                      "arrivalTime": "%s"
+                    }
+                    """.formatted(c.label(), c.oLat(), c.oLng(), c.dLat(), c.dLng(), depart, arrival);
+
+            mockMvc.perform(post("/api/v1/schedules")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(body))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
+
+        verify(routeService, never()).refreshRouteSync(any(Schedule.class));
+    }
+
     @Test
     void create_whenArrivalBeforeDeparture_returns400() throws Exception {
         String accessToken = signupAndGetToken("schval01", "검증");

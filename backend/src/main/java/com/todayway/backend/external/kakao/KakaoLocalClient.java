@@ -73,7 +73,10 @@ public class KakaoLocalClient {
      * @return 검색 결과 (matched 여부는 documents.isEmpty()로 판정)
      */
     public KakaoLocalSearchResponse searchKeyword(String query) {
-        log.debug("Kakao Local 호출: query={}", query);
+        // v1.1.37 — query 는 사용자 검색어 (PII 위험 — 주소/장소 평문). debug 라도 운영에서 toggle 시
+        // 평문 누출. 길이만 노출 — quota/입력 패턴 진단은 length 로 충분, 본문 추적은 GeocodeService 의
+        // hash 로 가능 ([[feedback_production_quality]]).
+        log.debug("Kakao Local 호출: queryLength={}", query != null ? query.length() : -1);
         try {
             KakaoLocalSearchResponse res = restClient.get()
                     .uri(uri -> uri.path("/search/keyword.json")

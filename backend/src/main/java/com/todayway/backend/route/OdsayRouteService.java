@@ -141,6 +141,16 @@ public class OdsayRouteService implements RouteService {
             applyToSchedule(schedule, route, raw);
             return buildResponse(schedule, route);
         } catch (ExternalApiException e) {
+            // v1.1.36 — 401/403 (auth 미설정/만료) 은 stale fallback 대상 X.
+            // 기존엔 cache 가 있으면 stale 로 응답해 operator 의 alert (503 EXTERNAL_AUTH_MISCONFIGURED)
+            // 가 다른 회원/요청에 가려 영구 잠복하던 결함. auth 에러는 클라이언트에게도 503 으로
+            // 즉시 알리고 운영자 모니터링 신호 (ERROR log + 503 응답) 를 보존. fresh refresh 흐름
+            // (refreshRouteSync) 의 auth alert 격상과 정합.
+            if (isAuthError(e)) {
+                log.error("ODsay getRoute 401/403 (auth 미설정/만료, 운영자 alert) — stale 차단 scheduleUid={} httpStatus={}",
+                        schedule.getScheduleUid(), e.getHttpStatus(), e);
+                throw mapToBusinessException(e);
+            }
             // (3) ODsay 실패 + 매핑 가능한 캐시 있음 → stale 응답 (§6.1 비고)
             Optional<Route> stale = tryMapCache(schedule);
             if (stale.isPresent()) {
@@ -237,6 +247,14 @@ public class OdsayRouteService implements RouteService {
     private Optional<Route> tryMapCache(Schedule schedule) {
         String wrapped = schedule.getRouteSummaryJson();
         if (wrapped == null) {
+            return Optional.empty();
+        }
+        // v1.1.36 — route_summary_json 은 채워졌는데 route_calculated_at 만 NULL 인 corruption
+        // (직접 SQL / 부분 마이그레이션) 은 응답의 calculatedAt non-null invariant (RouteResponse)
+        // 와 충돌. corrupted cache 로 취급해 skip — caller 가 fresh 호출 또는 502 분기로 자연 fallback.
+        if (schedule.getRouteCalculatedAt() == null) {
+            log.warn("캐시된 ODsay raw 매핑 skip — routeCalculatedAt NULL (corrupted cache) scheduleUid={}",
+                    schedule.getScheduleUid());
             return Optional.empty();
         }
         try {

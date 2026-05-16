@@ -72,8 +72,12 @@ public class PushSender {
             if (code >= 200 && code < 300) {
                 return PushSendResult.sent(code);
             }
-            log.warn("Push HTTP {} — endpoint={}, subscriptionUid={}",
-                    code, subscription.getEndpoint(), subscription.getSubscriptionUid());
+            // v1.1.35 — endpoint full URL 은 push provider 가 발급한 per-device token (RFC 8030
+            // §5 push subscription resource) 라 그 자체가 발송 권한 자격. 운영 로그에 전체를 남기면
+            // 노출 시 다른 회원에게도 푸시 발송 가능한 위험. origin (scheme+host[:port]) 만 보존 —
+            // 어느 provider (FCM / APNs / Mozilla autopush 등) 호출이 실패한 건지 분류 가능.
+            log.warn("Push HTTP {} — endpointOrigin={}, subscriptionUid={}",
+                    code, maskEndpoint(subscription.getEndpoint()), subscription.getSubscriptionUid());
             return PushSendResult.failed(code);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -93,6 +97,29 @@ public class PushSender {
                 // nl.martijndwars 5.1.x 가 내부에서 자동 처리하지 않을 경우 대비 명시적 consume.
                 EntityUtils.consumeQuietly(response.getEntity());
             }
+        }
+    }
+
+    /**
+     * v1.1.35 — endpoint URL 의 path 절단. push subscription resource path 가 per-device token 이라
+     * 노출 자체가 자격 누출. URI 파싱 실패 시 "(invalid)" 반환 — fallback 으로 절대 원본을 노출하지
+     * 않는다 (보안 우선). 정상 endpoint 는 RFC 8030 §5 정합이라 java.net.URI 파싱이 거의 항상 성공.
+     */
+    static String maskEndpoint(String endpoint) {
+        if (endpoint == null || endpoint.isBlank()) {
+            return "(none)";
+        }
+        try {
+            java.net.URI uri = java.net.URI.create(endpoint);
+            String scheme = uri.getScheme();
+            String host = uri.getHost();
+            if (scheme == null || host == null) {
+                return "(invalid)";
+            }
+            int port = uri.getPort();
+            return port < 0 ? scheme + "://" + host : scheme + "://" + host + ":" + port;
+        } catch (IllegalArgumentException e) {
+            return "(invalid)";
         }
     }
 

@@ -120,10 +120,38 @@ class PushControllerIntegrationTest {
     void 존재하지_않는_subscriptionId_해제시_404_SUBSCRIPTION_NOT_FOUND() throws Exception {
         String token = signupAndGetToken("pushrm404", "없는구독");
 
-        mockMvc.perform(delete("/api/v1/push/subscribe/sub_01HXX0000NOEXIST123456ABCDE")
+        // v1.1.35 — strict ULID 검증 통과는 시키되 DB 에 없는 값. Crockford Base32 alphabet
+        // (0-9 A-H J K M N P-T V-Z) 26자 정합. 기존엔 27자 + 금지문자 (I,O) 포함이었는데
+        // strict 검증 도입 후 400 으로 떨어지는 무관한 신호가 되어 회귀 의도 변형.
+        mockMvc.perform(delete("/api/v1/push/subscribe/sub_01HXXAAAAAAAAAAAAAAAAAAAAA")
                         .header("Authorization", "Bearer " + token))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.error.code").value("SUBSCRIPTION_NOT_FOUND"));
+    }
+
+    /**
+     * v1.1.35 — strict 검증: prefix 누락 / ULID 본문 길이 / 금지문자 (I,L,O,U) / 소문자 모두 400.
+     * 이전엔 silent strip 으로 DB lookup 까지 흘러가 형식 위반 입력도 404 로 응답되던 결함.
+     */
+    @Test
+    void 잘못된_형식_subscriptionId_해제시_400_VALIDATION_ERROR() throws Exception {
+        String token = signupAndGetToken("pushrm400", "형식검증");
+
+        String[] invalidIds = {
+                "01HXXAAAAAAAAAAAAAAAAAAAAA",                  // prefix 누락
+                "sch_01HXXAAAAAAAAAAAAAAAAAAAAA",              // 잘못된 prefix
+                "sub_01HXX",                                   // 너무 짧음
+                "sub_01HXXAAAAAAAAAAAAAAAAAAAAAA",             // 너무 김 (27자)
+                "sub_01HXXIIIIIIIIIIIIIIIIIIIIII",             // I 금지문자
+                "sub_01HXXOOOOOOOOOOOOOOOOOOOOOO",             // O 금지문자
+                "sub_01hxxaaaaaaaaaaaaaaaaaaaaaa"              // 소문자
+        };
+        for (String bad : invalidIds) {
+            mockMvc.perform(delete("/api/v1/push/subscribe/" + bad)
+                            .header("Authorization", "Bearer " + token))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
     }
 
     @Test
@@ -156,6 +184,60 @@ class PushControllerIntegrationTest {
                         .content(subscribeBody("https://fcm.googleapis.com/fcm/send/val02", "", "auth")))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+    }
+
+    /**
+     * v1.1.32 §7.1 — endpoint scheme 가드: RFC 8030 위반 (http / file / data / javascript / 공백 포함)
+     * 입력은 400 VALIDATION_ERROR. push provider 호출 단계로 새지 않게 fail-fast.
+     */
+    @Test
+    void endpoint_https_아니면_400_VALIDATION_ERROR() throws Exception {
+        String token = signupAndGetToken("pushval03", "스킴검증");
+
+        String[] invalidEndpoints = {
+                "http://fcm.googleapis.com/fcm/send/insecure",
+                "file:///etc/passwd",
+                "data:text/plain;base64,SGVsbG8=",
+                "javascript:alert(1)",
+                "https://has space in url/endpoint"
+        };
+        for (String bad : invalidEndpoints) {
+            mockMvc.perform(post("/api/v1/push/subscribe")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(subscribeBody(bad, "BNc", "auth")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
+    }
+
+    @Test
+    void keys_base64url_아니면_400_VALIDATION_ERROR() throws Exception {
+        String token = signupAndGetToken("pushval04", "키검증");
+
+        // base64url alphabet (A-Za-z0-9_-) + 후행 = padding 외 문자 reject.
+        // 공백 / + (base64 표준 X, base64url X) / / / @ / 한글 등.
+        String[] invalidKeys = {"has space", "plus+sign", "slash/sign", "at@sign", "한글"};
+
+        for (String bad : invalidKeys) {
+            // p256dh 만 invalid
+            mockMvc.perform(post("/api/v1/push/subscribe")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(subscribeBody(
+                                    "https://fcm.googleapis.com/fcm/send/ok", bad, "validAuth")))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+
+            // auth 만 invalid
+            mockMvc.perform(post("/api/v1/push/subscribe")
+                            .header("Authorization", "Bearer " + token)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(subscribeBody(
+                                    "https://fcm.googleapis.com/fcm/send/ok", "validP256dh", bad)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.error.code").value("VALIDATION_ERROR"));
+        }
     }
 
     // ───── helpers ─────

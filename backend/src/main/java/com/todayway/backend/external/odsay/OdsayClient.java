@@ -21,6 +21,7 @@ import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
 
 import java.net.SocketTimeoutException;
+import java.util.Locale;
 
 /**
  * ODsay 대중교통 길찾기 / 노선 그래픽 API 클라이언트. 명세 §5.1 / §6.1 v1.1.10 —
@@ -81,7 +82,11 @@ public class OdsayClient {
      * @return ODsay 응답 raw JSON 문자열 (route_summary_json에 그대로 저장)
      */
     public String searchPubTransPathT(double sx, double sy, double ex, double ey) {
-        log.debug("ODsay 호출: SX={}, SY={}, EX={}, EY={}", sx, sy, ex, ey);
+        // v1.1.33 — 좌표 PII 마스킹. 소수점 1자리 (~10km 도시 정확도) 까지만 노출해
+        // 운영 DEBUG 가 임시 켜진 환경에서 사용자 정확 위치 누출 차단. 디버깅 가치는 유지
+        // (호출 라우팅/주변 영역 식별).
+        log.debug("ODsay 호출: SX={}, SY={}, EX={}, EY={}",
+                maskCoord(sx), maskCoord(sy), maskCoord(ex), maskCoord(ey));
         try {
             // URI 템플릿 변수 확장으로 query value를 strict encoding (apiKey에 '+', '/' 포함되어 필요).
             String body = restClient.get()
@@ -119,6 +124,13 @@ public class OdsayClient {
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.NETWORK, null,
                     "ODsay 호출 중 예외 (" + e.getClass().getSimpleName() + ")", null);
         }
+    }
+
+    /** v1.1.33 — 좌표 PII 마스킹 헬퍼. 소수점 1자리 절단 (~10km 도시급 정확도).
+     *  v1.1.38 — {@link Locale#ROOT} 고정. JVM default locale 이 유럽권 (예: {@code de_DE}) 이면
+     *  {@code "37,5*"} 로 직렬화되어 운영 로그의 정규 grep / 로그 파서 호환성이 깨지던 잠재 결함. */
+    private static String maskCoord(double v) {
+        return String.format(Locale.ROOT, "%.1f*", v);
     }
 
     /**
