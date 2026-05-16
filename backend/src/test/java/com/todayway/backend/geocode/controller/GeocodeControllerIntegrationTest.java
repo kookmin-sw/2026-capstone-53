@@ -382,6 +382,83 @@ class GeocodeControllerIntegrationTest {
                 .andExpect(status().isUnauthorized());
     }
 
+    // ───── v1.1.37 회귀 가드 ─────
+
+    @Test
+    void search_x_y_NaN_Infinity_skip_finite_가드() throws Exception {
+        // v1.1.37 P1#6 — Double.parseDouble 만으로는 "NaN"/"Infinity" 가 통과 → 프론트 지도 SDK
+        // marker placement 폭주. GeocodeCandidate.from 의 isFinite 가드가 NumberFormatException
+        // 으로 변환하면 caller 의 기존 skip 흐름에 합류. 1건이라도 valid 면 200.
+        KakaoLocalSearchResponse.Document nan = new KakaoLocalSearchResponse.Document(
+                "nan", "NaN후보", "addr", "road", "SC4", "NaN", "37.500");
+        KakaoLocalSearchResponse.Document inf = new KakaoLocalSearchResponse.Document(
+                "inf", "Inf후보", "addr", "road", "SC4", "127.001", "Infinity");
+        KakaoLocalSearchResponse.Document good = new KakaoLocalSearchResponse.Document(
+                "good", "정상후보", "addr", "서울 어딘가", "SC4", "127.001", "37.500");
+        KakaoLocalSearchResponse resp = new KakaoLocalSearchResponse(
+                new KakaoLocalSearchResponse.Meta(3, 3, true), List.of(nan, inf, good));
+        when(kakaoLocalClient.searchKeyword(any())).thenReturn(resp);
+        String token = signupAndGetToken("geosearchnan", "NaNInf");
+
+        mockMvc.perform(post("/api/v1/geocode/search")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"query\": \"강남\" }"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates.length()").value(1))
+                .andExpect(jsonPath("$.data.candidates[0].name").value("정상후보"));
+    }
+
+    @Test
+    void geocode_KakaoLocalClient_RuntimeException_시_502_EXTERNAL_ROUTE_API_FAILED() throws Exception {
+        // v1.1.37 P1#7 — KakaoLocalClient 가 ExternalApiException 외 unchecked (deserialize/parse
+        // 등 IllegalStateException) 를 던지면 기존엔 GlobalExceptionHandler.handleUnknown 이 500 으로
+        // 떨어뜨렸음. callKakao 의 RuntimeException catch 가 명세 §8.1 매핑표 502 로 흡수.
+        when(kakaoLocalClient.searchKeyword(any()))
+                .thenThrow(new IllegalStateException("Jackson deserialize 실패 simulated"));
+        String token = signupAndGetToken("geounchk", "unchecked");
+
+        mockMvc.perform(post("/api/v1/geocode")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"query\": \"강남\" }"))
+                .andExpect(status().isBadGateway())
+                .andExpect(jsonPath("$.error.code").value("EXTERNAL_ROUTE_API_FAILED"));
+    }
+
+    @Test
+    void search_size_cap_은_valid_후보_개수_invalid_skip_은_size_미차감() throws Exception {
+        // v1.1.37 P1#11 — size 의미 정정. size=3, 앞 2건 invalid + 뒤 5건 valid → 응답 3건 (정상)
+        // 이전 구현은 documents[0..3) 만 훑어 1건만 반환되던 결함.
+        KakaoLocalSearchResponse.Document bad1 = new KakaoLocalSearchResponse.Document(
+                "b1", "Bad1", "addr", "road", "SC4", null, "37.5");
+        KakaoLocalSearchResponse.Document bad2 = new KakaoLocalSearchResponse.Document(
+                "b2", "Bad2", "addr", "road", "SC4", "not-num", "37.5");
+        KakaoLocalSearchResponse.Document g1 = new KakaoLocalSearchResponse.Document(
+                "g1", "Good1", "addr", "road", "SC4", "127.001", "37.501");
+        KakaoLocalSearchResponse.Document g2 = new KakaoLocalSearchResponse.Document(
+                "g2", "Good2", "addr", "road", "SC4", "127.002", "37.502");
+        KakaoLocalSearchResponse.Document g3 = new KakaoLocalSearchResponse.Document(
+                "g3", "Good3", "addr", "road", "SC4", "127.003", "37.503");
+        KakaoLocalSearchResponse.Document g4 = new KakaoLocalSearchResponse.Document(
+                "g4", "Good4", "addr", "road", "SC4", "127.004", "37.504");
+        KakaoLocalSearchResponse resp = new KakaoLocalSearchResponse(
+                new KakaoLocalSearchResponse.Meta(6, 6, true),
+                List.of(bad1, bad2, g1, g2, g3, g4));
+        when(kakaoLocalClient.searchKeyword(any())).thenReturn(resp);
+        String token = signupAndGetToken("geosizecap", "sizecap");
+
+        mockMvc.perform(post("/api/v1/geocode/search")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"query\": \"강남\", \"size\": 3 }"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.candidates.length()").value(3))
+                .andExpect(jsonPath("$.data.candidates[0].name").value("Good1"))
+                .andExpect(jsonPath("$.data.candidates[1].name").value("Good2"))
+                .andExpect(jsonPath("$.data.candidates[2].name").value("Good3"));
+    }
+
     // ───── helpers ─────
 
     private String signupAndGetToken(String loginId, String nickname) throws Exception {

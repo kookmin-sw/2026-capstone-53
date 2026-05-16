@@ -56,7 +56,12 @@ public class GeocodeService {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
     private static final GeocodeCacheProvider PROVIDER = GeocodeCacheProvider.KAKAO_LOCAL;
-    private static final int CACHE_TTL_DAYS = 30;
+    /**
+     * 명세 §8.1 — geocode_cache TTL. v1.1.37 — read filter / TTL eviction 양쪽이 단일 출처를 참조하도록
+     * {@code public static final} 노출. (이전엔 {@link GeocodeCacheCleanupScheduler} 가 자체 사본을
+     * 보유해 한쪽만 변경되면 silent drift — quota 보호 cutoff 와 eviction cutoff 의 정합 깨짐.)
+     */
+    public static final int CACHE_TTL_DAYS = 30;
 
     private final GeocodeCacheRepository cacheRepository;
     private final GeocodeCacheUpserter cacheUpserter;
@@ -124,11 +129,18 @@ public class GeocodeService {
             throw new BusinessException(ErrorCode.GEOCODE_NO_MATCH);
         }
 
-        int limit = Math.min(size, raw.documents().size());
-        List<GeocodeCandidate> candidates = new ArrayList<>(limit);
+        // v1.1.37 P1#11 — size cap 의미는 "valid 후보 N건" (반환된 candidates[] 개수) 이지
+        // "검사한 raw documents N건 중 valid 만" 이 아니다. 이전 코드는 documents[0..size) 만 훑어
+        // 앞쪽에 invalid 가 끼면 사용자가 요청한 size 보다 적은 후보가 반환되었음 (size=10, Kakao
+        // 10건 중 3건 invalid 시 7건만 노출 — autocomplete UX 저하).
+        // 변경: 전체 documents 를 순회하되 valid 후보가 size 에 도달하면 break. dropped 는 회귀
+        // 식별용 카운터 — 응답에 노출 안 함.
+        List<GeocodeCandidate> candidates = new ArrayList<>(size);
         int dropped = 0;
-        for (int i = 0; i < limit; i++) {
-            KakaoLocalSearchResponse.Document doc = raw.documents().get(i);
+        for (KakaoLocalSearchResponse.Document doc : raw.documents()) {
+            if (candidates.size() >= size) {
+                break;
+            }
             if (doc.x() == null || doc.y() == null) {
                 // 보안: query PII 차단 — doc.id 만 노출 (Kakao 내부 식별자, 평문 검색어 X).
                 log.debug("Kakao Local 응답 후보 좌표 누락 skip kakaoDocId={}, x={}, y={}",
@@ -147,8 +159,8 @@ public class GeocodeService {
             }
         }
         if (candidates.isEmpty()) {
-            log.warn("Kakao Local 응답 후보 전체 invalid — documents={}, limit={}, dropped={}",
-                    raw.documents().size(), limit, dropped);
+            log.warn("Kakao Local 응답 후보 전체 invalid — documents={}, size={}, dropped={}",
+                    raw.documents().size(), size, dropped);
             throw new BusinessException(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
         }
         return new GeocodeSearchResponse(candidates);
@@ -166,6 +178,15 @@ public class GeocodeService {
                         e.getType(), e.getHttpStatus(), e);
             }
             throw mapToBusinessException(e);
+        } catch (RuntimeException e) {
+            // v1.1.37 P1#7 — KakaoLocalClient 가 throw 예상 외 unchecked 예외 (응답 deserialize 중
+            // IllegalStateException, Jackson 매핑 예외 등) 가 controller 까지 propagate 되면 사용자에
+            // {@code 500 INTERNAL_SERVER_ERROR} 로 노출. 명세 §8.1 매핑표 외부 응답 형식 위반은 502 →
+            // EXTERNAL_ROUTE_API_FAILED 로 흡수. 보안: 예외 메시지에 quota/URL/응답 본문 leak 가능 →
+            // 클래스명만 로깅.
+            log.warn("Kakao Local 호출 중 예상 외 예외 (mapped → 502) type={}",
+                    e.getClass().getSimpleName(), e);
+            throw new BusinessException(ErrorCode.EXTERNAL_ROUTE_API_FAILED);
         }
     }
 

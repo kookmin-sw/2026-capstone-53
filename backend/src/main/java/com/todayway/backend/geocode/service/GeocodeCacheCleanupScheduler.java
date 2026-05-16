@@ -37,7 +37,9 @@ import java.time.ZoneId;
 public class GeocodeCacheCleanupScheduler {
 
     private static final ZoneId KST = ZoneId.of("Asia/Seoul");
-    private static final int CACHE_TTL_DAYS = 30;
+    /** v1.1.37 — read filter 의 TTL ({@link GeocodeService#CACHE_TTL_DAYS}) 와 단일 출처 참조.
+     *  이전엔 두 클래스가 자체 사본 {@code 30} 을 보유해 한쪽만 변경 시 silent drift 위험. */
+    private static final int CACHE_TTL_DAYS = GeocodeService.CACHE_TTL_DAYS;
 
     private final GeocodeCacheRepository cacheRepository;
 

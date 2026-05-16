@@ -24,16 +24,30 @@ public record GeocodeCandidate(
 ) {
     /** §8.1 v1.1.4 변환표 적용. WALK fallback ({@code road_address_name} → {@code address_name})
      *  동일. caller 가 {@code x}/{@code y} parse 실패 / null 인 document 는 본 메서드 호출 전에
-     *  skip 해야 한다 (record 가 primitive {@code double} 이라 null 가드 불가). */
+     *  skip 해야 한다 (record 가 primitive {@code double} 이라 null 가드 불가).
+     *
+     *  <p>v1.1.37 — {@code parseDouble} 만으로는 {@code "NaN"}/{@code "Infinity"} 가 통과. JSON 직렬화
+     *  시 Jackson 이 NaN/Infinity 를 평문으로 흘려 프론트 지도 SDK 가 marker placement NaN 으로 폭주.
+     *  {@link Double#isFinite} 가드 추가 — non-finite 면 {@link NumberFormatException} 으로 변환해
+     *  caller 의 기존 skip 로직 ({@code GeocodeService.searchCandidates}) 에 자연 합류.
+     */
     public static GeocodeCandidate from(KakaoLocalSearchResponse.Document doc, String provider) {
         return new GeocodeCandidate(
                 doc.placeName(),
                 preferRoadAddress(doc),
-                Double.parseDouble(doc.y()),
-                Double.parseDouble(doc.x()),
+                parseFiniteCoord(doc.y(), "y"),
+                parseFiniteCoord(doc.x(), "x"),
                 doc.id(),
                 provider
         );
+    }
+
+    private static double parseFiniteCoord(String raw, String field) {
+        double v = Double.parseDouble(raw);
+        if (!Double.isFinite(v)) {
+            throw new NumberFormatException("non-finite " + field + ": " + raw);
+        }
+        return v;
     }
 
     private static String preferRoadAddress(KakaoLocalSearchResponse.Document doc) {
