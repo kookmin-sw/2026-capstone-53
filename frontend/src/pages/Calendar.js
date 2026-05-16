@@ -26,12 +26,19 @@ function scheduleActiveOnDate(sch, year, month, day) {
   const days = sch.repeatDays ?? sch.routineRule?.daysOfWeek ?? [];
   const target = new Date(year, month, day);
 
-  // 루틴 일정: daysOfWeek 요일 매칭
+  // 루틴 일정: 시작일 이후 + daysOfWeek 요일 매칭
   if (days.length > 0) {
+    // 시작일 결정: startDate 필드 우선, 없으면 arrivalTime의 yyyy-mm-dd
+    let startDate = null;
     if (sch.startDate) {
       const [sy, sm, sd] = sch.startDate.split('-').map(Number);
-      if (target < new Date(sy, sm - 1, sd)) return false;
+      startDate = new Date(sy, sm - 1, sd);
+    } else if (sch.arrivalTime) {
+      const arr = new Date(sch.arrivalTime);
+      startDate = new Date(arr.getFullYear(), arr.getMonth(), arr.getDate());
     }
+    if (startDate && target < startDate) return false;
+
     if (sch.endDate) {
       const [ey, em, ed] = sch.endDate.split('-').map(Number);
       if (target > new Date(ey, em - 1, ed)) return false;
@@ -199,13 +206,14 @@ const TPW_H    = 32;  // 항목 높이
 const TPW_PAD  = 68;  // 미사용 (하위 호환)
 const ITPW_PAD = 34;  // 인라인 피커 패딩 — (100 - 32) / 2 = 34, 가운데 정렬용
 
-function TimeWheelCol({ count, selected, onSelect, colRef, padHeight = TPW_PAD }) {
+function TimeWheelCol({ count, selected, onSelect, colRef, padHeight = TPW_PAD, format }) {
   const pad   = n => String(n).padStart(2, '0');
+  const fmt   = format || (i => pad(i));
   const timer = useRef(null);
 
   useEffect(() => {
     if (colRef.current) colRef.current.scrollTop = selected * TPW_H;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [selected]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleScroll = () => {
     clearTimeout(timer.current);
@@ -230,7 +238,7 @@ function TimeWheelCol({ count, selected, onSelect, colRef, padHeight = TPW_PAD }
           className={`tpw__item${i === selected ? ' tpw__item--sel' : ''}`}
           onClick={() => scrollTo(i)}
         >
-          {pad(i)}
+          {fmt(i)}
         </div>
       ))}
       <div style={{ height: padHeight, flexShrink: 0 }} />
@@ -263,12 +271,87 @@ function InlineTimePicker({ value, onChange }) {
   );
 }
 
+/* 인라인 날짜 휠 피커 — 년/월/일 3컬럼 휠 (시간 휠과 동일 톤) */
+function InlineDatePicker({ value, onChange }) {
+  const pad = n => String(n).padStart(2, '0');
+  const thisYear = new Date().getFullYear();
+  const years = [thisYear, thisYear + 1, thisYear + 2];
+
+  // value 파싱 (yyyy-mm-dd). 실패 시 오늘로 폴백
+  const parseValue = (v) => {
+    if (v && /^\d{4}-\d{2}-\d{2}$/.test(v)) {
+      const [y, m, d] = v.split('-').map(Number);
+      return { y, m, d };
+    }
+    const now = new Date();
+    return { y: now.getFullYear(), m: now.getMonth() + 1, d: now.getDate() };
+  };
+
+  const init = parseValue(value);
+  // 년 휠 범위 밖이면 가장 가까운 값으로 클램프
+  const initYIdx = Math.max(0, Math.min(years.length - 1, years.indexOf(init.y) >= 0 ? years.indexOf(init.y) : 0));
+  const [selY, setSelY] = useState(initYIdx);
+  const [selM, setSelM] = useState(init.m - 1);
+  const [selD, setSelD] = useState(init.d - 1);
+
+  const yearRef  = useRef(null);
+  const monthRef = useRef(null);
+  const dayRef   = useRef(null);
+
+  // 현재 년/월의 일 수 (윤년 자동 처리)
+  const daysInMonth = new Date(years[selY], selM + 1, 0).getDate();
+
+  // 일이 daysInMonth 범위를 벗어나면 클램프
+  useEffect(() => {
+    if (selD > daysInMonth - 1) setSelD(daysInMonth - 1);
+  }, [selY, selM, daysInMonth, selD]);
+
+  // 변경 시 onChange 호출
+  useEffect(() => {
+    const safeD = Math.min(selD, daysInMonth - 1);
+    onChange(`${years[selY]}-${pad(selM + 1)}-${pad(safeD + 1)}`);
+  }, [selY, selM, selD, daysInMonth]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <div className="itpw itpw--date">
+      <div className="itpw__highlight" />
+      <div className="itpw__fade itpw__fade--top" />
+      <div className="itpw__fade itpw__fade--bot" />
+      <TimeWheelCol
+        count={years.length}
+        selected={selY}
+        onSelect={setSelY}
+        colRef={yearRef}
+        padHeight={ITPW_PAD}
+        format={i => String(years[i])}
+      />
+      <TimeWheelCol
+        count={12}
+        selected={selM}
+        onSelect={setSelM}
+        colRef={monthRef}
+        padHeight={ITPW_PAD}
+        format={i => pad(i + 1)}
+      />
+      <TimeWheelCol
+        count={daysInMonth}
+        selected={selD}
+        onSelect={setSelD}
+        colRef={dayRef}
+        padHeight={ITPW_PAD}
+        format={i => pad(i + 1)}
+      />
+    </div>
+  );
+}
+
 /* ================================================================
    BottomSheet — 일정 추가 / 수정
    ================================================================ */
 
 const EMPTY_FORM = {
   title: '',
+  date: '',                 // yyyy-mm-dd (BottomSheet 마운트 시 defaultDate로 채워짐)
   originName: '',
   originPlace: null,        // { name, lat, lng, address, placeId, provider }
   destinationName: '',
@@ -278,8 +361,8 @@ const EMPTY_FORM = {
   repeatDays: [],
 };
 
-function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
-  const [form, setForm]             = useState(EMPTY_FORM);
+function BottomSheet({ editingSchedule, defaultDate, onClose, onSave, isSaving }) {
+  const [form, setForm]             = useState({ ...EMPTY_FORM, date: defaultDate || '' });
   const [placeField, setPlaceField] = useState(null);    // 'origin' | 'destination' | null
   const [activePicker, setActivePicker] = useState(null); // 'usualDepartureTime' | 'arrivalTime' | null
   const [formError, setFormError]   = useState('');
@@ -287,8 +370,12 @@ function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
 
   useEffect(() => {
     if (editingSchedule) {
+      // 편집 모드: 기존 일정의 arrivalTime에서 yyyy-mm-dd 추출
+      const arr = editingSchedule.arrivalTime || '';
+      const editDate = arr.includes('T') ? arr.split('T')[0] : (defaultDate || '');
       setForm({
         title:              editingSchedule.title              || '',
+        date:               editDate,
         originName:         editingSchedule.originName         || '',
         originPlace:        editingSchedule.originPlace        || null,
         destinationName:    editingSchedule.destinationName    || '',
@@ -298,9 +385,9 @@ function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
         repeatDays:         [...(editingSchedule.repeatDays    || [])],
       });
     } else {
-      setForm(EMPTY_FORM);
+      setForm({ ...EMPTY_FORM, date: defaultDate || '' });
     }
-  }, [editingSchedule]);
+  }, [editingSchedule, defaultDate]);
 
   // 바텀시트 열릴 때 스크롤 잠금
   useEffect(() => {
@@ -345,6 +432,7 @@ function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
 
   const handleSave = () => {
     if (!form.title.trim()) { setFormError('일정 이름을 입력해주세요'); return; }
+    if (!form.date)         { setFormError('날짜를 선택해주세요'); return; }
     setFormError('');
     onSave(form);
   };
@@ -413,6 +501,40 @@ function BottomSheet({ editingSchedule, onClose, onSave, isSaving }) {
               </svg>
               현재 위치 사용
             </button>
+          </div>
+
+          {/* 날짜 입력 — collapsible 휠 피커 */}
+          <div className="sf">
+            <label className="sf__label">날짜</label>
+            <div
+              className="sf__time-wrap"
+              onClick={() => setActivePicker(p => p === 'date' ? null : 'date')}
+            >
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="4" width="18" height="18" rx="2" stroke="currentColor" strokeWidth="2"/>
+                <path d="M3 10h18M8 2v4M16 2v4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <span className={`sf__time-val${form.date ? ' sf__time-val--set' : ''}`}>
+                {form.date
+                  ? (() => {
+                      const [y, m, d] = form.date.split('-');
+                      return `${y}년 ${m}월 ${d}일`;
+                    })()
+                  : '날짜 선택'}
+              </span>
+              <svg
+                className={`sf__time-chevron${activePicker === 'date' ? ' sf__time-chevron--open' : ''}`}
+                width="12" height="12" viewBox="0 0 24 24" fill="none">
+                <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2"
+                  strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <div className={`sf__picker-wrap${activePicker === 'date' ? ' sf__picker-wrap--open' : ''}`}>
+              <InlineDatePicker
+                value={form.date}
+                onChange={val => set('date', val)}
+              />
+            </div>
           </div>
 
           {/* 시간 입력 — 2열 나란히 */}
@@ -879,19 +1001,19 @@ function CalendarPage() {
     const normalizeProvider = (p) => (p === 'KAKAO_LOCAL' ? 'KAKAO' : (p ?? 'KAKAO'));
 
     // 일정 날짜 계산:
-    // - 루틴(repeatDays > 0): selDay 시작으로 daysOfWeek 중 가장 가까운 요일 (오늘 또는 미래)
-    // - 단발성: selDay 그대로
+    // - 루틴(repeatDays > 0): form.date 시작으로 daysOfWeek 중 가장 가까운 요일 (오늘 또는 미래)
+    // - 단발성: form.date 그대로
     // - 또한 도착 시각이 이미 과거면 (오늘 + 시각이 NOW 이전) 다음 같은 요일로 +7일 보정
     const [arrH, arrM] = (form.arrivalTime || '09:00').split(':').map(Number);
-    const baseDate = new Date(year, month, selDay, arrH, arrM, 0);
+    const [fy, fm, fd] = (form.date || '').split('-').map(Number);
+    const baseDate = new Date(fy, fm - 1, fd, arrH, arrM, 0);
     const now = new Date();
 
     let scheduledDate = baseDate;
     if (form.repeatDays.length > 0) {
       const allowed = new Set(form.repeatDays.map(d => DAY_NUM[d]));
-      // selDay부터 7일 안에 가장 가까운 미래(또는 오늘이면서 미래 시각) 요일 찾기
       for (let i = 0; i < 8; i++) {
-        const candidate = new Date(year, month, selDay + i, arrH, arrM, 0);
+        const candidate = new Date(fy, fm - 1, fd + i, arrH, arrM, 0);
         if (allowed.has(candidate.getDay()) && candidate > now) {
           scheduledDate = candidate;
           break;
@@ -899,7 +1021,7 @@ function CalendarPage() {
       }
     } else if (scheduledDate <= now) {
       // 단발성인데 시각이 과거면 다음 날로
-      scheduledDate = new Date(year, month, selDay + 1, arrH, arrM, 0);
+      scheduledDate = new Date(fy, fm - 1, fd + 1, arrH, arrM, 0);
     }
 
     const schedY = scheduledDate.getFullYear();
@@ -1082,6 +1204,7 @@ function CalendarPage() {
       {showSheet && (
         <BottomSheet
           editingSchedule={editingSch}
+          defaultDate={`${year}-${padTwo(month + 1)}-${padTwo(selDay)}`}
           onClose={closeSheet}
           onSave={handleSave}
           isSaving={isSaving}

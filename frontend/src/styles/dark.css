@@ -60,6 +60,13 @@
 [data-theme="dark"] .cal-nav__arrow svg path { stroke: #6b6b6b; }
 [data-theme="dark"] .cal-cell__num  { color: #e8e4dc; }
 [data-theme="dark"] .cal-cell--today .cal-cell__num { color: white; }
+[data-theme="dark"] .cal-cell--selected .cal-cell__num {
+  background: #3a3530;   /* 다크모드 톤 — 카드 배경과 구분되는 약한 강조 */
+  color: #e8e4dc;        /* 밝은 글자 */
+}
+[data-theme="dark"] .cal-cell:hover:not(.cal-cell--empty) {
+  background: rgba(255, 255, 255, 0.05);
+}
 [data-theme="dark"] .cal-cell__dot--1 { background: rgba(37, 99, 235, 0.3); }
 [data-theme="dark"] .cal-cell__dot--2 { background: rgba(37, 99, 235, 0.6); }
 [data-theme="dark"] .cal-cell__dot--3 { background: #2563EB; }
