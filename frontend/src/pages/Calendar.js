@@ -26,19 +26,6 @@ function scheduleActiveOnDate(sch, year, month, day) {
   const days = sch.repeatDays ?? sch.routineRule?.daysOfWeek ?? [];
   const target = new Date(year, month, day);
 
-  // 5월 16일에만 로그 (스팸 방지) — month는 0-indexed
-  const isDebugCell = (year === 2026 && month === 4 && day === 16);
-
-  if (isDebugCell) {
-    console.log('[DEBUG #9 match] entry', {
-      sch_id: sch.scheduleId,
-      title: sch.title,
-      arrivalTime: sch.arrivalTime,
-      cell: `${year}-${month}-${day}`,
-      days_length: days.length,
-    });
-  }
-
   // 루틴 일정: 시작일 이후 + daysOfWeek 요일 매칭
   if (days.length > 0) {
     // 시작일 결정: startDate 필드 우선, 없으면 arrivalTime의 yyyy-mm-dd
@@ -50,52 +37,27 @@ function scheduleActiveOnDate(sch, year, month, day) {
       const arr = new Date(sch.arrivalTime);
       startDate = new Date(arr.getFullYear(), arr.getMonth(), arr.getDate());
     }
-    if (startDate && target < startDate) {
-      if (isDebugCell) console.log('[DEBUG #9 match] routine result', sch.scheduleId, '→ false (before startDate)', { startDate, target });
-      return false;
-    }
+    if (startDate && target < startDate) return false;
 
     if (sch.endDate) {
       const [ey, em, ed] = sch.endDate.split('-').map(Number);
-      if (target > new Date(ey, em - 1, ed)) {
-        if (isDebugCell) console.log('[DEBUG #9 match] routine result', sch.scheduleId, '→ false (after endDate)');
-        return false;
-      }
+      if (target > new Date(ey, em - 1, ed)) return false;
     }
     const dow = target.getDay();
-    const result = days.some(d => DAY_NUM[d] === dow);
-    if (isDebugCell) console.log('[DEBUG #9 match] routine result', sch.scheduleId, '→', result, { dow, days, startDate });
-    return result;
+    return days.some(d => DAY_NUM[d] === dow);
   }
 
   // 단발성 일정: arrivalTime 날짜와 일치하는 날에만 표시
-  if (!sch.arrivalTime) {
-    if (isDebugCell) console.log('[DEBUG #9 match] no arrivalTime', sch.scheduleId);
-    return false;
-  }
+  if (!sch.arrivalTime) return false;
   const arr = new Date(sch.arrivalTime);
-  const matched = (
+  return (
     arr.getFullYear() === year &&
     arr.getMonth() === month &&
     arr.getDate() === day
   );
-
-  if (isDebugCell) {
-    console.log('[DEBUG #9 match] single result', {
-      sch_id: sch.scheduleId,
-      arr_year: arr.getFullYear(),
-      arr_month: arr.getMonth(),
-      arr_date: arr.getDate(),
-      target: `${year}-${month}-${day}`,
-      matched,
-    });
-  }
-
-  return matched;
 }
 
 function getSchedulesForDate(schedules, year, month, day) {
-  console.log('[DEBUG #9] getSchedulesForDate called with schedules:', schedules, 'date:', year, month, day);
   return schedules.filter(s => scheduleActiveOnDate(s, year, month, day));
 }
 
@@ -980,22 +942,13 @@ function CalendarPage() {
     setUiState('loading');
     try {
       const data = await api.schedules.list();
-      console.log('[DEBUG #9] api.schedules.list() returned:', data);
-      console.log('[DEBUG #9] data.items:', data?.items);
-      console.log('[DEBUG #9] data.items length:', data?.items?.length);
       setSchedules(data.items);
-      console.log('[DEBUG #9] setSchedules called with:', data.items);
       setUiState('ready');
     } catch (err) {
-      console.error('[DEBUG #9] fetch error:', err);
+      console.error('[Calendar] 일정 로드 실패', err);
       setUiState('error');
     }
   }, []);
-
-  useEffect(() => {
-    console.log('[DEBUG #9] schedules state changed:', schedules);
-    console.log('[DEBUG #9] schedules length:', schedules?.length);
-  }, [schedules]);
 
   useEffect(() => {
     const forced = searchParams.get('state');
