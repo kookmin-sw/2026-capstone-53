@@ -114,7 +114,9 @@ public class TmapClient {
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.CLIENT_ERROR,
                     null, "TMAP_APP_KEY 미설정", null);
         }
-        log.debug("TMAP pedestrian: ({},{})→({},{})", startLng, startLat, endLng, endLat);
+        // v1.1.33 — 좌표 PII 마스킹. OdsayClient 와 동일 패턴 (소수점 1자리 = ~10km 도시 정확도).
+        log.debug("TMAP pedestrian: ({},{})→({},{})",
+                maskCoord(startLng), maskCoord(startLat), maskCoord(endLng), maskCoord(endLat));
         Map<String, Object> body = Map.of(
                 "startX", startLng, "startY", startLat,
                 "endX", endLng, "endY", endLat,
@@ -161,5 +163,10 @@ public class TmapClient {
             throw new ExternalApiException(SOURCE, ExternalApiException.Type.NETWORK, null,
                     "TMAP 호출 중 예외 (" + e.getClass().getSimpleName() + ")", null);
         }
+    }
+
+    /** v1.1.33 — 좌표 PII 마스킹 헬퍼. {@link com.todayway.backend.external.odsay.OdsayClient} 와 동일. */
+    private static String maskCoord(double v) {
+        return String.format("%.1f*", v);
     }
 }
