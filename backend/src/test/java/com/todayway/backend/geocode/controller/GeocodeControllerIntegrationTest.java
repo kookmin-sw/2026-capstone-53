@@ -3,6 +3,8 @@ package com.todayway.backend.geocode.controller;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.todayway.backend.auth.dto.SignupRequest;
+import com.todayway.backend.common.exception.BusinessException;
+import com.todayway.backend.common.exception.ErrorCode;
 import com.todayway.backend.external.ExternalApiException;
 import com.todayway.backend.external.kakao.KakaoLocalClient;
 import com.todayway.backend.external.kakao.dto.KakaoLocalSearchResponse;
@@ -424,6 +426,25 @@ class GeocodeControllerIntegrationTest {
                         .content("{ \"query\": \"강남\" }"))
                 .andExpect(status().isBadGateway())
                 .andExpect(jsonPath("$.error.code").value("EXTERNAL_ROUTE_API_FAILED"));
+    }
+
+    @Test
+    void geocode_KakaoLocalClient_BusinessException_시_원래_코드_propagate() throws Exception {
+        // v1.1.39 — `BusinessException extends RuntimeException` 이라 v1.1.37 의
+        // `catch (RuntimeException e) → 502` 가 도메인 BusinessException 까지 silent 흡수할 위험.
+        // callKakao 가 RuntimeException catch 앞에 BusinessException 명시 가드 → 본 가드가 원본
+        // ErrorCode 를 그대로 propagate 함을 검증. 현 KakaoLocalClient 는 BusinessException 을 던지지
+        // 않지만 후속 변경 시 회귀 차단용.
+        when(kakaoLocalClient.searchKeyword(any()))
+                .thenThrow(new BusinessException(ErrorCode.EXTERNAL_AUTH_MISCONFIGURED));
+        String token = signupAndGetToken("geobiz", "biz");
+
+        mockMvc.perform(post("/api/v1/geocode")
+                        .header("Authorization", "Bearer " + token)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{ \"query\": \"강남\" }"))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.error.code").value("EXTERNAL_AUTH_MISCONFIGURED"));
     }
 
     @Test
